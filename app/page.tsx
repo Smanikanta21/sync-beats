@@ -1,27 +1,27 @@
-import { Music, PlayCircle,Menu } from 'lucide-react';
+import { Music, PlayCircle, Users2, Menu, Radio, Smartphone, Headphones } from 'lucide-react';
 import Link from 'next/link'
 
 export default function LandingPage() {
   return (
     <>
       <div className="fixed z-50 flex justify-center w-full pt-4">
-        <div className="flex flex-row w-[90%] md:w-[80%] md:justify-around justify-between rounded-xl shadow-md md:gap-28 px-4 md:px-0 py-4 md:py-2 bg-white/5 backdrop-blur-lg text-white">
-          <div className='md:hidden fixed top-6 left-3'><Menu size={28}/></div>
+        <div className="flex flex-row w-[90%] md:w-[60%] md:justify-baseline justify-between rounded-xl shadow-md md:gap-28 px-4 py-4 md:py-2 bg-white/5 backdrop-blur-lg text-white">
+          <div className='md:hidden fixed top-6 left-3'><Menu size={28} /></div>
           <div className='flex md:pl-0 pl-8 flex-row items-center justify-center gap-1'><Music className='text-[#00e5ff]' size={28} /><a href="#" className='font-bold text-lg'>Sync Beats</a></div>
           <div className='hidden md:flex flex-row items-center justify-center gap-4'>
-            <a href="#">About</a>
-            <a href="#">Features</a>
-            <a href="#">Contact</a>
+            <a className='text-sm text-white/60 hover:scale-110 transition-all duration-112 hover:sb-neon-text' href="#">Features</a>
+            <a className='text-sm text-white/60 hover:scale-110 transition-all duration-112 hover:sb-neon-text' href="#">About</a>
+            <a className='text-sm text-white/60 hover:scale-110 transition-all duration-112 hover:sb-neon-text' href="#">Contact</a>
           </div>
           <div className='flex flex-row md:items-center md:justify-center float-right gap-4'>
-            <a href="#" className='md:flex hidden bg-[#67F7F7] px-4 py-2 rounded-lg text-black font-semibold'>Sign Up</a>
-            <a href="#" className='md:flex hidden bg-transparent border border-white/20 px-4 py-2 rounded-lg text-white font-semibold'>Login</a>
-            <a href="#" className='md:hidden bg-transparent border border-white/20 px-3.5 py-2 rounded-lg text-white flex justify-center items-center'>GetStarted</a>
+            <a href="#" className='md:flex hidden md:sb-btn md:sb-btn-primary'>Sign Up</a>
+            <a href="#" className='md:flex hidden md:sb-btn md:sb-btn-ghost'>Login</a>
+            <a href="#" className='md:hidden sb-btn-primary bg-transparent border border-white/20 px-3.5 py-2 rounded-lg text-white flex justify-center items-center'>GetStarted</a>
           </div>
         </div>
       </div>
       <div className="relative pt-20">
-        <section className="relative overflow-hidden" style={{backgroundImage:'linear-gradient(rgba(10,11,18,0.75), rgba(10,11,18,0.9)), url(https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=2400&auto=format&fit=crop)',backgroundSize: "cover",backgroundPosition: "center",}}>
+        <section className="relative overflow-hidden" style={{ backgroundImage: 'linear-gradient(rgba(10,11,18,0.75), rgba(10,11,18,0.9)), url(https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=2400&auto=format&fit=crop)', backgroundSize: "cover", backgroundPosition: "center", }}>
           <div className="absolute inset-0">
             <div className="sb-spotlight inset-0" />
           </div>
@@ -51,9 +51,72 @@ export default function LandingPage() {
           </div>
         </section>
       </div>
+      <div className='md:px-38 px-8 mt-12'>
+        <div className='w-full grid-cols-1 md:grid-cols-3 grid gap-4 md:gap-12'>
+          <div className='flex flex-start flex-col rounded-xl gap-2 p-8 sb-glass'>
+            <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-300">
+              <Radio className="h-5 w-5" />
+            </div>
+            <h1 className='font-bold'>Perfect Sync</h1>
+            <p className='text-sm text-white/60'>Sub-second synchronization using clock alignment and drift correction, so every beat hits together.</p>
+          </div>
+          <div className='rounded-xl flex flex-start flex-col gap-2 p-8 sb-glass'>
+            <div className='mb-3 inline-flex h-10 w-10 rounded-xl items-center justify-center bg-purple-500/20 text-purple-300'>
+              <Users2 className='h-5 w-5' />
+            </div>
+            <h1 className='font-bold'>Invite & control</h1>
+            <p className='text-sm text-white/60'>Host sessions, invite friends, and control playback from any device.</p>
+          </div>
+          <div className='rounded-xl flex flex-start flex-col gap-2 p-8 sb-glass'>
+            <div className='mb-3 inline-flex h-10 w-10 rounded-xl items-center justify-center bg-yellow-500/20 text-yellow-300'>
+              <Smartphone className='h-5 w-5' />
+            </div>
+            <h1 className='font-bold'>Cross-platform</h1>
+            <p className='text-sm text-white/60'>Available on Android, iOS, Windows, and Mac. Sync your music across all your devices seamlessly.</p>
+          </div>
+        </div>
+        <div className='w-full sb-glass rounded-xl mt-12 p-8 flex flex-col gap-4'>
+          <h1 className='text-2xl font-bold'>How it works</h1>
+          <p>Sync Beats uses a combination of clock synchronization and drift correction to ensure that all devices in a session are perfectly in sync. Here's how it works:</p>
+          <ol className='list-decimal pl-6'>
+            <li>When a session is started,  the host device sends its clock time to all connected devices.</li>
+            <li>Each device adjusts its internal clock to match the host's clock.</li>
+            <li>As music plays, devices continuously check their clock against the host's clock to detect any drift.</li>
+            <li>If drift is detected, devices adjust their playback speed slightly to correct it.</li>
+            <li>All devices play the same music at the same time, ensuring perfect synchronization.</li>
+            <li>Users can control playback, pause, and skip tracks from any device, and all changes are reflected across the session.</li>
+          </ol>
+        </div>
+        <div className='flex flex-col md:flex-row justify-between gap-4 mt-12 w-full sb-glass rounded-xl p-8'>
+          <div className='flex flex-col gap-2'>
+            <h1 className='font-bold text-xl'>Apple Music and Spotify support</h1>
+            <p className='text-sm text-white/60'>Link your accounts to control playback and sync tracks across devices. Seamless switching and shared queues.</p>
+          </div>
+          <div className='flex flex-row gap-4'>
+            <button className='sb-btn sb-btn-primary sb-btn-primary'>Open Player</button>
+            <button className='sb-btn sb-btn-ghost'>Host Controls</button>
+          </div>
+        </div>
+        <div className='flex md:flex-row flex-col gap-4 md:justify-between  mt-12 w-full rounded-xl'>
+          <div className='sb-glass flex flex-col p-8 rounded-xl'>
+            <div className='flex flex-row items-center gap-2 mb-4'>
+              <div><Headphones className='text-cyan-300' /></div>
+              <h1 className='text-xl'>Immersive audio</h1>
+            </div>
+            <p className='text-sm text-white/60'>High-quality playback that stays in sync — perfect for parties, workouts, and shared listening.</p>
+          </div>
+          <div className='sb-glass md:w-1/2 flex flex-col p-8 rounded-xl'>
+            <div className='flex flex-row items-center gap-2 mb-4'>
+              <div><Smartphone className='text-purple-300' /></div>
+              <h1 className='text-xl'>Simple to join</h1>
+            </div>
+            <p className='text-sm text-white/60'>Open the app, pick a session, and you are in. No cables, no hassle.</p>
+          </div>
+        </div>
+      </div>
       <div>
 
       </div>
-      </>
-      );
+    </>
+  );
 }
