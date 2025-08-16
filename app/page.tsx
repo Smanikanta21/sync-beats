@@ -1,22 +1,27 @@
-import { Music, PlayCircle, Users2, Menu, Radio, Smartphone, Headphones } from 'lucide-react';
+"use client";
+import { Music, PlayCircle, Users2, Menu, Radio, Smartphone, Headphones, MessageSquare, Mail, User,X } from 'lucide-react';
+import { CiInstagram } from "react-icons/ci";
+import { FaGithub,FaLinkedin } from "react-icons/fa"
 import Link from 'next/link'
+import { useState } from 'react';
 
 export default function LandingPage() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   return (
     <>
       <div className="fixed z-50 flex justify-center w-full pt-4">
-        <div className="flex flex-row w-[90%] md:w-[60%] md:justify-baseline justify-between rounded-xl shadow-md md:gap-28 px-4 py-4 md:py-2 bg-white/5 backdrop-blur-lg text-white">
-          <div className='md:hidden fixed top-6 left-3'><Menu size={28} /></div>
+        <div className="flex flex-col md:flex-row w-[90%] md:w-[60%] md:justify-baseline justify-between rounded-xl shadow-md md:gap-28 px-4 py-4 md:py-2 bg-white/5 backdrop-blur-lg text-white">
+          <div className='md:hidden fixed top-3 left-3' onClick={()=> {setIsMenuOpen(!isMenuOpen)}}>{isMenuOpen? <X size={28}/> : <Menu size={28} />}</div>
           <div className='flex md:pl-0 pl-8 flex-row items-center justify-center gap-1'><Music className='text-[#00e5ff]' size={28} /><a href="#" className='font-bold text-lg'>Sync Beats</a></div>
-          <div className='hidden md:flex flex-row items-center justify-center gap-4'>
+          {isMenuOpen && (<div className='flex-col flex md:flex-row items-center justify-center gap-4 md:mt-0 mt-4'>
             <a className='text-sm text-white/60 hover:scale-110 transition-all duration-120 cursor-pointer text-shadow-cyan-400 hover:text-shadow-2xs' href="#">Features</a>
             <a className='text-sm text-white/60 hover:scale-110 transition-all duration-120 cursor-pointer text-shadow-cyan-400 hover:text-shadow-2xs' href="#">About</a>
             <a className='text-sm text-white/60 hover:scale-110 transition-all duration-120 cursor-pointer text-shadow-cyan-400 hover:text-shadow-2xs' href="#">Contact</a>
-          </div>
+          </div>)}
+
           <div className='flex flex-row md:items-center md:justify-center float-right gap-4'>
             <a href="#" className='hidden md:flex bg-gradient-to-br from-[#00e5ff] to-[#a78bfa] px-4 py-2 rounded-xl text-black hover:scale-110 ease-in-out duration-135'>Sign Up</a>
-            <a href="#" className='md:flex hidden bg-white/10 px-4 py-2 rounded-xl hover:scale-110 ease-in-out duration-135'>Login</a>
-            <a href="#" className='md:hidden sb-btn-primary bg-transparent border border-white/20 px-3.5 py-2 rounded-lg text-white flex justify-center items-center'>GetStarted</a>
+            <a href="" className='md:flex hidden bg-white/10 px-4 py-2 rounded-xl hover:scale-110 ease-in-out duration-135'>Login</a>
           </div>
         </div>
       </div>
@@ -101,31 +106,60 @@ export default function LandingPage() {
           <div className='sb-glass flex flex-col p-8 rounded-xl'>
             <div className='flex flex-row items-center gap-2 mb-4'>
               <div><Headphones className='text-cyan-300' /></div>
-              <h1 className='text-xl'>Immersive audio</h1>
+              <h1 className='text-xl font-bold'>Immersive audio</h1>
             </div>
             <p className='text-sm text-white/60'>High-quality playback that stays in sync — perfect for parties, workouts, and shared listening.</p>
           </div>
           <div className='sb-glass md:w-1/2 flex flex-col p-8 rounded-xl'>
             <div className='flex flex-row items-center gap-2 mb-4'>
               <div><Smartphone className='text-purple-300' /></div>
-              <h1 className='text-xl'>Simple to join</h1>
+              <h1 className='text-xl font-bold'>Simple to join</h1>
             </div>
             <p className='text-sm text-white/60'>Open the app, pick a session, and you are in. No cables, no hassle.</p>
           </div>
         </div>
       </div>
-      <div className='md:px-38 px-8 mt-12'>
-        <div>
-          <div>
-            <h1>Contact Me</h1>
-          </div>
-          <div>
-            <p className='text-sm text-white/60'>Have questions, feedback, or just want to say hi? Reach out via email at <a href="mailto:siraprapuabhinay21@gmail.com"/></p>
-          </div>
+      <div className='md:mx-38 mx-8 mt-12 sb-glass rounded-xl'>
+        <div className='flex flex-col md:flex-row justify-evenly'>
+          <div className=" p-10 flex flex-col gap-6 md:border-r border-b border-white">
+            <h1 className="text-3xl font-bold text-white">Contact Me</h1>
+            <p className="text-white/60">Have questions, feedback, or just want to say hi? Fill out the formbelow or reach me at{" "}
+              <a href="mailto:siraprapuabhinay21@gmail.com" className="text-cyan-300 hover:underline">
+                siraprapuabhinay21@gmail.com
+              </a>
+            </p>
 
+            <form action="https://docs.google.com/forms/d/e/YOUR_GOOGLE_FORM_ID/formResponse" method="POST" target="_blank" className="flex flex-col gap-4">
+              <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
+                <User className="text-cyan-300" size={20} />
+                <input type="text" name="entry.123456" placeholder="Your Name" required className="bg-transparent w-full outline-none text-white placeholder-white/50" />
+              </div>
 
+              <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
+                <Mail className="text-purple-300" size={20} />
+                <input type="email" name="entry.654321" placeholder="Your Email" required className="bg-transparent w-full outline-none text-white placeholder-white/50" />
+              </div>
+
+              <div className="flex items-start gap-2 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
+                <MessageSquare className="text-yellow-300 mt-1" size={20} />
+                <textarea name="entry.987654" placeholder="Your Message" required rows={4} className="bg-transparent w-full outline-none text-white placeholder-white/50 resize-none" />
+              </div>
+
+              <button type="submit" className="sb-btn sb-btn-primary hover:scale-105 transition-all">Send Message</button>
+            </form>
+          </div>
+          <div className='flex flex-col md:flex-col items-center justify-evenly mb-8 py-8'>
+            <div>
+              <h1 className='text-xl font-bold'>Contact Us through socials</h1>
+            </div>
+            <div className='flex flex-col  gap-4'>
+              <a href='https://www.instagram.com/abhi._.nay' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><CiInstagram size={24} className='text-pink-500'/>Instagram</a>
+              <a href='mailto:siraparapuabhinay21@gmail.com ' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><Mail size={24} className='text-blue-500'/>Email</a>
+              <a href='https://github.com/Smanikanta21' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><FaGithub size={24} className='text-white'/>Github</a>
+              <a href='' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><FaLinkedin size={24} className='text-blue-800'/>LinkedIn</a>
+            </div>
+          </div>
         </div>
-
       </div>
     </>
   );
