@@ -9,13 +9,13 @@ export default function LandingPage() {
           <div className='md:hidden fixed top-6 left-3'><Menu size={28} /></div>
           <div className='flex md:pl-0 pl-8 flex-row items-center justify-center gap-1'><Music className='text-[#00e5ff]' size={28} /><a href="#" className='font-bold text-lg'>Sync Beats</a></div>
           <div className='hidden md:flex flex-row items-center justify-center gap-4'>
-            <a className='text-sm text-white/60 hover:scale-110 transition-all duration-112 hover:sb-neon-text' href="#">Features</a>
-            <a className='text-sm text-white/60 hover:scale-110 transition-all duration-112 hover:sb-neon-text' href="#">About</a>
-            <a className='text-sm text-white/60 hover:scale-110 transition-all duration-112 hover:sb-neon-text' href="#">Contact</a>
+            <a className='text-sm text-white/60 hover:scale-110 transition-all duration-120 cursor-pointer text-shadow-cyan-400 hover:text-shadow-2xs' href="#">Features</a>
+            <a className='text-sm text-white/60 hover:scale-110 transition-all duration-120 cursor-pointer text-shadow-cyan-400 hover:text-shadow-2xs' href="#">About</a>
+            <a className='text-sm text-white/60 hover:scale-110 transition-all duration-120 cursor-pointer text-shadow-cyan-400 hover:text-shadow-2xs' href="#">Contact</a>
           </div>
           <div className='flex flex-row md:items-center md:justify-center float-right gap-4'>
-            <a href="#" className='md:flex hidden md:sb-btn md:sb-btn-primary'>Sign Up</a>
-            <a href="#" className='md:flex hidden md:sb-btn md:sb-btn-ghost'>Login</a>
+            <a href="#" className='hidden md:flex bg-gradient-to-br from-[#00e5ff] to-[#a78bfa] px-4 py-2 rounded-xl text-black hover:scale-110 ease-in-out duration-135'>Sign Up</a>
+            <a href="#" className='md:flex hidden bg-white/10 px-4 py-2 rounded-xl hover:scale-110 ease-in-out duration-135'>Login</a>
             <a href="#" className='md:hidden sb-btn-primary bg-transparent border border-white/20 px-3.5 py-2 rounded-lg text-white flex justify-center items-center'>GetStarted</a>
           </div>
         </div>
@@ -93,8 +93,8 @@ export default function LandingPage() {
             <p className='text-sm text-white/60'>Link your accounts to control playback and sync tracks across devices. Seamless switching and shared queues.</p>
           </div>
           <div className='flex flex-row gap-4'>
-            <button className='sb-btn sb-btn-primary sb-btn-primary'>Open Player</button>
-            <button className='sb-btn sb-btn-ghost'>Host Controls</button>
+            <button className='sb-btn hover:cursor-pointer sb-btn-primary'>Open Player</button>
+            <button className='sb-btn sb-btn-ghost hover:cursor-pointer'>Host Controls</button>
           </div>
         </div>
         <div className='flex md:flex-row flex-col gap-4 md:justify-between  mt-12 w-full rounded-xl'>
@@ -114,7 +114,17 @@ export default function LandingPage() {
           </div>
         </div>
       </div>
-      <div>
+      <div className='md:px-38 px-8 mt-12'>
+        <div>
+          <div>
+            <h1>Contact Me</h1>
+          </div>
+          <div>
+            <p className='text-sm text-white/60'>Have questions, feedback, or just want to say hi? Reach out via email at <a href="mailto:siraprapuabhinay21@gmail.com"/></p>
+          </div>
+
+
+        </div>
 
       </div>
     </>
