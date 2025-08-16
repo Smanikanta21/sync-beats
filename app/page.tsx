@@ -77,11 +77,11 @@ export default function LandingPage() {
         </div>
         <div className='w-full sb-glass rounded-xl mt-12 p-8 flex flex-col gap-4'>
           <h1 className='text-2xl font-bold'>How it works</h1>
-          <p>Sync Beats uses a combination of clock synchronization and drift correction to ensure that all devices in a session are perfectly in sync. Here's how it works:</p>
+          <p>Sync Beats uses a combination of clock synchronization and drift correction to ensure that all devices in a session are perfectly in sync. Here is how it works:</p>
           <ol className='list-decimal pl-6'>
             <li>When a session is started,  the host device sends its clock time to all connected devices.</li>
-            <li>Each device adjusts its internal clock to match the host's clock.</li>
-            <li>As music plays, devices continuously check their clock against the host's clock to detect any drift.</li>
+            <li>Each device adjusts its internal clock to match the {"host's"} clock.</li>
+            <li>As music plays, devices continuously check their clock against the {"host's"} clock to detect any drift.</li>
             <li>If drift is detected, devices adjust their playback speed slightly to correct it.</li>
             <li>All devices play the same music at the same time, ensuring perfect synchronization.</li>
             <li>Users can control playback, pause, and skip tracks from any device, and all changes are reflected across the session.</li>
