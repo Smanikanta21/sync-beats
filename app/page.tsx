@@ -1,103 +1,59 @@
-import Image from "next/image";
+import { Music, PlayCircle,Menu } from 'lucide-react';
+import Link from 'next/link'
 
-export default function Home() {
+export default function LandingPage() {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <>
+      <div className="fixed z-50 flex justify-center w-full pt-4">
+        <div className="flex flex-row w-[90%] md:w-[80%] md:justify-around justify-between rounded-xl shadow-md md:gap-28 px-4 md:px-0 py-4 md:py-2 bg-white/5 backdrop-blur-lg text-white">
+          <div className='md:hidden fixed top-6 left-3'><Menu size={28}/></div>
+          <div className='flex md:pl-0 pl-8 flex-row items-center justify-center gap-1'><Music className='text-[#00e5ff]' size={28} /><a href="#" className='font-bold text-lg'>Sync Beats</a></div>
+          <div className='hidden md:flex flex-row items-center justify-center gap-4'>
+            <a href="#">About</a>
+            <a href="#">Features</a>
+            <a href="#">Contact</a>
+          </div>
+          <div className='flex flex-row md:items-center md:justify-center float-right gap-4'>
+            <a href="#" className='md:flex hidden bg-[#67F7F7] px-4 py-2 rounded-lg text-black font-semibold'>Sign Up</a>
+            <a href="#" className='md:flex hidden bg-transparent border border-white/20 px-4 py-2 rounded-lg text-white font-semibold'>Login</a>
+            <a href="#" className='md:hidden bg-transparent border border-white/20 px-3.5 py-2 rounded-lg text-white flex justify-center items-center'>GetStarted</a>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+      </div>
+      <div className="relative pt-20">
+        <section className="relative overflow-hidden" style={{backgroundImage:'linear-gradient(rgba(10,11,18,0.75), rgba(10,11,18,0.9)), url(https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=2400&auto=format&fit=crop)',backgroundSize: "cover",backgroundPosition: "center",}}>
+          <div className="absolute inset-0">
+            <div className="sb-spotlight inset-0" />
+          </div>
+          <div className="mx-auto max-w-7xl px-6 py-24 sm:py-28 lg:py-36">
+            <div className="flex flex-col items-center text-center">
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-white/80">
+                <Music className="h-4 w-4 text-cyan-300" />
+                Play music everywhere in sync
+              </div>
+              <h1 className="text-4xl font-bold leading-tight tracking-tight md:text-6xl sb-neon-text">
+                Sync Beats
+              </h1>
+              <p className="mt-5 max-w-2xl text-balance text-white/80 md:text-lg">
+                A cross-platform music synchronization platform for Android, iOS, Windows, and Mac.
+                Stream from Apple Music or Spotify and keep every device perfectly in time.
+              </p>
+              <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
+                <Link href="/connect" className="sb-btn sb-btn-primary">
+                  Get started
+                </Link>
+                <Link href="/player" className="sb-btn sb-btn-ghost">
+                  <PlayCircle className="mr-2 h-5 w-5" />
+                  Try the player
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      <div>
+
+      </div>
+      </>
+      );
 }
