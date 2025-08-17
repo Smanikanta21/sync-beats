@@ -1,25 +1,46 @@
 "use client";
-import { Music, PlayCircle, Users2, Menu, Radio, Smartphone, Headphones, MessageSquare, Mail, User,X } from 'lucide-react';
+import { Music, PlayCircle, Users2, Menu, Radio, Smartphone, Headphones, MessageSquare, Mail, User, X } from 'lucide-react';
 import { CiInstagram } from "react-icons/ci";
-import { FaGithub,FaLinkedin } from "react-icons/fa"
-import { useState } from 'react';
+import { FaGithub, FaLinkedin } from "react-icons/fa";
+import { useState, useEffect, useRef } from 'react';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignUpPage';
 
 export default function LandingPage() {
+
+  const loginRef = useRef<HTMLDivElement>(null);
+  const signupRef = useRef<HTMLDivElement>(null);
+
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [showLogin, setShowLogin] = useState<boolean>(false);
   const [showSignup, setShowSignup] = useState<boolean>(false);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (showLogin && loginRef.current && !loginRef.current.contains(event.target as Node)) {
+        setShowLogin(false);
+      }
+      if (showSignup && signupRef.current && !signupRef.current.contains(event.target as Node)) {
+        setShowSignup(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showLogin, showSignup]);
+  const modalRef = useRef<HTMLDivElement>(null);
   return (
     <>
       {showLogin && (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
-         <div className='w-screen'>
-            <LoginPage setShowLogin={setShowLogin}/>
+         <div ref = {modalRef}  className='w-screen'>
+            {showLogin && <LoginPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />}
          </div>
       </div>)}
       {showSignup && (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
          <div className='w-screen'>
-            <SignupPage showSignup={showSignup} setShowSignup={setShowSignup}/>
+            {showSignup && <SignupPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />}
          </div>
       </div>)}
       <div className="fixed z-40 flex justify-center w-full pt-4">

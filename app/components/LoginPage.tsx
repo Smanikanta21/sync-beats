@@ -1,12 +1,23 @@
 "use client";
 import { X, Eye, EyeClosed } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState,useEffect,useRef } from "react";
 
 type PropData = {
     setShowLogin?: (show: boolean) => void;
+    setShowSignup?: (show: boolean) => void;
 };
 
-export default function LoginPage({ setShowLogin }: PropData) {
+
+
+ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
+
+
+
+
+    const renderLogin = () => {
+        setShowLogin && setShowLogin(false); 
+        setShowSignup && setShowSignup(true);
+    }
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState<string>("");
     const [password, setPassword] = useState<string>("");
@@ -39,7 +50,7 @@ export default function LoginPage({ setShowLogin }: PropData) {
         <>
             <div className="fixed top-6 left-4 hover:cursor-pointer hover:scale-125 ease-in-out duration-150" onClick={() => setShowLogin && setShowLogin(false)}><X /></div>
             <div className="flex items-center justify-center h-screen bg-transparent">
-                <div className="bg-white/20 backdrop-blur-lg p-8 rounded-lg shadow-lg w-full max-w-md">
+                <div className="bg-white/10 backdrop-blur-lg p-8 rounded-lg shadow-lg w-full max-w-md">
                     <h1 className="text-2xl font-bold text-center text-white mb-6">Login</h1>
                     <form onSubmit={handleLogin}>
                         <div className="mb-4">
@@ -49,9 +60,13 @@ export default function LoginPage({ setShowLogin }: PropData) {
                         <div className="mb-6 relative">
                             <label className="block text-white mb-2" htmlFor="password">Password</label>
                             <input type={showPassword ? "text" : "password"} id="password" placeholder="Enter Your Password" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required onChange={(e)=>{setPassword(e.target.value)}}/>
-                            <button type="button" className="absolute right-3 top-[38px]" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <Eye /> : <EyeClosed />}</button>
+                            <button type="button" className="absolute right-3 top-10 cursor-pointer hover:scale-115 ease-in-out duration-150" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <Eye /> : <EyeClosed />}</button>
+                            <p className="text-sm text-white/60 duration-150 hover:text-md hover:text-white ">Forgot Password</p>
                         </div>
                         <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">Login</button>
+                        <div className="mt-6 text-center text-white/60">
+                        <p>Don't have an account? <span className="text-blue-400 cursor-pointer hover:underline" onClick={() => {renderLogin()}}>Sign Up</span></p>
+                    </div>
                     </form>
                 </div>
             </div>
