@@ -19,7 +19,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     const handleLogin = async(e:React.FormEvent)=>{
         e.preventDefault();
         try{
-            const res = await fetch('/api/login', {
+            const res = await fetch('/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password }),
