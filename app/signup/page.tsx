@@ -1,4 +1,4 @@
-
+"use client"
 import { CornerUpLeft,Eye,EyeClosed } from "lucide-react";
 import React, { useState } from "react";
 type Props = {
