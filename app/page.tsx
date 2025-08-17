@@ -13,26 +13,25 @@ export default function LandingPage() {
 
   return (
     <>
-      {showLogin && (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
+      {showLogin ? (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
         <div className='w-screen'>
-          {showLogin && <LoginPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />}
-
+          <LoginPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />
         </div>
-      </div>)}
-      {showSignup && (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
+      </div>) : null}
+      {showSignup ? (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
         <div className='w-screen'>
-          {showSignup && <SignupPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />}
+          <SignupPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />
         </div>
-      </div>)}
+      </div>) : null}
       <div className="fixed z-40 flex justify-center w-full pt-4">
         <div className="flex flex-col md:flex-row w-[90%] md:w-[60%] md:justify-baseline justify-between rounded-xl shadow-md md:gap-28 px-4 py-4 md:py-2 bg-white/5 backdrop-blur-lg text-white">
           <div className='md:hidden fixed top-3 left-3' onClick={() => { setIsMenuOpen(!isMenuOpen) }}>{isMenuOpen ? <X size={28} /> : <Menu size={28} />}</div>
           <div className='flex md:pl-0 pl-8 flex-row items-center justify-center gap-1'><Music className='text-[#00e5ff]' size={28} /><a href="#" className='font-bold text-lg'>Sync Beats</a></div>
-          {isMenuOpen && (<div className='flex-col flex md:flex-row items-center justify-center gap-4 md:mt-0 mt-4'>
+          {isMenuOpen ? (<div className='flex-col flex md:flex-row items-center justify-center gap-4 md:mt-0 mt-4'>
             <a className='text-sm text-white/60 hover:scale-110 transition-all duration-120 cursor-pointer text-shadow-cyan-400 hover:text-shadow-2xs' href="#">Features</a>
             <a className='text-sm text-white/60 hover:scale-110 transition-all duration-120 cursor-pointer text-shadow-cyan-400 hover:text-shadow-2xs' href="#">About</a>
             <a className='text-sm text-white/60 hover:scale-110 transition-all duration-120 cursor-pointer text-shadow-cyan-400 hover:text-shadow-2xs' href="#">Contact</a>
-          </div>)}
+          </div>) : null}
 
           <div className='flex flex-row md:items-center md:justify-center float-right gap-4'>
             <a href="#" className='hidden md:flex bg-gradient-to-br from-[#00e5ff] to-[#a78bfa] px-4 py-2 rounded-xl text-black hover:scale-110 ease-in-out duration-135' onClick={() => { setShowSignup(!showSignup) }}>Sign Up</a>
