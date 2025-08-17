@@ -5,6 +5,7 @@ import { FaGithub, FaLinkedin } from "react-icons/fa";
 import { useState, useEffect, useRef } from 'react';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignUpPage';
+import { BorderBeam } from '@/components/magicui/border-beam';
 
 export default function LandingPage() {
 
@@ -34,18 +35,19 @@ export default function LandingPage() {
   return (
     <>
       {showLogin && (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
-         <div ref = {modalRef}  className='w-screen'>
-            {showLogin && <LoginPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />}
-         </div>
+        <div ref={modalRef} className='w-screen'>
+          {showLogin && <LoginPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />}
+
+        </div>
       </div>)}
       {showSignup && (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
-         <div className='w-screen'>
-            {showSignup && <SignupPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />}
-         </div>
+        <div className='w-screen'>
+          {showSignup && <SignupPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />}
+        </div>
       </div>)}
       <div className="fixed z-40 flex justify-center w-full pt-4">
         <div className="flex flex-col md:flex-row w-[90%] md:w-[60%] md:justify-baseline justify-between rounded-xl shadow-md md:gap-28 px-4 py-4 md:py-2 bg-white/5 backdrop-blur-lg text-white">
-          <div className='md:hidden fixed top-3 left-3' onClick={()=> {setIsMenuOpen(!isMenuOpen)}}>{isMenuOpen? <X size={28}/> : <Menu size={28} />}</div>
+          <div className='md:hidden fixed top-3 left-3' onClick={() => { setIsMenuOpen(!isMenuOpen) }}>{isMenuOpen ? <X size={28} /> : <Menu size={28} />}</div>
           <div className='flex md:pl-0 pl-8 flex-row items-center justify-center gap-1'><Music className='text-[#00e5ff]' size={28} /><a href="#" className='font-bold text-lg'>Sync Beats</a></div>
           {isMenuOpen && (<div className='flex-col flex md:flex-row items-center justify-center gap-4 md:mt-0 mt-4'>
             <a className='text-sm text-white/60 hover:scale-110 transition-all duration-120 cursor-pointer text-shadow-cyan-400 hover:text-shadow-2xs' href="#">Features</a>
@@ -54,8 +56,8 @@ export default function LandingPage() {
           </div>)}
 
           <div className='flex flex-row md:items-center md:justify-center float-right gap-4'>
-            <a href="#" className='hidden md:flex bg-gradient-to-br from-[#00e5ff] to-[#a78bfa] px-4 py-2 rounded-xl text-black hover:scale-110 ease-in-out duration-135' onClick={()=> {setShowSignup(!showSignup)}}>Sign Up</a>
-            <a href="#" className='md:flex hidden bg-white/10 px-4 py-2 rounded-xl hover:scale-110 ease-in-out duration-135' onClick={()=>{setShowLogin(!showLogin)}}>Login</a>
+            <a href="#" className='hidden md:flex bg-gradient-to-br from-[#00e5ff] to-[#a78bfa] px-4 py-2 rounded-xl text-black hover:scale-110 ease-in-out duration-135' onClick={() => { setShowSignup(!showSignup) }}>Sign Up</a>
+            <a href="#" className='md:flex hidden bg-white/10 px-4 py-2 rounded-xl hover:scale-110 ease-in-out duration-135' onClick={() => { setShowLogin(!showLogin) }}>Login</a>
           </div>
         </div>
       </div>
@@ -78,7 +80,7 @@ export default function LandingPage() {
                 Stream from Apple Music or Spotify and keep every device perfectly in time.
               </p>
               <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
-                <a href="#" onClick={()=>{setShowLogin(!showLogin)}} className="sb-btn sb-btn-primary">
+                <a href="#" onClick={() => { setShowLogin(!showLogin) }} className="sb-btn sb-btn-primary">
                   Get started
                 </a>
                 <a href="#" className="sb-btn sb-btn-ghost">
@@ -166,7 +168,7 @@ export default function LandingPage() {
             <form className="flex flex-col gap-4">
               <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
                 <User className="text-cyan-300" size={20} />
-                <input type="text"  placeholder="Your Name" required className="bg-transparent w-full outline-none text-white placeholder-white/50" />
+                <input type="text" placeholder="Your Name" required className="bg-transparent w-full outline-none text-white placeholder-white/50" />
               </div>
 
               <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
@@ -187,10 +189,10 @@ export default function LandingPage() {
               <h1 className='text-xl font-bold'>Contact Us through socials</h1>
             </div>
             <div className='flex flex-col gap-6'>
-              <a href='https://www.instagram.com/abhi._.nay' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><CiInstagram size={24} className='text-pink-500'/>Instagram</a>
-              <a href='mailto:siraparapuabhinay21@gmail.com ' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><Mail size={24} className='text-blue-500'/>Email</a>
-              <a href='https://github.com/Smanikanta21' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><FaGithub size={24} className='text-white'/>Github</a>
-              <a href='' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><FaLinkedin size={24} className='text-blue-800'/>LinkedIn</a>
+              <a href='https://www.instagram.com/abhi._.nay' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><CiInstagram size={24} className='text-pink-500' />Instagram</a>
+              <a href='mailto:siraparapuabhinay21@gmail.com ' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><Mail size={24} className='text-blue-500' />Email</a>
+              <a href='https://github.com/Smanikanta21' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><FaGithub size={24} className='text-white' />Github</a>
+              <a href='' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><FaLinkedin size={24} className='text-blue-800' />LinkedIn</a>
             </div>
           </div>
         </div>

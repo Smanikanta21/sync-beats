@@ -1,12 +1,23 @@
 "use client"
 import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { AnimatedTooltip } from "@/components/ui/animated-tooltip"
+import { BorderBeam } from "@/components/magicui/border-beam";
 
 type PropData = {
   showSignup?: boolean;
   setShowLogin: (show: boolean) => void;
   setShowSignup: (show: boolean) => void;
 };
+
+const tooltipItems = [{
+  id: 1, name: "Sign In With Spotify", designation: "Sign in with your Spotify account to sync your music.",
+  image: "https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png"
+}, {
+  id: 2, name: "Sign In With Apple Music", designation: "Sign in with your Apple Music account to sync your music.",
+  image: "/images/applemusic.svg"
+}]
 
 export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
   const [email, setEmail] = useState<string>("");
@@ -28,6 +39,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
       if (res.ok) {
         console.log("Sign up successful:", data);
         setShowSignup(false);
+        setShowLogin(true);
         alert("Sign up successful! Please log in.");
       } else {
         console.error("Sign up failed:", data);
@@ -43,7 +55,18 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
     <>
       <div className="fixed top-6 left-4 cursor-pointer hover:scale-120 ease-in-out duration-150" onClick={() => setShowSignup(false)}><X /></div>
       <div className="flex items-center justify-center h-screen bg-transparent">
-        <div className="bg-white/10 backdrop-blur-lg p-8 rounded-lg shadow-lg w-full max-w-md">
+        <div className="bg-black/60 backdrop-blur-lg p-8 rounded-lg shadow-lg w-full max-w-md">
+          <BorderBeam
+            size={150}
+            borderWidth={4}
+            duration={8}
+            className="from-transparent via-yellow-500 to-transparent"
+            transition={{
+              type: "spring",
+              stiffness: 20,
+              damping: 20,
+            }}
+          />
           <h1 className="text-2xl font-bold text-center text-white mb-6">Sign Up</h1>
           <form onSubmit={handleSignUp}>
             <div className="mb-4">
@@ -63,6 +86,9 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
             </div>
             <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200" >Sign Up</button>
           </form>
+          <div className="w-full flex items-center justify-center mt-6 gap-2">
+            <AnimatedTooltip items={tooltipItems} />
+          </div>
           <div>
             <p className="mt-6 text-center text-white/60">
               Already have an account?
