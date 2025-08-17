@@ -1,14 +1,13 @@
 import express from 'express';
-import cors from 'cors';
-import { authRouter } from './routes/auth.js';
-
+import  authRouter  from './routes/auth.js';
+import dotenv from 'dotenv'; 
 dotenv.config();
 const app = express();
 
 app.use(express.json())
 app.use("/auth",authRouter)
 
-app.get('/',(res,req)=>{
+app.get('/',(req,res)=>{
     res.send('Auth is running')
 })
 
