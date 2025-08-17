@@ -1,4 +1,4 @@
-export const runtime = "node";
+export const runtime = "nodejs";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { SignJWT } from 'jose';
