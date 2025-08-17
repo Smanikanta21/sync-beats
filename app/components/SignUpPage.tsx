@@ -17,7 +17,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("https://www.syncbeats.app/signup", {
+      const res = await fetch("/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, username, password }),
