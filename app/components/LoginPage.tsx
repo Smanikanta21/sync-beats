@@ -11,13 +11,37 @@ export default function LoginPage({ setShowLogin }: PropData) {
     const [email, setEmail] = useState<string>("");
     const [password, setPassword] = useState<string>("");
 
+    const handleLogin = async(e:React.FormEvent)=>{
+        e.preventDefault();
+        try{
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                console.log('Login successful:', data);
+                setShowLogin && setShowLogin(false);
+                alert('Login successful!');
+            } else {
+                console.error('Login failed:', data);
+                alert('Login failed: ' + data.message);
+            }
+        } catch (error) {
+            console.error('Error during login:', error);
+            alert('An error occurred. Please try again.');
+        }  
+
+    }
+
     return (
         <>
             <div className="fixed top-6 left-4 hover:cursor-pointer hover:scale-125 ease-in-out duration-150" onClick={() => setShowLogin && setShowLogin(false)}><X /></div>
             <div className="flex items-center justify-center h-screen bg-transparent">
                 <div className="bg-white/20 backdrop-blur-lg p-8 rounded-lg shadow-lg w-full max-w-md">
                     <h1 className="text-2xl font-bold text-center text-white mb-6">Login</h1>
-                    <form>
+                    <form onSubmit={handleLogin}>
                         <div className="mb-4">
                             <label className="block text-white mb-2" htmlFor="email">Email</label>
                             <input type="email" id="email" placeholder="Enter Your Email" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required onChange={(e)=>{setEmail(e.target.value)}}/>
