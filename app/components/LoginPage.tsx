@@ -7,13 +7,7 @@ type PropData = {
     setShowSignup?: (show: boolean) => void;
 };
 
-
-
- export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
-
-
-
-
+export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     const renderLogin = () => {
         setShowLogin && setShowLogin(false); 
         setShowSignup && setShowSignup(true);
@@ -65,7 +59,7 @@ type PropData = {
                         </div>
                         <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">Login</button>
                         <div className="mt-6 text-center text-white/60">
-                        <p>Don't have an account? <span className="text-blue-400 cursor-pointer hover:underline" onClick={() => {renderLogin()}}>Sign Up</span></p>
+                        <p>{`Don't`} have an account? <span className="text-blue-400 cursor-pointer hover:underline" onClick={() => {renderLogin()}}>Sign Up</span></p>
                     </div>
                     </form>
                 </div>
