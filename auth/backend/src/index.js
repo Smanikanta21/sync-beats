@@ -14,7 +14,7 @@ app.use(cors({
 
 app.options("*", cors());
 app.use(express.json());
-app.use("/auth", authRouter);
+app.use("https://www.syncbeats.app/auth", authRouter);
 
 app.get('/', (req, res) => {
   res.send('Auth is running');
