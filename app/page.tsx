@@ -3,8 +3,8 @@ import { Music, PlayCircle, Users2, Menu, Radio, Smartphone, Headphones, Message
 import { CiInstagram } from "react-icons/ci";
 import { FaGithub,FaLinkedin } from "react-icons/fa"
 import { useState } from 'react';
-import LoginPage from './login/page';
-import SignupPage from './signup/page';
+import LoginPage from './components/LoginPage';
+import SignupPage from './components/SignUpPage';
 
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
