@@ -17,12 +17,13 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("https://www.syncbeats.app/auth/signup", {
+      const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, username, password }),
+        body: JSON.stringify({ email, username, password })
       });
       const data = await res.json();
+      console.log(data);
 
       if (res.ok) {
         console.log("Sign up successful:", data);
@@ -57,17 +58,17 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
 
             <div className="mb-6 relative">
               <label className="block text-white mb-2" htmlFor="password">Password</label>
-              <input type={showPassword ? "text" : "password"} id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter Your Password" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required/>
+              <input type={showPassword ? "text" : "password"} id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter Your Password" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
               <button type="button" className="absolute right-2 top-10 cursor-pointer hover:scale-115 ease-in-out duration-150" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <Eye /> : <EyeClosed />} </button>
             </div>
             <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200" >Sign Up</button>
           </form>
           <div>
             <p className="mt-6 text-center text-white/60">
-              Already have an account? 
+              Already have an account?
               <span className="text-blue-400 cursor-pointer hover:underline" onClick={() => { setShowSignup(false); setShowLogin(true); }}> Login</span>
-            </p>  
-        </div>
+            </p>
+          </div>
         </div>
       </div>
     </>
