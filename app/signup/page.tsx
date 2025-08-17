@@ -1,27 +1,20 @@
 "use client"
-import { CornerUpLeft,Eye,EyeClosed } from "lucide-react";
+import { X,Eye,EyeClosed } from "lucide-react";
 import React, { useState } from "react";
-type Props = {
-    showSignup?: boolean;
-    setShowSignup?: (show: boolean) => void;
-}
-export default function SignupPage(props: Props) {
+type PropData = {
+  showSignup?: boolean;
+  setShowSignup?: (show: boolean) => void;
+};
+export default function SignupPage({ showSignup, setShowSignup }: PropData) {
 
     const [email, setEmail] = useState("");
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
 
     const [showPassword, setShowPassword] = useState(false);
-    function handleClick(e: React.MouseEvent<HTMLDivElement>) {
-            e.preventDefault();
-            if (props.setShowSignup) {
-                props.setShowSignup(false);
-            }
-            return
-        }
     return (
         <>
-        <div className="fixed top-6 left-4 hover:cursor-pointer hover:scale-120 ease-in-out duration-150" onClick={handleClick}><CornerUpLeft/></div>
+        <div className="fixed top-6 left-4 hover:cursor-pointer hover:scale-120 ease-in-out duration-150" onClick={() => setShowSignup && setShowSignup(false)}><X/></div>
         <div className="flex items-center justify-center h-screen bg-transparent">
             <div className="bg-white/10 backdrop-blur-lg p-8 rounded-lg shadow-lg w-full max-w-md">
                 <h1 className="text-2xl font-bold text-center text-white mb-6">Sign Up</h1>

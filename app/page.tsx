@@ -14,12 +14,12 @@ export default function LandingPage() {
     <>
       {showLogin && (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
          <div className='w-screen'>
-            <LoginPage showLogin = {showLogin} setShowLogin={setShowLogin}/>
+            <LoginPage setShowLogin={setShowLogin}/>
          </div>
       </div>)}
       {showSignup && (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
          <div className='w-screen'>
-            <SignupPage showSignup = {showSignup} setShowSignup={setShowSignup}/>
+            <SignupPage showSignup={showSignup} setShowSignup={setShowSignup}/>
          </div>
       </div>)}
       <div className="fixed z-40 flex justify-center w-full pt-4">
