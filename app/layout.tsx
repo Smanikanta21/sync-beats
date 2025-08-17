@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import favicon from '../public/assets/favicon.svg';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
   title: "Sync Beats",
   description: "Play Music In Sync with multiple devices at same time",
     icons: {
-    icon: "/favicon.svg",  
+    icon: `${favicon}`,  
   },
 };
 

@@ -2,14 +2,27 @@
 import { Music, PlayCircle, Users2, Menu, Radio, Smartphone, Headphones, MessageSquare, Mail, User,X } from 'lucide-react';
 import { CiInstagram } from "react-icons/ci";
 import { FaGithub,FaLinkedin } from "react-icons/fa"
-import Link from 'next/link'
 import { useState } from 'react';
+import LoginPage from './login/page';
+import SignupPage from './signup/page';
 
 export default function LandingPage() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const [showLogin, setShowLogin] = useState<boolean>(false);
+  const [showSignup, setShowSignup] = useState<boolean>(false);
   return (
     <>
-      <div className="fixed z-50 flex justify-center w-full pt-4">
+      {showLogin && (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
+         <div className='w-screen'>
+            <LoginPage showLogin = {showLogin} setShowLogin={setShowLogin}/>
+         </div>
+      </div>)}
+      {showSignup && (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
+         <div className='w-screen'>
+            <SignupPage showSignup = {showSignup} setShowSignup={setShowSignup}/>
+         </div>
+      </div>)}
+      <div className="fixed z-40 flex justify-center w-full pt-4">
         <div className="flex flex-col md:flex-row w-[90%] md:w-[60%] md:justify-baseline justify-between rounded-xl shadow-md md:gap-28 px-4 py-4 md:py-2 bg-white/5 backdrop-blur-lg text-white">
           <div className='md:hidden fixed top-3 left-3' onClick={()=> {setIsMenuOpen(!isMenuOpen)}}>{isMenuOpen? <X size={28}/> : <Menu size={28} />}</div>
           <div className='flex md:pl-0 pl-8 flex-row items-center justify-center gap-1'><Music className='text-[#00e5ff]' size={28} /><a href="#" className='font-bold text-lg'>Sync Beats</a></div>
@@ -20,14 +33,14 @@ export default function LandingPage() {
           </div>)}
 
           <div className='flex flex-row md:items-center md:justify-center float-right gap-4'>
-            <a href="#" className='hidden md:flex bg-gradient-to-br from-[#00e5ff] to-[#a78bfa] px-4 py-2 rounded-xl text-black hover:scale-110 ease-in-out duration-135'>Sign Up</a>
-            <a href="" className='md:flex hidden bg-white/10 px-4 py-2 rounded-xl hover:scale-110 ease-in-out duration-135'>Login</a>
+            <a href="#" className='hidden md:flex bg-gradient-to-br from-[#00e5ff] to-[#a78bfa] px-4 py-2 rounded-xl text-black hover:scale-110 ease-in-out duration-135' onClick={()=> {setShowSignup(!showSignup)}}>Sign Up</a>
+            <a href="#" className='md:flex hidden bg-white/10 px-4 py-2 rounded-xl hover:scale-110 ease-in-out duration-135' onClick={()=>{setShowLogin(!showLogin)}}>Login</a>
           </div>
         </div>
       </div>
       <div className="relative pt-20">
         <section className="relative overflow-hidden" style={{ backgroundImage: 'linear-gradient(rgba(10,11,18,0.75), rgba(10,11,18,0.9)), url(https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=2400&auto=format&fit=crop)', backgroundSize: "cover", backgroundPosition: "center", }}>
-          <div className="absolute inset-0">
+          <div className="">
             <div className="sb-spotlight inset-0" />
           </div>
           <div className="mx-auto max-w-7xl px-6 py-24 sm:py-28 lg:py-36">
@@ -44,13 +57,13 @@ export default function LandingPage() {
                 Stream from Apple Music or Spotify and keep every device perfectly in time.
               </p>
               <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
-                <Link href="/connect" className="sb-btn sb-btn-primary">
+                <a href="#" onClick={()=>{setShowLogin(!showLogin)}} className="sb-btn sb-btn-primary">
                   Get started
-                </Link>
-                <Link href="/player" className="sb-btn sb-btn-ghost">
+                </a>
+                <a href="#" className="sb-btn sb-btn-ghost">
                   <PlayCircle className="mr-2 h-5 w-5" />
                   Try the player
-                </Link>
+                </a>
               </div>
             </div>
           </div>
@@ -121,7 +134,7 @@ export default function LandingPage() {
       </div>
       <div className='md:mx-38 mx-8 mt-12 sb-glass rounded-xl'>
         <div className='flex flex-col md:flex-row justify-evenly'>
-          <div className=" p-10 flex flex-col gap-6 md:border-r border-b border-white">
+          <div className=" p-10 flex flex-col gap-6 md:border-r border-white">
             <h1 className="text-3xl font-bold text-white">Contact Me</h1>
             <p className="text-white/60">Have questions, feedback, or just want to say hi? Fill out the formbelow or reach me at{" "}
               <a href="mailto:siraprapuabhinay21@gmail.com" className="text-cyan-300 hover:underline">
@@ -129,30 +142,30 @@ export default function LandingPage() {
               </a>
             </p>
 
-            <form action="https://docs.google.com/forms/d/e/YOUR_GOOGLE_FORM_ID/formResponse" method="POST" target="_blank" className="flex flex-col gap-4">
+            <form className="flex flex-col gap-4">
               <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
                 <User className="text-cyan-300" size={20} />
-                <input type="text" name="entry.123456" placeholder="Your Name" required className="bg-transparent w-full outline-none text-white placeholder-white/50" />
+                <input type="text"  placeholder="Your Name" required className="bg-transparent w-full outline-none text-white placeholder-white/50" />
               </div>
 
               <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
                 <Mail className="text-purple-300" size={20} />
-                <input type="email" name="entry.654321" placeholder="Your Email" required className="bg-transparent w-full outline-none text-white placeholder-white/50" />
+                <input type="email" placeholder="Your Email" required className="bg-transparent w-full outline-none text-white placeholder-white/50" />
               </div>
 
               <div className="flex items-start gap-2 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
                 <MessageSquare className="text-yellow-300 mt-1" size={20} />
-                <textarea name="entry.987654" placeholder="Your Message" required rows={4} className="bg-transparent w-full outline-none text-white placeholder-white/50 resize-none" />
+                <textarea placeholder="Your Message" required rows={4} className="bg-transparent w-full outline-none text-white placeholder-white/50 resize-none" />
               </div>
 
-              <button type="submit" className="sb-btn sb-btn-primary hover:scale-105 transition-all">Send Message</button>
+              <button type="submit" className="sb-btn sb-btn-primary hover:scale-105 transition-all cursor-pointer">Send Message</button>
             </form>
           </div>
-          <div className='flex flex-col md:flex-col items-center justify-evenly mb-8 py-8'>
+          <div className='flex flex-col md:flex-col items-center gap-8 justify-evenly mb-8 py-8'>
             <div>
               <h1 className='text-xl font-bold'>Contact Us through socials</h1>
             </div>
-            <div className='flex flex-col  gap-4'>
+            <div className='flex flex-col gap-6'>
               <a href='https://www.instagram.com/abhi._.nay' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><CiInstagram size={24} className='text-pink-500'/>Instagram</a>
               <a href='mailto:siraparapuabhinay21@gmail.com ' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><Mail size={24} className='text-blue-500'/>Email</a>
               <a href='https://github.com/Smanikanta21' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><FaGithub size={24} className='text-white'/>Github</a>
@@ -161,6 +174,15 @@ export default function LandingPage() {
           </div>
         </div>
       </div>
+      <footer className='sb-glass mt-12 rounded-xl p-8'>
+        <div className='flex flex-col md:flex-row justify-between items-center gap-4'>
+          <div className='text-white/60 text-sm'>© 2025 Sync Beats. All rights reserved.</div>
+          <div className='flex flex-row gap-4'>
+            <a href="#" className='text-white/60 hover:text-cyan-300'>Privacy Policy</a>
+            <a href="#" className='text-white/60 hover:text-cyan-300'>Terms of Service</a>
+          </div>
+        </div>
+      </footer>
     </>
   );
 }
