@@ -27,6 +27,7 @@ export async function POST(req: Request) {
       .setProtectedHeader({ alg: "HS256" })
       .setExpirationTime("1h")
       .sign(new TextEncoder().encode(process.env.JWT_SECRET));
+      
 
     return new Response(
       JSON.stringify({ message: "Login successful", token, user }),

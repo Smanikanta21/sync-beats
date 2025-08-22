@@ -2,7 +2,6 @@
 import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AnimatedTooltip } from "@/components/ui/animated-tooltip"
 import { BorderBeam } from "@/components/magicui/border-beam";
 
 type PropData = {
@@ -11,13 +10,6 @@ type PropData = {
   setShowSignup: (show: boolean) => void;
 };
 
-const tooltipItems = [{
-  id: 1, name: "Sign In With Spotify", designation: "Sign in with your Spotify account to sync your music.",
-  image: "https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png"
-}, {
-  id: 2, name: "Sign In With Apple Music", designation: "Sign in with your Apple Music account to sync your music.",
-  image: "/images/applemusic.svg"
-}]
 
 export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
   const [email, setEmail] = useState<string>("");
@@ -30,13 +22,14 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json",},
         body: JSON.stringify({ email, username, password })
       });
       const data = await res.json();
       console.log(data);
 
       if (res.ok) {
+        localStorage.setItem("token:",data.token)
         console.log("Sign up successful:", data);
         setShowSignup(false);
         setShowLogin(true);
@@ -55,7 +48,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
     <>
       <div className="fixed top-6 left-4 cursor-pointer hover:scale-120 ease-in-out duration-150" onClick={() => setShowSignup(false)}><X /></div>
       <div className="flex items-center justify-center h-screen bg-transparent">
-        <div className="bg-black/60 backdrop-blur-lg p-8 rounded-lg shadow-lg w-full max-w-md">
+        <div className="bg-black/60 backdrop-blur-lg p-8 rounded-lg w-full max-w-md  shadow-yellow-500 ">
           <BorderBeam
             size={150}
             borderWidth={4}
@@ -63,8 +56,8 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
             className="from-transparent via-yellow-500 to-transparent"
             transition={{
               type: "spring",
-              stiffness: 20,
-              damping: 20,
+              stiffness: 10,
+              damping: 10,
             }}
           />
           <h1 className="text-2xl font-bold text-center text-white mb-6">Sign Up</h1>
@@ -85,10 +78,11 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
               <button type="button" className="absolute right-2 top-10 cursor-pointer hover:scale-115 ease-in-out duration-150" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <Eye /> : <EyeClosed />} </button>
             </div>
             <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200" >Sign Up</button>
+            <div className="w-full flex flex-col items-center justify-center mt-6 gap-1">
+              <button className="flex justify-center gap-2 border px-18 rounded-xl items-center cursor-pointer font-bold py-2"><img src="/images/spotify.png" className="w-6 h-6" alt="" />Continue With Spotify</button>
+              <button className="flex justify-center items-center gap-2 border px-14 rounded-xl cursor-pointer font-bold py-2"><img src="/images/applemusic.svg" className="w-6 h-6" alt="" />Continue With Apple Music</button>
+            </div>
           </form>
-          <div className="w-full flex items-center justify-center mt-6 gap-2">
-            <AnimatedTooltip items={tooltipItems} />
-          </div>
           <div>
             <p className="mt-6 text-center text-white/60">
               Already have an account?

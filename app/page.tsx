@@ -14,7 +14,7 @@ export default function LandingPage() {
   return (
     <>
       {showLogin ? (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
-        <div className='w-screen'>
+        <div className='w-screen '>
           <LoginPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />
         </div>
       </div>) : null}

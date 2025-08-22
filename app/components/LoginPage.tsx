@@ -8,13 +8,6 @@ type PropData = {
     setShowLogin?: (show: boolean) => void;
     setShowSignup?: (show: boolean) => void;
 };
-const tooltipItems = [{
-    id: 1, name: "Sign In With Spotify", designation: "Sign in with your Spotify account to sync your music.",
-    image: "https://storage.googleapis.com/pr-newsroom-wp/1/2023/05/Spotify_Primary_Logo_RGB_Green.png"
-}, {
-    id: 2, name: "Sign In With Apple Music", designation: "Sign in with your Apple Music account to sync your music.",
-    image: "/images/applemusic.svg"
-}]
 
 
 export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
@@ -36,6 +29,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
             });
             const data = await res.json();
             if (res.ok) {
+                localStorage.setItem('token',data.token)
                 console.log('Login successful:', data);
                 setShowLogin && setShowLogin(false);
                 alert('Login successful!');
@@ -80,12 +74,14 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
                         </div>
                         <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">Login</button>
                         <div className="mt-6 text-center text-white/60">
-                            <p>{`Don't`} have an account? <span className="text-blue-400 cursor-pointer hover:underline" onClick={() => { renderLogin() }}>Sign Up</span></p>
+                        <div><p>---------- or continue with ----------</p></div>
+                        <div className="w-full flex flex-col items-center justify-center mt-6 gap-2">
+                            <button className="flex justify-center gap-2 border px-18 rounded-xl cursor-pointer font-bold py-2"><img src="/images/spotify.png" className="w-6 h-6" alt="" />Continue With Spotify</button>
+                            <button className="flex justify-center gap-2 border px-14 rounded-xl cursor-pointer font-bold py-2"><img src="/images/applemusic.svg" className="w-6 h-6" alt="" />Continue With Apple Music</button>
+                        </div>
+                        <p className="mt-2">{`Don't`} have an account? <span className="text-blue-400 cursor-pointer hover:underline" onClick={() => { renderLogin() }}>Sign Up</span></p>
                         </div>
                     </form>
-                    <div className="w-full flex items-center justify-center mt-6 gap-2">
-                        <AnimatedTooltip items={tooltipItems} />
-                    </div>
                 </div>
             </div>
         </>
