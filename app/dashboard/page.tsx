@@ -1,6 +1,7 @@
 "use client"
+export const dynamic = "force-dynamic";
 import { useState, useEffect} from 'react'
-import { useRouter } from 'next/router'
+import { useRouter } from 'next/navigation'
 import { Music } from 'lucide-react'
 export default function DashBoard(){
     const router = useRouter()
