@@ -2,6 +2,7 @@
 import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import { BorderBeam } from "@/components/magicui/border-beam";
+import { useRouter } from 'next/navigation'
 
 type PropData = {
     setShowLogin?: (show: boolean) => void;
@@ -10,6 +11,7 @@ type PropData = {
 
 
 export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
+    const router = useRouter()
     const renderLogin = () => {
         setShowLogin && setShowLogin(false);
         setShowSignup && setShowSignup(true);
@@ -32,6 +34,8 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
                 console.log('Login successful:', data);
                 setShowLogin && setShowLogin(false);
                 alert('Login successful!');
+                router.push('/dashboard')
+                
             } else {
                 console.error('Login failed:', data);
                 alert('Login failed: ' + data.message);
