@@ -1,7 +1,6 @@
 "use client";
 import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
-import { AnimatedTooltip } from "@/components/ui/animated-tooltip"
 import { BorderBeam } from "@/components/magicui/border-beam";
 
 type PropData = {

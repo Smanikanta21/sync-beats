@@ -1,5 +1,4 @@
 export const runtime = "nodejs";
-
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";  
 import { SignJWT } from 'jose';
@@ -21,6 +20,7 @@ export async function POST(req: Request) {
         email,
         username,
         password: hashedPassword,
+        profile_pic: `https://api.dicebear.com/7.x/initials/svg?seed=${username[0].toUpperCase()}`
       },
     });
 

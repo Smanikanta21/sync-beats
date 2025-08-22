@@ -1,7 +1,6 @@
 "use client"
 import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
 import { BorderBeam } from "@/components/magicui/border-beam";
 
 type PropData = {
