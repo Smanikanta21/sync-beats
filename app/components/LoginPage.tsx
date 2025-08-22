@@ -67,7 +67,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
                     <form onSubmit={handleLogin}>
                         <div className="mb-4">
                             <label className="block text-white mb-2" htmlFor="email">Username or Email</label>
-                            <input type="email" id="email" placeholder="Enter Your Email" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required onChange={(e) => { setIdentifier(e.target.value) }} />
+                            <input type="text" id="email" placeholder="Enter Your Username or Email" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required onChange={(e) => { setIdentifier(e.target.value) }} />
                         </div>
                         <div className="mb-6 relative">
                             <label className="block text-white mb-2" htmlFor="password">Password</label>
