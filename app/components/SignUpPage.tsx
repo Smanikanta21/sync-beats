@@ -23,7 +23,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json",},
-        body: JSON.stringify({ email, username, password })
+        body: JSON.stringify({ name,email, username, password })
       });
       const data = await res.json();
       console.log(data);
