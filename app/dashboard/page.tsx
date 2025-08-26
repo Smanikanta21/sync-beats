@@ -28,11 +28,13 @@ export default function DashBoard(){
     const handleLogout = async () => {
         try {
             await fetch('/api/auth/logout', { method: 'POST' })
-            toast.success('Logged out successfully!')
-            router.push('/')
+            setLoading(true)
         } catch (err) {
             toast.error("Loggout unsuccessfull")
             console.log(err)
+        }finally{
+            toast.success('Logged out successfully!')
+            router.push('/')
         }
     }
     useEffect(()=>{
