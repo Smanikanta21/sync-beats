@@ -70,7 +70,7 @@ export default function DashBoard(){
                 </div>
                 
             </div>
-            <div className="flex w-full px-18">
+            <div className="flex w-full md:px-18">
                <div className='mt-24 rounded-xl border border-white/60 w-full'>
                    <div className='px-6 py-8 text-2xl font-bold'>
                         <h1>Welcome Back {user ? (user.name || user.username) : ""}!</h1>
