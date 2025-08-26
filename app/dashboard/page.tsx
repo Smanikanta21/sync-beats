@@ -9,11 +9,20 @@ export default function DashBoard(){
     const router = useRouter()
     const[sidebar,setSideBar] = useState<boolean>(false)
     const[loading,setLoading] = useState<boolean>(true)
+    interface Session {
+        id: string;
+        device: string;
+        ip: string;
+        updatedAt: string;
+        isOnline: boolean;
+        status: 'string' | 'online' | 'offline';
+    }
     interface User {
         id: string;
         name: string;
         username: string;
         email: string;
+        sessions: Session[];
     }
     const [user, setUser] = useState<User | null>(null);
     const handleLogout = async () => {
@@ -71,9 +80,33 @@ export default function DashBoard(){
                 
             </div>
             <div className="flex w-full md:px-18">
-               <div className='mt-24 rounded-xl border border-white/60 w-full'>
-                   <div className='px-6 py-8 text-2xl font-bold'>
+               <div className='mt-24 rounded-xl border w-full'>
+                   <div className='px-6 py-8 text-2xl border-white/60 font-bold'>
                         <h1>Welcome Back {user ? (user.name || user.username) : ""}!</h1>
+                   </div>
+
+                   <div>
+                    {user && user.sessions && user.sessions.length > 0 && (
+                    <div className="px-6 pb-8">
+                        <h2 className="text-xl font-semibold mb-4">Logged-in Devices</h2>
+                        <ul className="space-y-4">
+                            {user.sessions.map(session => (
+                                <li key={session.id} className="flex justify-between items-center border border-gray-700 rounded-lg p-4 bg-gray-900">
+                                    <div>
+                                        <p className="font-semibold text-lg">{session.device}</p>
+                                        <p className="text-sm text-gray-400">IP: {session.ip}</p>
+                                        <p className="text-sm text-gray-400">Last seen: {new Date(session.updatedAt).toLocaleString()}</p>
+                                    </div>
+                                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                                        session.status === 'online' ? 'bg-green-600 text-green-100' : 'bg-gray-600 text-gray-300'
+                                    }`}>
+                                        {session.status}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                   )}
                    </div>
                </div>
             </div>

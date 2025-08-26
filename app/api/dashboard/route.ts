@@ -18,14 +18,38 @@ export async function GET(req: Request) {
 
     const user = await prisma.user.findUnique({
       where: { id: payload.id as string },
-      select: { id: true, username: true, email: true, name: true },
+        select: {
+    id: true,
+    username: true,
+    email: true,
+    name: true,
+    sessions: {
+      select: {
+        id: true,
+        device: true,
+        ip: true,
+        updatedAt: true,
+        isOnline: true,
+      },
+    },
+  },
     });
 
     if (!user) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ user });
+    const sessionsWithStatus = user.sessions.map((session) => ({
+      ...session,
+      status: session.isOnline === true ? "online" : "offline",
+    }));
+
+    return NextResponse.json({
+      user: {
+        ...user,
+        sessions: sessionsWithStatus,
+      },
+    });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ message: "Invalid token" }, { status: 403 });

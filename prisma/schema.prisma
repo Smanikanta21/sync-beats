@@ -22,4 +22,18 @@ model User{
   profile_pic String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  sessions Session[]
+}
+
+model Session{
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  token     String?   @unique
+  device    String
+  ip        String
+  isOnline  Boolean  @default(true) 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

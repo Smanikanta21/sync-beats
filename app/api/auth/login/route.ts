@@ -29,18 +29,46 @@ export async function POST(req: Request) {
       });
     }
 
+    const device = req.headers.get("user-agent") ?? "unknown device";
+    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown IP";
 
-    const token = await new SignJWT({ id: user.id })
+    const session = await prisma.session.create({
+      data:{
+        userId: user.id,
+        device,
+        ip: ip
+      },
+    })
+
+
+    const token = await new SignJWT({ id: user.id, sessionId: session.id })
       .setProtectedHeader({ alg: "HS256" })
       .setExpirationTime("1h")
       .sign(new TextEncoder().encode(process.env.JWT_SECRET));
 
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      name: user.name,
+    };
     const response = NextResponse.json(
-      { message: "Login successful", token, user: { id: user.id, email: user.email, username: user.username }},
+      { message: "Login successful", token, user: safeUser },
       { status: 200 }
     );
     response.cookies.set("token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", maxAge: 60 * 60, path: "/" });
+    response.cookies.set("sessionId", session.id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
+    });
     return response;
+    
+
+
+  
+
   } catch (err) {
     console.error(err);
     return new Response(
