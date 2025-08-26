@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { SignJWT } from 'jose';
+import { NextResponse } from "next/server";
 
 const prisma = new PrismaClient();
 
@@ -28,16 +29,17 @@ export async function POST(req: Request) {
       });
     }
 
+
     const token = await new SignJWT({ id: user.id })
       .setProtectedHeader({ alg: "HS256" })
       .setExpirationTime("1h")
       .sign(new TextEncoder().encode(process.env.JWT_SECRET));
-      
 
-    return new Response(
-      JSON.stringify({ message: "Login successful", token, user }),
+    const response = NextResponse.json(
+      { message: "Login successful", token, user: { id: user.id, email: user.email, username: user.username }},
       { status: 200 }
     );
+    response.cookies.set("token", token, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", maxAge: 60 * 60, path: "/" });
   } catch (err) {
     console.error(err);
     return new Response(

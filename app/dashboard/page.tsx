@@ -3,18 +3,43 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect} from 'react'
 import { useRouter } from 'next/navigation'
 import { Music,Menu } from 'lucide-react'
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 export default function DashBoard(){
     const router = useRouter()
-    const[sidebar,setSideBar] = useState(false)
-    const[loading,setLoading] = useState(true)
+    const[sidebar,setSideBar] = useState<boolean>(false)
+    const[loading,setLoading] = useState<boolean>(true)
+    const[user,setUser] = useState<any>(null)
     useEffect(()=>{
-        const token = localStorage.getItem("token")
 
-        if(!token){
-            router.push('/login')
-        }else{
-            setLoading(false)
+        const handleLogout = async() =>{
+            try{
+                await fetch('/api/auth/logout',{method:'POST'})
+                toast.success('Logged out successfully!')
+                router.push('/login')
+            }catch(err){
+                toast.error("Loggout unsuccessfull")
+                console.log(err)
+            }
         }
+
+        async function fetchUser(){
+            try{
+                const res = await fetch('/api/dashboard', {method: 'GET'})
+                if (res.status === 401){
+                    router.push('/login')
+                    return
+                }
+                const data = await res.json()
+                setUser(data.user)
+            }catch(err){
+                console.log(err)
+                router.push('/login')
+            }finally{
+                setLoading(false)
+            }
+        }
+        fetchUser()
     },[router])
     if (loading) {
         return (
@@ -34,13 +59,13 @@ export default function DashBoard(){
                         <a className='text-xl font-extrabold' href="#">SyncBeats</a>
                     </div>
                     <div>
-                        <button className='text-red hover:bg-red-700 hover:text-white rounded-xl cursor-pointer px-2 py-1'>Logout</button>
+                        <button className='text-red hover:bg-red-700 hover:text-white rounded-xl cursor-pointer px-2 py-1' onClick={()=>{}}>Logout</button>
                     </div>
                 </div>
                 
             </div>
             <div className="flex w-full mt-18 ">
-                <h1>Welcome Back!</h1>
+                <h1>Welcome Back {user.name} !</h1>
             </div>
         </div>
         </>
