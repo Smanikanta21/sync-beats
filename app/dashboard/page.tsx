@@ -68,7 +68,7 @@ export default function DashBoard(){
                 
             </div>
             <div className="flex w-full mt-18 ">
-                <h1>Welcome Back {user ? user.name : ""}!</h1>
+                <h1>Welcome Back!</h1>
             </div>
         </div>
         </>

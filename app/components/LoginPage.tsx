@@ -3,7 +3,7 @@ import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import { BorderBeam } from "@/components/magicui/border-beam";
 import { useRouter } from 'next/navigation'
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 type PropData = {
@@ -33,7 +33,6 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
             });
             const data = await res.json();
             if (res.ok) {
-                localStorage.setItem('token',data.token)
                 console.log('Login successful:', data);
                 setShowLogin && setShowLogin(false);
                 toast.success('Login successful!');
