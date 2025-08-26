@@ -57,13 +57,13 @@ export default function LandingPage() {
                 Stream from Apple Music or Spotify and keep every device perfectly in time.
               </p>
               <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
-                <a href="#" onClick={() => { setShowLogin(!showLogin) }} className="sb-btn sb-btn-primary">
+                {/* <a href="#" onClick={() => { setShowLogin(!showLogin) }} className="sb-btn sb-btn-primary">
                   Get started
-                </a>
-                <a href="#" className="sb-btn sb-btn-ghost">
+                </a> */}
+                <button onClick={() => { setShowSignup(!showSignup) }} className="sb-btn sb-btn-ghost">
                   <PlayCircle className="mr-2 h-5 w-5" />
                   Try the player
-                </a>
+                </button>
               </div>
             </div>
           </div>
