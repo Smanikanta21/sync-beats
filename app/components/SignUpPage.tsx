@@ -2,7 +2,7 @@
 import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState } from "react";
 import { BorderBeam } from "@/components/magicui/border-beam";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 type PropData = {

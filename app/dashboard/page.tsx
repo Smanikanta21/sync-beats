@@ -3,26 +3,29 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect} from 'react'
 import { useRouter } from 'next/navigation'
 import { Music,Menu } from 'lucide-react'
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 export default function DashBoard(){
     const router = useRouter()
     const[sidebar,setSideBar] = useState<boolean>(false)
     const[loading,setLoading] = useState<boolean>(true)
-    const[user,setUser] = useState<any>(null)
-    useEffect(()=>{
-
-        const handleLogout = async() =>{
-            try{
-                await fetch('/api/auth/logout',{method:'POST'})
-                toast.success('Logged out successfully!')
-                router.push('/login')
-            }catch(err){
-                toast.error("Loggout unsuccessfull")
-                console.log(err)
-            }
+    interface User {
+        id: string;
+        name: string;
+        email: string;
+    }
+    const [user, setUser] = useState<User | null>(null);
+    const handleLogout = async () => {
+        try {
+            await fetch('/api/auth/logout', { method: 'POST' })
+            toast.success('Logged out successfully!')
+            router.push('/login')
+        } catch (err) {
+            toast.error("Loggout unsuccessfull")
+            console.log(err)
         }
-
+    }
+    useEffect(()=>{
         async function fetchUser(){
             try{
                 const res = await fetch('/api/dashboard', {method: 'GET'})
@@ -59,13 +62,13 @@ export default function DashBoard(){
                         <a className='text-xl font-extrabold' href="#">SyncBeats</a>
                     </div>
                     <div>
-                        <button className='text-red hover:bg-red-700 hover:text-white rounded-xl cursor-pointer px-2 py-1' onClick={()=>{}}>Logout</button>
+                        <button className='text-red hover:bg-red-700 hover:text-white rounded-xl cursor-pointer px-2 py-1' onClick={handleLogout}>Logout</button>
                     </div>
                 </div>
                 
             </div>
             <div className="flex w-full mt-18 ">
-                <h1>Welcome Back {user.name} !</h1>
+                <h1>Welcome Back {user ? user.name : ""}!</h1>
             </div>
         </div>
         </>
