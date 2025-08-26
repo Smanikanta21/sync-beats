@@ -12,6 +12,7 @@ export default function DashBoard(){
     interface User {
         id: string;
         name: string;
+        username: string;
         email: string;
     }
     const [user, setUser] = useState<User | null>(null);
@@ -19,7 +20,7 @@ export default function DashBoard(){
         try {
             await fetch('/api/auth/logout', { method: 'POST' })
             toast.success('Logged out successfully!')
-            router.push('/login')
+            router.push('/')
         } catch (err) {
             toast.error("Loggout unsuccessfull")
             console.log(err)
@@ -46,7 +47,9 @@ export default function DashBoard(){
     },[router])
     if (loading) {
         return (
-            <div className='bg-black/80'>Loading.....</div>
+            <div className='bg-black/80 flex justify-center items-center h-screen'>
+                <p className='text-white'>Loading.....</p>
+            </div>
         )
     }
     return (
@@ -62,13 +65,17 @@ export default function DashBoard(){
                         <a className='text-xl font-extrabold' href="#">SyncBeats</a>
                     </div>
                     <div>
-                        <button className='text-red hover:bg-red-700 hover:text-white rounded-xl cursor-pointer px-2 py-1' onClick={handleLogout}>Logout</button>
+                        <button className='text-red hover:bg-red-700 border-red-700 border hover:text-white rounded-xl cursor-pointer px-4 py-2' onClick={handleLogout}>Logout</button>
                     </div>
                 </div>
                 
             </div>
-            <div className="flex w-full mt-18 ">
-                <h1>Welcome Back!</h1>
+            <div className="flex w-full px-18">
+               <div className='mt-24 rounded-xl border border-white/60 w-full'>
+                   <div className='px-6 py-8 text-2xl font-bold'>
+                        <h1>Welcome Back {user ? (user.name || user.username) : ""}!</h1>
+                   </div>
+               </div>
             </div>
         </div>
         </>

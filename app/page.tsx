@@ -33,8 +33,8 @@ export default function LandingPage() {
           </div>) : null}
 
           <div className='flex flex-row md:items-center md:justify-center float-right gap-4'>
-            <button className='hidden md:flex bg-gradient-to-br from-[#00e5ff] to-[#a78bfa] px-4 py-2 rounded-xl text-black hover:scale-110 ease-in-out duration-135' onClick={() => { setShowSignup(!showSignup) }}>Sign Up</button>
-            <button className='md:flex hidden bg-white/10 px-4 py-2 rounded-xl hover:scale-110 ease-in-out duration-135' onClick={() => { setShowLogin(!showLogin) }}>Login</button>
+            <button className='hidden md:flex bg-gradient-to-br from-[#00e5ff] to-[#a78bfa] px-4 py-2 rounded-xl cursor-pointer text-black hover:scale-110 ease-in-out duration-135' onClick={() => { setShowSignup(!showSignup) }}>Sign Up</button>
+            <button className='md:flex hidden bg-white/10 px-4 py-2 rounded-xl hover:scale-110 ease-in-out cursor-pointer duration-135' onClick={() => { setShowLogin(!showLogin) }}>Login</button>
           </div>
         </div>
       </div>
