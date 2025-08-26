@@ -30,14 +30,14 @@ export default function DashBoard(){
             try{
                 const res = await fetch('/api/dashboard', {method: 'GET'})
                 if (res.status === 401){
-                    router.push('/login')
+                    router.push('/')
                     return
                 }
                 const data = await res.json()
                 setUser(data.user)
             }catch(err){
                 console.log(err)
-                router.push('/login')
+                router.push('/')
             }finally{
                 setLoading(false)
             }
