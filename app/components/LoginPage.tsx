@@ -11,7 +11,6 @@ type PropData = {
     setShowSignup?: (show: boolean) => void;
 };
 
-
 export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     const router = useRouter()
     const renderLogin = () => {
@@ -21,6 +20,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     const [showPassword, setShowPassword] = useState(false);
     const [identifier, setIdentifier] = useState<string>("");
     const [password, setPassword] = useState<string>("");
+    const [loading, setLoading] = useState<boolean>(false);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -33,11 +33,9 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
             });
             const data = await res.json();
             if (res.ok) {
+                setLoading(true);
                 console.log('Login successful:', data);
-                setShowLogin && setShowLogin(false);
                 toast.success('Login successful!');
-                router.push('/dashboard')
-                
             } else {
                 console.error('Login failed:', data);
                 toast.error('Login failed: ' + data.message);
@@ -45,10 +43,20 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
         } catch (error) {
             console.error('Error during login:', error);
             toast.error('An error occurred. Please try again.');
+        }finally{
+                setShowLogin && setShowLogin(false);
+                router.push('/dashboard')
+                setLoading(false);
         }
 
     }
-
+    if (loading) {
+        return (
+            <div className='bg-black/80 flex justify-center items-center h-screen'>
+                <p className='text-white'>Loading.....</p>
+            </div>
+        )
+    }
     return (
         <>
             <div className="fixed top-6 left-4 hover:cursor-pointer hover:scale-125 ease-in-out duration-150" onClick={() => setShowLogin && setShowLogin(false)}><X /></div>

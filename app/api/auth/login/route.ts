@@ -29,16 +29,35 @@ export async function POST(req: Request) {
       });
     }
 
-    const device = req.headers.get("user-agent") ?? "unknown device";
-    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown IP";
+const device = req.headers.get("user-agent") ?? "unknown device";
+const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown IP";
 
-    const session = await prisma.session.create({
-      data:{
-        userId: user.id,
-        device,
-        ip: ip
-      },
-    })
+// Deduplicate session per user + device + IP
+let session = await prisma.session.findFirst({
+  where: {
+    userId: user.id,
+    device,
+    ip: ip
+  }
+});
+if (session) {
+  session = await prisma.session.update({
+    where: { id: session.id },
+    data: {
+      updatedAt: new Date(),
+      isOnline: true
+    }
+  });
+} else {
+  session = await prisma.session.create({
+    data: {
+      userId: user.id,
+      device,
+      ip: ip,
+      isOnline: true
+    }
+  });
+}
 
 
     const token = await new SignJWT({ id: user.id, sessionId: session.id })
