@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   title: "Sync Beats",
   description: "Play Music In Sync with multiple devices at same time",
     icons: {
-    icon: `${favicon}`,  
+    icon: '/public/image/favicon.svg',  
   },
 };
 

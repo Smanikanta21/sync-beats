@@ -10,11 +10,10 @@ export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [showLogin, setShowLogin] = useState<boolean>(false);
   const [showSignup, setShowSignup] = useState<boolean>(false);
-
   return (
     <>
       {showLogin ? (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
-        <div className='w-screen '>
+        <div className='w-screen transition-all duration-150 ease-in-out'>
           <LoginPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />
         </div>
       </div>) : null}
@@ -133,9 +132,9 @@ export default function LandingPage() {
           </div>
         </div>
       </div>
-      <div className='md:mx-38 mx-8 mt-12 sb-glass rounded-xl'>
-        <div className='flex flex-col md:flex-row justify-evenly'>
-          <div className=" p-10 flex flex-col gap-6 md:border-r border-white">
+      <div className='md:mx-40 mx-8 mt-12 rounded-xl'>
+        <div className='flex flex-col md:flex-row justify-center'>
+          <div className=" p-10 flex flex-col gap-6 sb-glass rounded-xl ">
             <h1 className="text-3xl font-bold text-white">Contact Me</h1>
             <p className="text-white/60">Have questions, feedback, or just want to say hi? Fill out the formbelow or reach me at{" "}
               <a href="mailto:siraprapuabhinay21@gmail.com" className="text-cyan-300 hover:underline">
@@ -161,17 +160,6 @@ export default function LandingPage() {
 
               <button type="submit" className="sb-btn sb-btn-primary hover:scale-105 transition-all cursor-pointer">Send Message</button>
             </form>
-          </div>
-          <div className='flex flex-col md:flex-col items-center gap-8 justify-evenly mb-8 py-8'>
-            <div>
-              <h1 className='text-xl font-bold'>Contact Us through socials</h1>
-            </div>
-            <div className='flex flex-col gap-6'>
-              <a href='https://www.instagram.com/abhi._.nay' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><CiInstagram size={24} className='text-pink-500' />Instagram</a>
-              <a href='mailto:siraparapuabhinay21@gmail.com ' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><Mail size={24} className='text-blue-500' />Email</a>
-              <a href='https://github.com/Smanikanta21' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><FaGithub size={24} className='text-white' />Github</a>
-              <a href='' className='bg-white/10 px-4 py-2 rounded-xl border text-xl flex flex-row justify-center items-center gap-2 border-white/60'><FaLinkedin size={24} className='text-blue-800' />LinkedIn</a>
-            </div>
           </div>
         </div>
       </div>

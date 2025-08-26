@@ -15,6 +15,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState(false);
+  const [name, setName] = useState<string>("");
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +62,11 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
           />
           <h1 className="text-2xl font-bold text-center text-white mb-6">Sign Up</h1>
           <form onSubmit={handleSignUp}>
+            <div className="mb-4">
+              <label className="block text-white mb-2" htmlFor="name">Name</label>
+              <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter Your Name" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+            </div>
+
             <div className="mb-4">
               <label className="block text-white mb-2" htmlFor="email">Email</label>
               <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter Your Email" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required />

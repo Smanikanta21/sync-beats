@@ -2,9 +2,10 @@
 export const dynamic = "force-dynamic";
 import { useState, useEffect} from 'react'
 import { useRouter } from 'next/navigation'
-import { Music } from 'lucide-react'
+import { Music,Menu } from 'lucide-react'
 export default function DashBoard(){
     const router = useRouter()
+    const[sidebar,setSideBar] = useState(false)
     const[loading,setLoading] = useState(true)
     useEffect(()=>{
         const token = localStorage.getItem("token")
@@ -25,12 +26,15 @@ export default function DashBoard(){
         <div className="h-screen">
             <div className="fixed inset-0">
                 <div className="flex flex-row justify-between items-center bg-transparent backdrop-blur-3xl py-4 px-4">
-                    <div className='flex flex-row items-center justify-center gap-1'>
+                    <div className='fixed '><Menu className='cursor-pointer'/> {sidebar && <div>
+                            
+                        </div>}</div>
+                    <div className='flex flex-row items-center justify-center pl-12 gap-1'>
                         <Music/>
-                        <a className='text-xl font-bold' href="#">SyncBeats</a>
+                        <a className='text-xl font-extrabold' href="#">SyncBeats</a>
                     </div>
                     <div>
-                        
+                        <button className='text-red hover:bg-red-700 hover:text-white rounded-xl cursor-pointer px-2 py-1'>Logout</button>
                     </div>
                 </div>
                 
