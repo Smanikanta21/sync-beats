@@ -2,6 +2,8 @@
 import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState } from "react";
 import { BorderBeam } from "@/components/magicui/border-beam";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 type PropData = {
   showSignup?: boolean;
@@ -33,14 +35,14 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
         console.log("Sign up successful:", data);
         setShowSignup(false);
         setShowLogin(true);
-        alert("Sign up successful! Please log in.");
+        toast.success("Sign up successful! Please log in.");
       } else {
         console.error("Sign up failed:", data);
-        alert("Sign up failed: " + data.message);
+        toast.error("Sign up failed: " + data.message);
       }
     } catch (error) {
       console.error("Error during sign up:", error);
-      alert("An error occurred. Please try again.");
+      toast.error("An error occurred. Please try again.");
     }
   };
 

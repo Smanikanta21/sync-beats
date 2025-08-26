@@ -3,6 +3,8 @@ import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import { BorderBeam } from "@/components/magicui/border-beam";
 import { useRouter } from 'next/navigation'
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 type PropData = {
     setShowLogin?: (show: boolean) => void;
@@ -34,16 +36,16 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
                 localStorage.setItem('token',data.token)
                 console.log('Login successful:', data);
                 setShowLogin && setShowLogin(false);
-                alert('Login successful!');
+                toast.success('Login successful!');
                 router.push('/dashboard')
                 
             } else {
                 console.error('Login failed:', data);
-                alert('Login failed: ' + data.message);
+                toast.error('Login failed: ' + data.message);
             }
         } catch (error) {
             console.error('Error during login:', error);
-            alert('An error occurred. Please try again.');
+            toast.error('An error occurred. Please try again.');
         }
 
     }
