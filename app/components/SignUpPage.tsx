@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { BorderBeam } from "@/components/magicui/border-beam";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import {AnimatedTooltip} from '@/components/ui/animated-tooltip'
 
 type PropData = {
   showSignup?: boolean;
@@ -13,6 +14,18 @@ type PropData = {
 
 
 export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
+
+  const tooltipItems = [{
+    id: 1, name: "Sign In With Spotify", designation: "Sign in with your Spotify account to sync your music.",
+    image: "/images/spotify.png"
+    }, {
+    id: 2, name: "Sign In With Apple Music", designation: "Sign in with your Apple Music account to sync your music.",
+    image: "/images/applemusic.svg"
+    },{
+    id:3, name:"Sign In with Google",designation:"Sign in with your Google account to sync your music.",
+    image: "/images/google.svg"
+    }]
+
   const [email, setEmail] = useState<string>("");
   const [username, setUsername] = useState<string>("");
   const [password, setPassword] = useState<string>("");
@@ -85,9 +98,8 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
               <button type="button" className="absolute right-2 top-10 cursor-pointer hover:scale-115 ease-in-out duration-150" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <Eye /> : <EyeClosed />} </button>
             </div>
             <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200" >Sign Up</button>
-            <div className="w-full flex flex-col items-center justify-center mt-6 gap-1">
-              <button className="flex justify-center gap-2 border px-18 rounded-xl items-center cursor-pointer font-bold py-2"><img src="/images/spotify.png" className="w-6 h-6" alt="" />Continue With Spotify</button>
-              <button className="flex justify-center items-center gap-2 border px-14 rounded-xl cursor-pointer font-bold py-2"><img src="/images/applemusic.svg" className="w-6 h-6" alt="" />Continue With Apple Music</button>
+            <div className="w-full flex flex-row items-center justify-center mt-6 gap-2">
+              <AnimatedTooltip items={tooltipItems} />
             </div>
           </form>
           <div>

@@ -33,6 +33,7 @@ export default function DashBoard(){
             toast.error("Loggout unsuccessfull")
             console.log(err)
         }finally{
+            setLoading(false)
             toast.success('Logged out successfully!')
             router.push('/')
         }
