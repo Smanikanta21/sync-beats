@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { SignJWT } from "jose";
-import * as UAParser from "ua-parser-js";
+const UAParser = require("ua-parser-js");
+
 const prisma = new PrismaClient()
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
