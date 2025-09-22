@@ -156,6 +156,9 @@ export async function GET(req: Request) {
     return res;
   } catch (err: unknown) {
     console.error("Google OAuth callback error:", err);
-    return NextResponse.json({ error: "OAuth callback failed" }, { status: 500 });
+    let message = "OAuth callback failed";
+    if (err instanceof Error) message = err.message + (err.stack ? "\n" + err.stack : "");
+    else if (typeof err === "string") message = err;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
