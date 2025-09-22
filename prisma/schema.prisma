@@ -16,6 +16,7 @@ datasource db {
 model User{
   id        String   @id @default(cuid())
   email     String   @unique
+  emailVerified DateTime?
   name      String
   username  String   @unique
   password  String
@@ -24,6 +25,7 @@ model User{
   updatedAt DateTime @updatedAt
 
   sessions Session[]
+  account Account[]
 }
 
 model Session{
@@ -36,4 +38,19 @@ model Session{
   isOnline  Boolean  @default(true) 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+
+  @@index([userId])
+}
+
+model Account{
+  id  String @id @default(cuid())
+  provider String
+  provider_AccountId String
+  accessToken String
+  refreshtoken String
+  user User @relation(fields: [userId],references: [id])
+  userId String
+
+  @@unique([provider,provider_AccountId])
 }

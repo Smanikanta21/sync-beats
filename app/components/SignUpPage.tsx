@@ -12,19 +12,31 @@ type PropData = {
   setShowSignup: (show: boolean) => void;
 };
 
-
 export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
 
-  const tooltipItems = [{
-    id: 1, name: "Sign In With Spotify", designation: "Sign in with your Spotify account to sync your music.",
-    image: "/images/spotify.png"
-    }, {
-    id: 2, name: "Sign In With Apple Music", designation: "Sign in with your Apple Music account to sync your music.",
-    image: "/images/applemusic.svg"
-    },{
-    id:3, name:"Sign In with Google",designation:"Sign in with your Google account to sync your music.",
-    image: "/images/google.svg"
-    }]
+      const GoogleSignin = () =>{
+        const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+        const redirectUri = `${window.location.origin}/api/auth/callback/google`;
+
+        const scope = encodeURIComponent("openid email profile");
+        const responseType = "code";
+        const accessType = "offline";
+
+        const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}&access_type=${accessType}`;
+        window.location.href = googleAuthUrl;
+    }
+    
+      const tooltipItems = [{
+      id: 1, name: "Sign In With Spotify", designation: "Sign in with your Spotify account.",
+      image: "/images/spotify.png"
+      }, {
+      id: 2, name: "Sign In With Apple Music", designation: "Sign in with your Apple Music account.",
+      image: "/images/applemusic.svg"
+      },{
+      id:3, name:"Sign In with Google",designation:"Sign in with your Google account.",
+      image: "/images/google.svg",
+      onClick: GoogleSignin
+      }]
 
   const [email, setEmail] = useState<string>("");
   const [username, setUsername] = useState<string>("");
