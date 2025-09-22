@@ -23,15 +23,6 @@ export async function GET(req: Request) {
         username: true,
         email: true,
         name: true,
-        sessions: {
-          select: {
-            id: true,
-            device: true,
-            ip: true,
-            updatedAt: true,
-            isOnline: true,
-          },
-        },
       },
     });
 
@@ -39,17 +30,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    const sessionsWithStatus = user.sessions.map((session) => ({
-      ...session,
-      status: session.isOnline === true ? "online" : "offline",
-    }));
-
-    return NextResponse.json({
-      user: {
-        ...user,
-        sessions: sessionsWithStatus,
-      },
-    });
+    // return NextResponse.json({
+    //   user,
+    // });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ message: "Invalid token" }, { status: 403 });

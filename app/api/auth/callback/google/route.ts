@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { SignJWT } from "jose";
-import UAParserPkg from "ua-parser-js";
-const UAParser = UAParserPkg; // workaround for CommonJS default
 
 
 const prisma = new PrismaClient()
@@ -45,10 +43,10 @@ function getIp(req: Request) {
   return "unknown";
 }
 
-function getDevice(req: Request) {
-  // Use User-Agent as device fingerprint (not perfect)
-  return req.headers.get("user-agent") || "unknown";
-}
+// function getDevice(req: Request) {
+//   // Use User-Agent as device fingerprint (not perfect)
+//   return req.headers.get("user-agent") || "unknown";
+// }
 
 export async function GET(req: Request) {
   try {
@@ -81,7 +79,7 @@ export async function GET(req: Request) {
           name,
           profile_pic: picture,
           emailVerified: new Date(),
-          username: email, // or generate a unique username if needed
+          username: email.split('@')[1], // or generate a unique username if needed
           password: "", // or set a random string, since Google users may not have a password
         },
       });
@@ -113,10 +111,7 @@ export async function GET(req: Request) {
         refreshtoken: id_token,
       },
     });
-    const userAgent = req.headers.get("user-agent") || "unknown";
-    const parser = new UAParser(userAgent);
-    const uaResult = parser.getResult();
-    const device = `${uaResult.browser.name || "Unknown Browser"} ${uaResult.browser.version || ""} - ${uaResult.os.name || "Unknown OS"} ${uaResult.os.version || ""}`.trim();
+    const device = "unknown";
     const ip = getIp(req);
     let session = await prisma.session.findFirst({
       where: {
