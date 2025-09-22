@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { SignJWT } from "jose";
-const UAParser = require("ua-parser-js");
 
 const prisma = new PrismaClient()
 
@@ -114,6 +113,8 @@ export async function GET(req: Request) {
 
     // 5. Create/update session (dedup by device+IP)
         const userAgent = req.headers.get("user-agent") || "unknown";
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const UAParser = require("ua-parser-js");
     const parser = new UAParser(userAgent);
     const uaResult = parser.getResult();
     const device = `${uaResult.browser.name || "Unknown Browser"} ${uaResult.browser.version || ""} - ${uaResult.os.name || "Unknown OS"} ${uaResult.os.version || ""}`.trim();
