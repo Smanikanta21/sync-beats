@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { BorderBeam } from "@/components/magicui/border-beam";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import {AnimatedTooltip} from '@/components/ui/animated-tooltip'
+import { AnimatedTooltip } from '@/components/ui/animated-tooltip'
 
 type PropData = {
   showSignup?: boolean;
@@ -14,29 +14,32 @@ type PropData = {
 
 export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
 
-      const GoogleSignin = () =>{
-        const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-        const redirectUri = `${window.location.origin}/api/auth/callback/google`;
+  const GoogleSignin = () => {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    const redirectUri =
+      process.env.NODE_ENV === "production"
+        ? "https://syncbeats.app/api/auth/callback/google"
+        : "http://localhost:3000/api/auth/callback/google";
 
-        const scope = encodeURIComponent("openid email profile");
-        const responseType = "code";
-        const accessType = "offline";
+    const scope = encodeURIComponent("openid email profile");
+    const responseType = "code";
+    const accessType = "offline";
 
-        const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}&access_type=${accessType}`;
-        window.location.href = googleAuthUrl;
-    }
-    
-      const tooltipItems = [{
-      id: 1, name: "Sign In With Spotify", designation: "Sign in with your Spotify account.",
-      image: "/images/spotify.png"
-      }, {
-      id: 2, name: "Sign In With Apple Music", designation: "Sign in with your Apple Music account.",
-      image: "/images/applemusic.svg"
-      },{
-      id:3, name:"Sign In with Google",designation:"Sign in with your Google account.",
-      image: "/images/google.svg",
-      onClick: GoogleSignin
-      }]
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}&access_type=${accessType}`;
+    window.location.href = googleAuthUrl;
+  }
+
+  const tooltipItems = [{
+    id: 1, name: "Sign In With Spotify", designation: "Sign in with your Spotify account.",
+    image: "/images/spotify.png"
+  }, {
+    id: 2, name: "Sign In With Apple Music", designation: "Sign in with your Apple Music account.",
+    image: "/images/applemusic.svg"
+  }, {
+    id: 3, name: "Sign In with Google", designation: "Sign in with your Google account.",
+    image: "/images/google.svg",
+    onClick: GoogleSignin
+  }]
 
   const [email, setEmail] = useState<string>("");
   const [username, setUsername] = useState<string>("");
@@ -49,14 +52,14 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
-        headers: { "Content-Type": "application/json",},
-        body: JSON.stringify({ name,email, username, password })
+        headers: { "Content-Type": "application/json", },
+        body: JSON.stringify({ name, email, username, password })
       });
       const data = await res.json();
       console.log(data);
 
       if (res.ok) {
-        localStorage.setItem("token:",data.token)
+        localStorage.setItem("token:", data.token)
         console.log("Sign up successful:", data);
         setShowSignup(false);
         setShowLogin(true);

@@ -5,7 +5,7 @@ import { BorderBeam } from "@/components/magicui/border-beam";
 import { useRouter } from 'next/navigation'
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import {AnimatedTooltip} from '@/components/ui/animated-tooltip'
+import { AnimatedTooltip } from '@/components/ui/animated-tooltip'
 
 type PropData = {
     setShowLogin?: (show: boolean) => void;
@@ -13,10 +13,13 @@ type PropData = {
 };
 
 export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
-    
-    const GoogleSignin = () =>{
+
+    const GoogleSignin = () => {
         const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-        const redirectUri = `${window.location.origin}/api/auth/callback/google`;
+        const redirectUri =
+            process.env.NODE_ENV === "production"
+                ? "https://syncbeats.app/api/auth/callback/google"
+                : "http://localhost:3000/api/auth/callback/google";
 
         const scope = encodeURIComponent("openid email profile");
         const responseType = "code";
@@ -25,17 +28,17 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
         const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}&access_type=${accessType}`;
         window.location.href = googleAuthUrl;
     }
-    
+
     const tooltipItems = [{
-    id: 1, name: "Sign In With Spotify", designation: "Sign in with your Spotify account.",
-    image: "/images/spotify.png"
+        id: 1, name: "Sign In With Spotify", designation: "Sign in with your Spotify account.",
+        image: "/images/spotify.png"
     }, {
-    id: 2, name: "Sign In With Apple Music", designation: "Sign in with your Apple Music account.",
-    image: "/images/applemusic.svg"
-    },{
-    id:3, name:"Sign In with Google",designation:"Sign in with your Google account.",
-    image: "/images/google.svg",
-    onClick: GoogleSignin
+        id: 2, name: "Sign In With Apple Music", designation: "Sign in with your Apple Music account.",
+        image: "/images/applemusic.svg"
+    }, {
+        id: 3, name: "Sign In with Google", designation: "Sign in with your Google account.",
+        image: "/images/google.svg",
+        onClick: GoogleSignin
     }]
 
     const router = useRouter()
@@ -54,8 +57,9 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
         try {
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json',
-                 },
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify({ identifier, password }),
             });
             const data = await res.json();
@@ -70,10 +74,10 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
         } catch (error) {
             console.error('Error during login:', error);
             toast.error('An error occurred. Please try again.');
-        }finally{
-                setShowLogin && setShowLogin(false);
-                router.push('/dashboard')
-                setLoading(false);
+        } finally {
+            setShowLogin && setShowLogin(false);
+            router.push('/dashboard')
+            setLoading(false);
         }
 
     }
@@ -114,12 +118,12 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
                         </div>
                         <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">Login</button>
                         <div className="mt-6 text-center text-white/60">
-                        <div><p>---------- or continue with ----------</p></div>
-                        <div className="w-full flex flex-row items-center justify-center mt-6 gap-2">
-                            <AnimatedTooltip items={tooltipItems} />
-                            
-                        </div>
-                        <p className="mt-2">{`Don't`} have an account? <span className="text-blue-400 cursor-pointer hover:underline" onClick={() => { renderLogin() }}>Sign Up</span></p>
+                            <div><p>---------- or continue with ----------</p></div>
+                            <div className="w-full flex flex-row items-center justify-center mt-6 gap-2">
+                                <AnimatedTooltip items={tooltipItems} />
+
+                            </div>
+                            <p className="mt-2">{`Don't`} have an account? <span className="text-blue-400 cursor-pointer hover:underline" onClick={() => { renderLogin() }}>Sign Up</span></p>
                         </div>
                     </form>
                 </div>
