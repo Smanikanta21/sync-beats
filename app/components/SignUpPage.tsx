@@ -16,6 +16,10 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
 
   const handleGoogleSignIn = () => {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      alert("Google Client ID is not set. Please contact support.");
+      return;
+    }
     const redirectUri =
       process.env.NODE_ENV === "production"
         ? "https://syncbeats.app/api/auth/callback/google"
