@@ -79,7 +79,7 @@ export async function GET(req: Request) {
           name,
           profile_pic: picture,
           emailVerified: new Date(),
-          username: email.split('@')[1], // or generate a unique username if needed
+          username: email.split('@')[0], // set username as prefix of email for Google users
           password: "", // or set a random string, since Google users may not have a password
         },
       });
