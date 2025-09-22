@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     );
 
     const user = await prisma.user.findUnique({
-      where: { id: payload.id as string },
+      where: { id: payload.sub as string },
       select: {
         id: true,
         username: true,
@@ -34,7 +34,10 @@ export async function GET(req: Request) {
     //   user,
     // });
   } catch (err) {
-    console.error(err);
-    return NextResponse.json({ message: "Invalid token" }, { status: 403 });
+    console.error("Dashboard API error:", err);
+    let message = "Invalid token";
+    if (err instanceof Error) message = err.message + (err.stack ? "\n" + err.stack : "");
+    else if (typeof err === "string") message = err;
+    return NextResponse.json({ message }, { status: 403 });
   }
 }
