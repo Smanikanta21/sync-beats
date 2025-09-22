@@ -14,7 +14,7 @@ type PropData = {
 
 export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
 
-    const GoogleSignin = () => {
+    const handleGoogleSignIn = () => {
         const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
         const redirectUri =
             process.env.NODE_ENV === "production"
@@ -23,9 +23,9 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
 
         const scope = encodeURIComponent("openid email profile");
         const responseType = "code";
-        const accessType = "offline";
 
-        const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}&access_type=${accessType}`;
+        const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}`;
+
         window.location.href = googleAuthUrl;
     }
 
@@ -38,7 +38,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     }, {
         id: 3, name: "Sign In with Google", designation: "Sign in with your Google account.",
         image: "/images/google.svg",
-        onClick: GoogleSignin
+        onClick: handleGoogleSignIn
     }]
 
     const router = useRouter()
