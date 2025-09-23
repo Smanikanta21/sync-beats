@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Music, Menu, UserCircle, LogOut, ArrowRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingIndicator } from '@/components/application/loading-indicator/loading-indicator';
 import Link from 'next/link';
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -57,7 +58,8 @@ export default function DashBoard(){
     if (loading) {
         return (
             <div className='h-screen w-full'>
-                <Skeleton className="h-12 w-12 rounded-full" />
+                <LoadingIndicator type="dot-circle" size="md" label="Loading..." />;
+                <Skeleton></Skeleton>
             </div>
         );
     }
@@ -71,7 +73,7 @@ export default function DashBoard(){
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
+        <Skeleton className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
             {/* Header */}
             <header className="flex flex-row justify-between items-center bg-black/60 backdrop-blur-md py-4 px-6 shadow-lg sticky top-0 z-10">
                 <div className="flex items-center gap-2">
@@ -130,6 +132,6 @@ export default function DashBoard(){
                     </div>
                 </div>
             </main>
-        </div>
+        </Skeleton>
     )
 }
