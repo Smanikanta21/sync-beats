@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Music, Menu, UserCircle, LogOut, ArrowRight } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -55,8 +56,8 @@ export default function DashBoard(){
 
     if (loading) {
         return (
-            <div className='bg-black/80 flex justify-center items-center h-screen'>
-                <p className='text-white'>Loading.....</p>
+            <div className='h-screen w-full'>
+                <Skeleton className="h-12 w-12 rounded-full" />
             </div>
         );
     }
