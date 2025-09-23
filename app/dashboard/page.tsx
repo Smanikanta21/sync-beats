@@ -70,51 +70,51 @@ export default function DashBoard() {
     fetchUser();
   }, []);
 
-  const fetchDevices = async () => {
-    setDevicesLoading(true);
-    setDevicesError(null);
-    try {
-      const res = await fetch('/api/devices');
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || 'Failed to fetch devices');
-      }
-      const data = await res.json();
-      setDevices(data.devices || []);
-    } catch (e) {
-      setDevicesError((e as Error).message);
-    } finally {
-      setDevicesLoading(false);
-    }
-  };
+//   const fetchDevices = async () => {
+//     setDevicesLoading(true);
+//     setDevicesError(null);
+//     try {
+//       const res = await fetch('/api/devices');
+//       if (!res.ok) {
+//         const data = await res.json().catch(() => ({}));
+//         throw new Error(data.message || 'Failed to fetch devices');
+//       }
+//       const data = await res.json();
+//       setDevices(data.devices || []);
+//     } catch (e) {
+//       setDevicesError((e as Error).message);
+//     } finally {
+//       setDevicesLoading(false);
+//     }
+//   };
 
-  useEffect(() => {
-    // Fetch devices once user is loaded & authenticated
-    if (user) fetchDevices();
-  }, [user]);
+//   useEffect(() => {
+//     // Fetch devices once user is loaded & authenticated
+//     if (user) fetchDevices();
+//   }, [user]);
 
-  const handleStartSession = () => {
-    // Placeholder: will create a sync session via future API
-    toast.info('Starting a new sync session (coming soon)');
-  };
+//   const handleStartSession = () => {
+//     // Placeholder: will create a sync session via future API
+//     toast.info('Starting a new sync session (coming soon)');
+//   };
 
-  const handleJoinSession = () => {
-    // Placeholder join (could open modal for invite code)
-    toast.info('Join session flow coming soon');
-  };
+//   const handleJoinSession = () => {
+//     // Placeholder join (could open modal for invite code)
+//     toast.info('Join session flow coming soon');
+//   };
 
-  const handleResync = async () => {
-    setRefreshingSync(true);
-    try {
-      // In future: call /api/session/resync or similar
-      await new Promise(r => setTimeout(r, 800));
-      toast.success('Resync triggered');
-    } catch (e) {
-      toast.error('Failed to trigger resync');
-    } finally {
-      setRefreshingSync(false);
-    }
-  };
+//   const handleResync = async () => {
+//     setRefreshingSync(true);
+//     try {
+//       // In future: call /api/session/resync or similar
+//       await new Promise(r => setTimeout(r, 800));
+//       toast.success('Resync triggered');
+//     } catch (e) {
+//       toast.error('Failed to trigger resync');
+//     } finally {
+//       setRefreshingSync(false);
+//     }
+//   };
 
   if (loading) {
     return (
@@ -180,13 +180,13 @@ export default function DashBoard() {
             )}
           </div>
           <div className="flex flex-col gap-3 w-full md:w-auto">
-            <button onClick={handleStartSession} className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition">
+            <button className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition">
               <Play size={18} /> Start New Session
             </button>
-            <button onClick={handleJoinSession} className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-gray-800 hover:bg-gray-700 font-semibold transition">
+            <button className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-gray-800 hover:bg-gray-700 font-semibold transition">
               <Users size={18} /> Join Session
             </button>
-            <button disabled={refreshingSync} onClick={handleResync} className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg border border-gray-600 hover:border-blue-500 font-semibold transition disabled:opacity-50">
+            <button disabled={refreshingSync} className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg border border-gray-600 hover:border-blue-500 font-semibold transition disabled:opacity-50">
               <RefreshCw size={18} className={refreshingSync ? 'animate-spin' : ''} /> Resync
             </button>
           </div>
@@ -203,8 +203,8 @@ export default function DashBoard() {
               No active session. Start one to synchronize music across your devices.
             </div>
             <div className="mt-2 flex flex-wrap gap-3">
-              <button onClick={handleStartSession} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm flex items-center gap-2"><Play size={16}/> Start</button>
-              <button onClick={handleJoinSession} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm flex items-center gap-2"><PlusCircle size={16}/> Join with Code</button>
+              <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm flex items-center gap-2"><Play size={16}/> Start</button>
+              <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm flex items-center gap-2"><PlusCircle size={16}/> Join with Code</button>
             </div>
             <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
               <div className="bg-gray-800/60 p-3 rounded-md border border-gray-700">
@@ -226,7 +226,7 @@ export default function DashBoard() {
           <div className="bg-gray-900/70 rounded-xl p-6 border border-gray-700 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold flex items-center gap-2"><Cast className="text-purple-400" size={22}/> Devices</h2>
-              <button onClick={fetchDevices} className="text-xs px-3 py-1 rounded-md bg-gray-800 hover:bg-gray-700">Refresh</button>
+              <button className="text-xs px-3 py-1 rounded-md bg-gray-800 hover:bg-gray-700">Refresh</button>
             </div>
             {devicesLoading && <div className="text-sm text-gray-400">Loading devices...</div>}
             {devicesError && <div className="text-sm text-red-400">{devicesError}</div>}
