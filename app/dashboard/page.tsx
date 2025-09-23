@@ -9,28 +9,10 @@ import Link from 'next/link';
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-interface User {
-  id: string;
-  name: string;
-  username: string;
-  email: string;
-}
-
-interface Device {
-  id: string;
-  name: string;
-  platform: string;
-  status: string;
-  lastSeen: string;
-  capabilities: string[];
-}
 
 export default function DashBoard() {
   const router = useRouter();
   const [loading, setLoading] = useState<boolean>(true);
-  const [user, setUser] = useState<User | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
   const [devicesLoading, setDevicesLoading] = useState<boolean>(false);
   const [devicesError, setDevicesError] = useState<string | null>(null);
   const [refreshingSync, setRefreshingSync] = useState<boolean>(false);
@@ -49,87 +31,12 @@ export default function DashBoard() {
     }
   };
 
-  useEffect(() => {
-    async function fetchUser() {
-      try {
-        const res = await fetch('/api/dashboard', { method: 'GET' });
-        if (!res.ok) {
-          const data = await res.json();
-          setError(data.message || 'Unknown error');
-          setLoading(false);
-          return;
-        }
-        const data = await res.json();
-        setUser(data.user);
-      } catch (err) {
-        setError((err as Error).message);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchUser();
-  }, []);
-
-//   const fetchDevices = async () => {
-//     setDevicesLoading(true);
-//     setDevicesError(null);
-//     try {
-//       const res = await fetch('/api/devices');
-//       if (!res.ok) {
-//         const data = await res.json().catch(() => ({}));
-//         throw new Error(data.message || 'Failed to fetch devices');
-//       }
-//       const data = await res.json();
-//       setDevices(data.devices || []);
-//     } catch (e) {
-//       setDevicesError((e as Error).message);
-//     } finally {
-//       setDevicesLoading(false);
-//     }
-//   };
-
-//   useEffect(() => {
-//     // Fetch devices once user is loaded & authenticated
-//     if (user) fetchDevices();
-//   }, [user]);
-
-//   const handleStartSession = () => {
-//     // Placeholder: will create a sync session via future API
-//     toast.info('Starting a new sync session (coming soon)');
-//   };
-
-//   const handleJoinSession = () => {
-//     // Placeholder join (could open modal for invite code)
-//     toast.info('Join session flow coming soon');
-//   };
-
-//   const handleResync = async () => {
-//     setRefreshingSync(true);
-//     try {
-//       // In future: call /api/session/resync or similar
-//       await new Promise(r => setTimeout(r, 800));
-//       toast.success('Resync triggered');
-//     } catch (e) {
-//       toast.error('Failed to trigger resync');
-//     } finally {
-//       setRefreshingSync(false);
-//     }
-//   };
 
   if (loading) {
     return (
       <div className='h-screen w-full flex flex-col items-center justify-center gap-6'>
         <LoadingIndicator type="dot-circle" size="md" label="Loading user..." />
         <Skeleton className="w-56 h-10" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className='bg-black/80 flex flex-col justify-center items-center h-screen gap-4'>
-        <p className='text-red-400 text-lg'>Error: {error}</p>
-        <button className='px-4 py-2 bg-blue-600 rounded-lg text-white' onClick={() => window.location.reload()}>Retry</button>
       </div>
     );
   }
@@ -156,12 +63,10 @@ export default function DashBoard() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="w-full px-4 py-10 md:py-14 max-w-7xl mx-auto flex flex-col gap-10">
-        {/* Welcome / User Card */}
         <section className="w-full bg-gray-900/70 rounded-2xl shadow-xl p-6 md:p-8 border border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-bold">Welcome back{user ? `, ${user.name || user.username}` : ''}!</h1>
+          {/* <div className="flex flex-col gap-2">
+            <h1 className="text-3xl font-bold">Welcome back{Users ? `, ${Users.name || user.username}` : ''}!</h1>
             <p className="text-gray-300">Manage your synchronized playback sessions and devices below.</p>
             {user && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 text-sm">
@@ -179,7 +84,7 @@ export default function DashBoard() {
                 </div>
               </div>
             )}
-          </div>
+          </div> */}
           <div className="flex flex-col gap-3 w-full md:w-auto">
             <button className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition">
               <Play size={18} /> Start New Session
@@ -193,7 +98,6 @@ export default function DashBoard() {
           </div>
         </section>
 
-        {/* Current Session Placeholder */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 bg-gray-900/70 rounded-xl p-6 border border-gray-700 flex flex-col gap-4">
             <div className="flex items-center justify-between">
@@ -214,7 +118,7 @@ export default function DashBoard() {
               </div>
               <div className="bg-gray-800/60 p-3 rounded-md border border-gray-700">
                 <p className="text-gray-400">Devices</p>
-                <p className="text-sm font-semibold mt-1">{devices.length}</p>
+                {/* <p className="text-sm font-semibold mt-1">{devices.length}</p> */}
               </div>
               <div className="bg-gray-800/60 p-3 rounded-md border border-gray-700">
                 <p className="text-gray-400">Status</p>
@@ -229,13 +133,9 @@ export default function DashBoard() {
               <h2 className="text-xl font-semibold flex items-center gap-2"><Cast className="text-purple-400" size={22}/> Devices</h2>
               <button className="text-xs px-3 py-1 rounded-md bg-gray-800 hover:bg-gray-700">Refresh</button>
             </div>
-            {devicesLoading && <div className="text-sm text-gray-400">Loading devices...</div>}
-            {devicesError && <div className="text-sm text-red-400">{devicesError}</div>}
-            {!devicesLoading && !devicesError && devices.length === 0 && (
-              <div className="text-sm text-gray-400">No devices detected yet.</div>
-            )}
+            <div className="text-sm text-gray-400">No devices detected yet.</div>
             <ul className="flex flex-col gap-3 max-h-72 overflow-y-auto pr-1">
-              {devices.map(d => (
+              {/* {devices.map(d => (
                 <li key={d.id} className="flex flex-col gap-1 bg-gray-800/60 p-3 rounded-lg border border-gray-700">
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium flex items-center gap-2">
@@ -249,13 +149,12 @@ export default function DashBoard() {
                     <span>{d.capabilities.length} caps</span>
                   </div>
                 </li>
-              ))}
+              ))} */}
             </ul>
             <p className="text-[11px] text-gray-500 mt-1">Real devices will appear here when the realtime layer is implemented.</p>
           </div>
         </section>
 
-        {/* Activity & Roadmap */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="bg-gray-900/70 rounded-xl p-6 border border-gray-700 flex flex-col gap-4">
             <h2 className="text-xl font-semibold">Recent Activity</h2>

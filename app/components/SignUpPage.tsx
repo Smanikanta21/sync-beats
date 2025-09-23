@@ -14,24 +14,6 @@ type PropData = {
 
 export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
 
-  const handleGoogleSignIn = () => {
-    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-    if (!clientId) {
-      alert("Google Client ID is not set. Please contact support.");
-      return;
-    }
-    const redirectUri =
-      process.env.NODE_ENV === "production"
-        ? "https://syncbeats.app/api/auth/callback/google"
-        : "http://localhost:3000/api/auth/callback/google";
-
-    const scope = encodeURIComponent("openid email profile");
-    const responseType = "code";
-
-    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=${responseType}&scope=${scope}`;
-
-    window.location.href = googleAuthUrl;
-  }
 
   const tooltipItems = [{
     id: 1, name: "Sign In With Spotify", designation: "Sign in with your Spotify account.",
@@ -42,7 +24,6 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
   }, {
     id: 3, name: "Sign In with Google", designation: "Sign in with your Google account.",
     image: "/images/google.svg",
-    onClick: handleGoogleSignIn
   }]
 
   const [email, setEmail] = useState<string>("");
@@ -51,32 +32,32 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState<string>("");
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", },
-        body: JSON.stringify({ name, email, username, password })
-      });
-      const data = await res.json();
-      console.log(data);
+  // const handleSignUp = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   try {
+  //     const res = await fetch("/api/auth/signup", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json", },
+  //       body: JSON.stringify({ name, email, username, password })
+  //     });
+  //     const data = await res.json();
+  //     console.log(data);
 
-      if (res.ok) {
-        localStorage.setItem("token:", data.token)
-        console.log("Sign up successful:", data);
-        setShowSignup(false);
-        setShowLogin(true);
-        toast.success("Sign up successful! Please log in.");
-      } else {
-        console.error("Sign up failed:", data);
-        toast.error("Sign up failed: " + data.message);
-      }
-    } catch (error) {
-      console.error("Error during sign up:", error);
-      toast.error("An error occurred. Please try again.");
-    }
-  };
+  //     if (res.ok) {
+  //       localStorage.setItem("token:", data.token)
+  //       console.log("Sign up successful:", data);
+  //       setShowSignup(false);
+  //       setShowLogin(true);
+  //       toast.success("Sign up successful! Please log in.");
+  //     } else {
+  //       console.error("Sign up failed:", data);
+  //       toast.error("Sign up failed: " + data.message);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error during sign up:", error);
+  //     toast.error("An error occurred. Please try again.");
+  //   }
+  // };
 
   return (
     <>
@@ -95,7 +76,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
             }}
           />
           <h1 className="text-2xl font-bold text-center text-white mb-6">Sign Up</h1>
-          <form onSubmit={handleSignUp}>
+          <form>
             <div className="mb-4">
               <label className="block text-white mb-2" htmlFor="name">Name</label>
               <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter Your Name" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
