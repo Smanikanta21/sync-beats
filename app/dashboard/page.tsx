@@ -139,19 +139,20 @@ export default function DashBoard() {
       {/* Header */}
       <header className="flex flex-row justify-between items-center bg-black/60 backdrop-blur-md py-4 px-6 shadow-lg sticky top-0 z-10 border-b border-gray-800">
         <div className="flex items-center gap-2">
-          <Menu className="cursor-pointer" size={28} />
+          <Menu className="md:hidden cursor-pointer" size={28} />
           <Music className="text-blue-400" size={28} />
           <span className="text-2xl font-extrabold tracking-tight ml-2">SyncBeats</span>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/profile" className="flex items-center gap-1 px-4 py-2 rounded-lg bg-gray-800 hover:bg-blue-700 transition">
+          <Link href="/profile" className="md:flex hidden items-center gap-1 px-4 py-2 rounded-lg bg-gray-800 hover:bg-blue-700 transition">
             <UserCircle className="mr-1" size={22} />
             <span>Profile</span>
             <ArrowRight size={16} />
           </Link>
-          <button className="flex items-center gap-1 px-4 py-2 rounded-lg border border-red-600 text-red-500 hover:bg-red-600 hover:text-white transition" onClick={handleLogout}>
-            <LogOut size={20} /> Logout
+          <button className="md:flex hidden items-center gap-1 px-4 py-2 rounded-lg border border-red-600 text-red-500 hover:bg-red-600 hover:text-white transition" onClick={handleLogout}>
+            <LogOut className='' size={20} /> Logout
           </button>
+          <LogOut className='text-red-600 md:hidden' size={20}/>
         </div>
       </header>
 

@@ -111,35 +111,9 @@ export async function GET(req: Request) {
         refreshtoken: id_token,
       },
     });
-    const device = "unknown";
-    const ip = getIp(req);
-    let session = await prisma.session.findFirst({
-      where: {
-        userId: user.id,
-        device,
-        ip,
-      },
-    });
-    if (!session) {
-      session = await prisma.session.create({
-        data: {
-          userId: user.id,
-          device,
-          ip,
-          isOnline: true,
-        },
-      });
-    } else {
-      session = await prisma.session.update({
-        where: { id: session.id },
-        data: {
-          isOnline: true,
-        },
-      });
-    }
 
     // 6. Create JWT
-    const jwt = await new SignJWT({sub: user.id,email: user.email,name: user.name,sessionId: session.id,
+    const jwt = await new SignJWT({sub: user.id,email: user.email,name: user.name,
     }).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime("7d").sign(new TextEncoder().encode(JWT_SECRET));
 
     // 7. Set cookies and return JWT
@@ -150,8 +124,6 @@ export async function GET(req: Request) {
     // );
     const res = NextResponse.redirect(new URL("/dashboard", req.url));
     res.cookies.set("token", jwt, { httpOnly: true, sameSite: "lax", maxAge: 60 * 60 * 24 * 7, path: "/", secure: process.env.NODE_ENV === "production",
-    });
-    res.cookies.set("sessionId", session.id, {httpOnly: true,sameSite: "lax",maxAge: 60 * 60 * 24 * 7,path: "/",secure: process.env.NODE_ENV === "production",
     });
     return res;
   } catch (err: unknown) {
