@@ -73,7 +73,7 @@ export default function DashBoard(){
     }
 
     return (
-        <Skeleton className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
+        <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
             {/* Header */}
             <header className="flex flex-row justify-between items-center bg-black/60 backdrop-blur-md py-4 px-6 shadow-lg sticky top-0 z-10">
                 <div className="flex items-center gap-2">
@@ -132,6 +132,6 @@ export default function DashBoard(){
                     </div>
                 </div>
             </main>
-        </Skeleton>
+        </div>
     )
 }
