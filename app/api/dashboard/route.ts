@@ -30,9 +30,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ message: "User not found" }, { status: 404 });
     }
 
-    // return NextResponse.json({
-    //   user,
-    // });
+    return NextResponse.json({
+      user,
+    });
   } catch (err) {
     console.error("Dashboard API error:", err);
     let message = "Invalid token";
