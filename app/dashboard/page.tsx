@@ -17,6 +17,7 @@ export default function DashBoard(){
         email: string;
     }
     const [user, setUser] = useState<User | null>(null);
+    const [error, setError] = useState<string | null>(null);
     const handleLogout = async () => {
         try {
             await fetch('/api/auth/logout', { method: 'POST' })
@@ -31,12 +32,41 @@ export default function DashBoard(){
         }
     }
 
+    useEffect(() => {
+        async function fetchUser() {
+            try {
+                const res = await fetch('/api/dashboard', { method: 'GET' });
+                if (!res.ok) {
+                    const data = await res.json();
+                    setError(data.message || 'Unknown error');
+                    setLoading(false);
+                    return;
+                }
+                const data = await res.json();
+                setUser(data.user);
+            } catch (err) {
+                setError((err as Error).message);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchUser();
+    }, []);
+
     if (loading) {
         return (
             <div className='bg-black/80 flex justify-center items-center h-screen'>
                 <p className='text-white'>Loading.....</p>
             </div>
-        )
+        );
+    }
+    if (error) {
+        return (
+            <div className='bg-black/80 flex flex-col justify-center items-center h-screen'>
+                <p className='text-red-400 text-lg mb-4'>Error: {error}</p>
+                <button className='px-4 py-2 bg-blue-600 rounded-lg text-white' onClick={() => window.location.reload()}>Retry</button>
+            </div>
+        );
     }
 
     return (
