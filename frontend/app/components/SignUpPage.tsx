@@ -2,9 +2,8 @@
 import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState } from "react";
 import { BorderBeam } from "@/components/magicui/border-beam";
-import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import { AnimatedTooltip } from '@/components/ui/animated-tooltip'
+import { json } from "stream/consumers";
 
 type PropData = {
   showSignup?: boolean;
@@ -32,32 +31,28 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState<string>("");
 
-  // const handleSignUp = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   try {
-  //     const res = await fetch("/api/auth/signup", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json", },
-  //       body: JSON.stringify({ name, email, username, password })
-  //     });
-  //     const data = await res.json();
-  //     console.log(data);
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try{
+      const res = await fetch('http://localhost:5001/auth/signup',{
+        method : "POST",
+        headers : {"content-type":"application/json"},
+        body : JSON.stringify({name,username,email,password})
+      })
+      const data = res.json()
+      console.log(data)
 
-  //     if (res.ok) {
-  //       localStorage.setItem("token:", data.token)
-  //       console.log("Sign up successful:", data);
-  //       setShowSignup(false);
-  //       setShowLogin(true);
-  //       toast.success("Sign up successful! Please log in.");
-  //     } else {
-  //       console.error("Sign up failed:", data);
-  //       toast.error("Sign up failed: " + data.message);
-  //     }
-  //   } catch (error) {
-  //     console.error("Error during sign up:", error);
-  //     toast.error("An error occurred. Please try again.");
-  //   }
-  // };
+      if(res.ok){
+        alert("Signup Successfull")
+        setShowSignup(false)
+        setShowLogin(true);
+      }else{
+        alert("signup Failed" + data.message);
+      }
+    }catch(err){
+      alert(`Error during Signup : ${err}`)
+    }
+  }
 
   return (
     <>
@@ -76,7 +71,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
             }}
           />
           <h1 className="text-2xl font-bold text-center text-white mb-6">Sign Up</h1>
-          <form>
+          <form onSubmit={handleSignUp}>
             <div className="mb-4">
               <label className="block text-white mb-2" htmlFor="name">Name</label>
               <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter Your Name" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
@@ -97,7 +92,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
               <input type={showPassword ? "text" : "password"} id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter Your Password" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
               <button type="button" className="absolute right-2 top-10 cursor-pointer hover:scale-115 ease-in-out duration-150" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <Eye /> : <EyeClosed />} </button>
             </div>
-            <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200" >Sign Up</button>
+            <button onClick={()=>{handleSignUp}} type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200" >Sign Up</button>
             <div className="w-full flex flex-row items-center justify-center mt-6 gap-2">
               <AnimatedTooltip items={tooltipItems} />
             </div>

@@ -1,0 +1,21 @@
+{
+  "name": "sync-beats",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "frontend" : "cd frontend && npx next dev --turbopack",
+    "backend" : "cd backend && npm start"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Smanikanta21/sync-beats.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Smanikanta21/sync-beats/issues"
+  },
+  "homepage": "https://github.com/Smanikanta21/sync-beats#readme"
+}
