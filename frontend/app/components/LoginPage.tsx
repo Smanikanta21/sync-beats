@@ -27,7 +27,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
             if(res.ok){
                 alert("logged in Successfull")
             }else{
-                alert(`logging in failed ${data.message}`)
+                alert(`logging in failed ${data}`)
             }
         }catch(err){
             console.log(err)

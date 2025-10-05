@@ -47,7 +47,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
         setShowSignup(false)
         setShowLogin(true);
       }else{
-        alert("signup Failed" + data.message);
+        alert("signup Failed" + data);
       }
     }catch(err){
       alert(`Error during Signup : ${err}`)
