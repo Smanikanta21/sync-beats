@@ -8,7 +8,7 @@ app.use(cors({
   origin: ['http://localhost:3000','https://www.syncbeats.app'],
   methods: ['GET','POST','DELETE','PATCH','PUT'],
   credentials: true,
-  allowedHeaders: ['Content-Type','Authorization']
+//   allowedHeaders: ['Content-Type','Authorization']
 }))
 
 app.use(express.json())
@@ -17,7 +17,7 @@ app.use(cookieParser())
 app.use('/auth', authroutes)
 
 app.get('/', (req, res) => {
-  res.json({ message: "server is running" }) // now JSON
+  res.json({ message: "server is running" }) 
 })
 
 app.use((req,res) => {
