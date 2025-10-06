@@ -8,8 +8,10 @@ import Link from 'next/link';
 export default function DashBoard() {
   const router = useRouter();
   const [refreshingSync, setRefreshingSync] = useState<boolean>(false);
+  const [devices,setDevices] = useState<any[]>([])
   const [name,setName] = useState<string>('')
   const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
+
   const handleLogout = async () => {
     try {
       await fetch(`${url}/auth/logout`, { method: 'POST' });
@@ -38,10 +40,10 @@ export default function DashBoard() {
           console.log("Something went wrong")
           return
         }
-        const data = await res.json()
-        const name = data.message
-        setName(name)
-        console.log(name)
+        const data = await res.json() 
+        setName(data.message)
+        setDevices(Array.isArray(data?.devices) ? data.devices : []);
+        console.log("devices:",data.devices)
       } catch (err) {
         alert("Error Failed to authenticate")
         console.log("errr:",err)
@@ -121,17 +123,31 @@ export default function DashBoard() {
             </div>
           </div>
 
-          {/* Devices Section */}
           <div className="bg-gray-900/70 rounded-xl p-6 border border-gray-700 flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold flex items-center gap-2"><Cast className="text-purple-400" size={22}/> Devices</h2>
               <button className="text-xs px-3 py-1 rounded-md bg-gray-800 hover:bg-gray-700">Refresh</button>
             </div>
-            <div className="text-sm text-gray-400">No devices detected yet.</div>
-            <ul className="flex flex-col gap-3 max-h-72 overflow-y-auto pr-1">
-
-            </ul>
-            <p className="text-[11px] text-gray-500 mt-1">Real devices will appear here when the realtime layer is implemented.</p>
+            {devices.length === 0 ? (
+              <p className="text-gray-400">No devices found.</p>
+            ) : (
+              <ul className="space-y-3">
+                {devices.map(device => (
+                  <li key={device.id} className="bg-gray-800/60 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="font-semibold">{device.name}</div>
+                      <div className="text-sm text-gray-400">{device.ip}</div>
+                    </div>
+                    <div className="mt-2 sm:mt-0 text-sm text-right">
+                      <div className={device.status === 'online' ? 'text-green-400' : 'text-red-400'}>
+                        {device.status}
+                      </div>
+                      <div className="text-gray-400">{device.updatedAt ? new Date(device.updatedAt).toLocaleString() : '-'}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </section>
 

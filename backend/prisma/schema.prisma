@@ -27,14 +27,14 @@ model Users {
 
 model devices{
   id        String   @id @default(cuid())
-  userId    String
+  DeviceUserId    String
   name      String
   status    String   @default("offline")
   ip        String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user Users @relation(fields: [userId], references: [id])
+  user Users @relation(fields: [DeviceUserId], references: [id])
 
-  @@unique([userId, name])
+  @@unique([DeviceUserId, name])
 }

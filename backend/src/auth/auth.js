@@ -83,7 +83,7 @@ async function login(req, res, next) {
 
         const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Unknown Device");
         const existingDevice = await prisma.devices.findFirst({
-            where: { userId: user.id, name: deviceName }
+            where: { DeviceUserId: user.id, name: deviceName }
         });
         if (existingDevice) {
             await prisma.devices.update({
@@ -97,7 +97,7 @@ async function login(req, res, next) {
         } else {
             await prisma.devices.create({
                 data: {
-                    userId: user.id,
+                    DeviceUserId: user.id,
                     name: deviceName,
                     status: "online",
                     ip: req.ip

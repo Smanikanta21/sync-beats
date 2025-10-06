@@ -1,21 +1,24 @@
-require("dotenv").config()
+require("dotenv").config();
 const jwt = require('jsonwebtoken');
+
 function authMiddleWare(req, res, next) {
-    try {
-        const header = req.headers.authorization;
-        console.log(header)
-        if (!header) return res.status(401).json({ message: 'Unknown Error' });
-        const token = header.split(' ')[1];
-        if (!token) { return res.status(401).json({ message: "User not allowed" }) }
-        const decode = jwt.verify(token, process.env.JWT)
-        req.user = decode
+  const header = req.headers.authorization;
+  const tokenFromHeader = header && header.startsWith('Bearer ') ? header.split(' ')[1] : null;
+  const token = req.cookies?.token || tokenFromHeader;
 
-        next()
-    }catch(err){
-        console.log(err)
-        return res.status(400).json({message:`error : ${err}`})
+  console.log('auth middleware — token present?', !!token);
 
-    }
+  if (!token) return res.status(401).json({ message: 'No token provided' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT);
+    req.user = decoded;
+    console.log('auth middleware — decoded:', decoded);
+    return next();
+  } catch (err) {
+    console.log('auth middleware — jwt verify error:', err.message);
+    return res.status(401).json({ message: 'Invalid or expired token' });
+  }
 }
 
-module.exports = {authMiddleWare}
+module.exports = { authMiddleWare };
