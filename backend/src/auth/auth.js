@@ -7,7 +7,7 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT;
 
-function getDeviceName(name, userAgent){
+function getDeviceName(name, userAgent) {
     const parser = new UAParser(userAgent)
     const device = parser.getDevice()
     const os = parser.getOS()
@@ -56,7 +56,7 @@ async function login(req, res, next) {
         if (!identifier)
             return res.status(400).json({ message: "Email or Username required" });
 
-        if(!password){
+        if (!password) {
             return res.status(400).json({ message: " password required" })
         }
 
@@ -68,9 +68,9 @@ async function login(req, res, next) {
                 ]
             }
         });
-        if (!user){
+        if (!user) {
             return res.status(400).json({ message: "User not found" });
-            }
+        }
 
         const ok = await bcrypt.compare(password, user.password);
         if (!ok) return res.status(400).json({ message: "Invalid password" });
@@ -83,14 +83,25 @@ async function login(req, res, next) {
 
         const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Unknown Device");
 
-        await prisma.devices.create({
-            data:{
+        await prisma.device.upsert({
+            where: {
+                userId_name: {
+                    userId: user.id,
+                    name: deviceName
+                }
+            },
+            update: {
+                status: "online",
+                ip: req.ip,
+                updatedAt: new Date()
+            },
+            create: {
                 userId: user.id,
                 name: deviceName,
                 status: "online",
                 ip: req.ip
             }
-        })
+        });
 
         res
             .cookie("token", token, { httpOnly: true })

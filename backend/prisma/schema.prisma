@@ -26,7 +26,7 @@ model Users {
 }
 
 model devices{
-    id        String   @id @default(cuid())
+  id        String   @id @default(cuid())
   userId    String
   name      String
   status    String   @default("offline")
