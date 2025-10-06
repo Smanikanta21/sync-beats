@@ -8,7 +8,7 @@ import Link from 'next/link';
 export default function DashBoard() {
   const router = useRouter();
   const [refreshingSync, setRefreshingSync] = useState<boolean>(false);
-  const [name,setName] = useState<String>('')
+  const [name,setName] = useState<string>('')
   const url = process.env.API_BASE || "http://localhost:5001"
   const handleLogout = async () => {
     try {
