@@ -1,10 +1,29 @@
 require('dotenv').config();
+const UAParser = require('ua-parser-js')
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT;
+
+function getDeviceName(name, userAgent){
+    const parser = new UAParser(userAgent)
+    const device = parser.getDevice()
+    const os = parser.getOS()
+    const browser = parser.getBrowser()
+
+    let device_type = 'device';
+    if(device.type === "mobile") device_type = device.model || "Mobile"
+    else if(device.type === "tablet") device_type = device.model || "Tablet"
+    else if (device.type === "console") device_type = device.model || "Console";
+    else if (os.name === 'macOS') device_type = 'Mac';
+    else if (os.name === 'Windows') device_type = 'Windows PC';
+    else if (os.name === 'Linux') device_type = 'Linux PC';
+    // else if (browser.name) device_type = browser.name;
+
+    return `${name}'s ${device_type}`
+}
 
 async function signup(req, res, next) {
     try {
@@ -29,6 +48,7 @@ async function signup(req, res, next) {
 }
 
 async function login(req, res, next) {
+
     try {
         const { identifier, password } = req.body;
         if (!identifier)
@@ -47,7 +67,6 @@ async function login(req, res, next) {
             }
         });
         if (!user){
-            console.log(user)
             return res.status(400).json({ message: "User not found" });
             }
 
@@ -60,13 +79,33 @@ async function login(req, res, next) {
             { expiresIn: '7d' }
         );
 
+        const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Unknown Device");
+
+        await prisma.devices.create({
+            data:{
+                userId: user.id,
+                name: deviceName,
+                status: "online",
+                ip: req.ip
+            }
+        })
+
         res
             .cookie("token", token, { httpOnly: true })
-            .json({ message: "Login success", token });
+            .json({ message: "Login success", token, deviceName });
     } catch (err) {
         console.log(err)
         next(err);
     }
 }
 
-module.exports = { signup, login };
+async function logout(req, res, next) {
+    try {
+        res.clearCookie("token");
+        res.json({ message: "Logout success" });
+    } catch (err) {
+        next(err);
+    }
+}
+
+module.exports = { signup, login, logout, getDeviceName };

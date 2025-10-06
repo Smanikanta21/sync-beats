@@ -25,13 +25,15 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
             console.log(data)
             
             if(res.ok){
+                localStorage.setItem("token", data.token);
                 alert("logged in Successfull")
+                router.push('/dashboard')
             }else{
-                alert(`logging in failed ${data}`)
+                alert(`logging in failed ${data.message}`)
             }
         }catch(err){
             console.log(err)
-            alert(`login failed ${err}`)
+            alert(`login failed because ${err}`)
         }
     }
 

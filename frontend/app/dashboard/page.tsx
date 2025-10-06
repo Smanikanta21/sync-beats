@@ -1,45 +1,56 @@
 "use client"
 export const dynamic = "force-dynamic";
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Music, Menu, UserCircle, LogOut, ArrowRight, Play, Radio, RefreshCw, Cast, PlusCircle, Users } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
-import { LoadingIndicator } from '@/components/application/loading-indicator/loading-indicator';
 import Link from 'next/link';
-import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
-
 
 export default function DashBoard() {
   const router = useRouter();
-  const [loading, setLoading] = useState<boolean>(true);
-  const [devicesLoading, setDevicesLoading] = useState<boolean>(false);
-  const [devicesError, setDevicesError] = useState<string | null>(null);
   const [refreshingSync, setRefreshingSync] = useState<boolean>(false);
-
+  const [name,setName] = useState<String>('')
+  const url = process.env.API_BASE || "http://localhost:5001"
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      setLoading(true);
+      await fetch(`${url}/auth/logout`, { method: 'POST' });
     } catch (err) {
-      toast.error("Logout unsuccessful");
+      alert("Logout unsuccessful");
       console.log(err);
     } finally {
-      setLoading(false);
-      toast.success('Logged out successfully!');
+      alert('Logged out successfully!');
       router.push('/');
     }
   };
 
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const dashboardInit = async () => {
+      
+      try {
+        const res = await fetch(`${url}/auth/dashboard`, {
+          method: "GET",
+          headers: {"Authorization": `Bearer ${token}`},
+          credentials: 'include',
+        })
+        console.log(res.headers)
+        if (!res.ok) {
+          router.push('/')
+          console.log("Something went wrong")
+          return
+        }
+        const data = await res.json()
+        const name = data.message
+        setName(name)
+        console.log(name)
+      } catch (err) {
+        alert("Error Failed to authenticate")
+        console.log("errr:",err)
+        router.push('/')
+      }
+    }
+    dashboardInit()
+  },[])
 
-  if (loading) {
-    return (
-      <div className='h-screen w-full flex flex-col items-center justify-center gap-6'>
-        <LoadingIndicator type="dot-circle" size="md" label="Loading user..." />
-        <Skeleton className="w-56 h-10" />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
@@ -65,26 +76,9 @@ export default function DashBoard() {
 
       <main className="w-full px-4 py-10 md:py-14 max-w-7xl mx-auto flex flex-col gap-10">
         <section className="w-full bg-gray-900/70 rounded-2xl shadow-xl p-6 md:p-8 border border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          {/* <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-bold">Welcome back{Users ? `, ${Users.name || user.username}` : ''}!</h1>
-            <p className="text-gray-300">Manage your synchronized playback sessions and devices below.</p>
-            {user && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 text-sm">
-                <div className="bg-gray-800/70 rounded-lg p-3 border border-gray-700">
-                  <span className="block text-gray-400">Name</span>
-                  <span className="font-medium">{user.name || '—'}</span>
-                </div>
-                <div className="bg-gray-800/70 rounded-lg p-3 border border-gray-700">
-                  <span className="block text-gray-400">Username</span>
-                  <span className="font-medium">{user.username}</span>
-                </div>
-                <div className="bg-gray-800/70 rounded-lg p-3 border border-gray-700">
-                  <span className="block text-gray-400">Email</span>
-                  <span className="font-medium break-all">{user.email}</span>
-                </div>
-              </div>
-            )}
-          </div> */}
+          <div>
+            <h1 className='text-4xl font-bold'>{name}</h1>
+          </div>
           <div className="flex flex-col gap-3 w-full md:w-auto">
             <button className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition">
               <Play size={18} /> Start New Session
@@ -135,21 +129,7 @@ export default function DashBoard() {
             </div>
             <div className="text-sm text-gray-400">No devices detected yet.</div>
             <ul className="flex flex-col gap-3 max-h-72 overflow-y-auto pr-1">
-              {/* {devices.map(d => (
-                <li key={d.id} className="flex flex-col gap-1 bg-gray-800/60 p-3 rounded-lg border border-gray-700">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium flex items-center gap-2">
-                      <span className="inline-block w-2 h-2 rounded-full ${d.status === 'online' ? 'bg-green-500' : d.status === 'idle' ? 'bg-yellow-500' : 'bg-gray-500'}"></span>
-                      {d.name}
-                    </span>
-                    <span className="text-xs text-gray-400 uppercase tracking-wide">{d.platform}</span>
-                  </div>
-                  <div className="text-[11px] text-gray-500 flex justify-between">
-                    <span>Last: {new Date(d.lastSeen).toLocaleTimeString()}</span>
-                    <span>{d.capabilities.length} caps</span>
-                  </div>
-                </li>
-              ))} */}
+
             </ul>
             <p className="text-[11px] text-gray-500 mt-1">Real devices will appear here when the realtime layer is implemented.</p>
           </div>
