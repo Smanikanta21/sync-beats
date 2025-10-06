@@ -8,7 +8,7 @@ import Link from 'next/link';
 export default function DashBoard() {
   const router = useRouter();
   const [refreshingSync, setRefreshingSync] = useState<boolean>(false);
-  
+
   type Device = {
   id: string;
   name: string;
@@ -62,10 +62,43 @@ const [devices, setDevices] = useState<Device[]>([]);
     dashboardInit()
   },[])
 
+  function formatLastSeen(dateString?: string) {
+    if (!dateString) return '-';
+    const d = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (now.toDateString() === d.toDateString()) {
+      return `Last online today at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    if (yesterday.toDateString() === d.toDateString()) {
+      return `Last online yesterday at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+
+    if (diffDays < 7) {
+      return `Last online ${diffDays} day${diffDays > 1 ? 's' : ''} ago at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    }
+
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks < 4) {
+      return diffWeeks === 1 ? 'Last online last week' : `Last online ${diffWeeks} weeks ago`;
+    }
+
+    const diffMonths = Math.floor(diffDays / 30);
+    if (diffMonths < 12) {
+      return diffMonths === 1 ? 'Last online last month' : `Last online ${diffMonths} months ago`;
+    }
+
+    const diffYears = Math.floor(diffDays / 365);
+    return diffYears <= 1 ? 'Last online last year' : `Last online ${diffYears} years ago`;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
-      {/* Header */}
       <header className="flex flex-row justify-between items-center bg-black/60 backdrop-blur-md py-4 px-6 shadow-lg sticky top-0 z-10 border-b border-gray-800">
         <div className="flex items-center gap-2">
           <Menu className="md:hidden cursor-pointer" size={28} />
@@ -123,7 +156,7 @@ const [devices, setDevices] = useState<Device[]>([]);
               </div>
               <div className="bg-gray-800/60 p-3 rounded-md border border-gray-700">
                 <p className="text-gray-400">Devices</p>
-                {/* <p className="text-sm font-semibold mt-1">{devices.length}</p> */}
+                <p className="text-sm font-semibold mt-1">{devices.length}</p>
               </div>
               <div className="bg-gray-800/60 p-3 rounded-md border border-gray-700">
                 <p className="text-gray-400">Status</p>
@@ -151,7 +184,7 @@ const [devices, setDevices] = useState<Device[]>([]);
                       <div className={device.status === 'online' ? 'text-green-400' : 'text-red-400'}>
                         {device.status}
                       </div>
-                      <div className="text-gray-400">{device.updatedAt ? new Date(device.updatedAt).toLocaleString() : '-'}</div>
+                      <div className="text-gray-400">{device.updatedAt ? formatLastSeen(device.updatedAt) : '-'}</div>
                     </div>
                   </li>
                 ))}
