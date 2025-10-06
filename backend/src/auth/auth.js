@@ -14,8 +14,10 @@ function getDeviceName(name, userAgent){
     const browser = parser.getBrowser()
 
     let device_type = 'device';
-    if(device.type === "mobile") device_type = device.model || "Mobile"
-    else if(device.type === "tablet") device_type = device.model || "Tablet"
+    if (os.name === 'iOS') device_type = 'iPhone';
+    else if (os.name === 'Android') device_type = 'Android Phone';
+    else if (device.type === "mobile") device_type = device.model || "Mobile";
+    else if (device.type === "tablet") device_type = device.model || "Tablet";
     else if (device.type === "console") device_type = device.model || "Console";
     else if (os.name === 'macOS') device_type = 'Mac';
     else if (os.name === 'Windows') device_type = 'Windows PC';
