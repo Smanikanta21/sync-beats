@@ -9,7 +9,7 @@ export default function DashBoard() {
   const router = useRouter();
   const [refreshingSync, setRefreshingSync] = useState<boolean>(false);
   const [name,setName] = useState<string>('')
-  const url = process.env.API_BASE || "http://localhost:5001"
+  const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
   const handleLogout = async () => {
     try {
       await fetch(`${url}/auth/logout`, { method: 'POST' });
