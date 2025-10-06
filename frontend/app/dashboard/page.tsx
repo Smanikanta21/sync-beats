@@ -8,7 +8,16 @@ import Link from 'next/link';
 export default function DashBoard() {
   const router = useRouter();
   const [refreshingSync, setRefreshingSync] = useState<boolean>(false);
-  const [devices,setDevices] = useState<any[]>([])
+  
+  type Device = {
+  id: string;
+  name: string;
+  status: 'online' | 'offline';
+  ip?: string;
+  updatedAt?: string;
+};
+
+const [devices, setDevices] = useState<Device[]>([]);
   const [name,setName] = useState<string>('')
   const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
 
