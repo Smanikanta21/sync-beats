@@ -20,7 +20,7 @@ export default function DashBoard() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [name, setName] = useState<string>('')
   const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
-  const [loader, SetLoader] = useState<Boolean>(false)
+  const [loader, SetLoader] = useState<boolean>(false)
 
   const handleLogout = async () => {
     try {
