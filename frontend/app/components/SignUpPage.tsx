@@ -30,8 +30,8 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState<string>("");
-
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"; 
+  
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
