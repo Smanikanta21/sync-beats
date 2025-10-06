@@ -4,12 +4,15 @@ import React, { useState } from "react";
 import { BorderBeam } from "@/components/magicui/border-beam";
 import { AnimatedTooltip } from '@/components/ui/animated-tooltip'
 import { json } from "stream/consumers";
+import { LoaderOneDemo } from '../components/Loader'
 
 type PropData = {
   showSignup?: boolean;
   setShowLogin: (show: boolean) => void;
   setShowSignup: (show: boolean) => void;
 };
+
+
 
 export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
 
@@ -30,12 +33,14 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState<string>("");
+  const [loading,setLoading ] = useState<boolean>(false)
   
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     try{
+      setLoading(true)
       const res = await fetch(`${API_BASE}/auth/signup`,{
         method : "POST",
         headers : {"content-type":"application/json"},
@@ -53,7 +58,17 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
       }
     }catch(err){
       alert(`Error during Signup : ${err}`)
+    }finally{
+      setLoading(false)
     }
+  }
+
+  if(loading){
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <LoaderOneDemo />
+      </div>
+      )
   }
 
   return (

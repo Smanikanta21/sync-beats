@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { BorderBeam } from "@/components/magicui/border-beam";
 import { useRouter } from 'next/navigation'
 import { AnimatedTooltip } from '@/components/ui/animated-tooltip'
+import { LoaderOneDemo } from '../components/Loader'
 
 type PropData = {
     setShowLogin?: (show: boolean) => void;
@@ -15,6 +16,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         try {
+            setLoading(true)
             const res = await fetch(`${API_BASE}/auth/login`, {
                 method: "POST",
                 headers: { "content-type": "application/json" },
@@ -34,6 +36,8 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
         }catch(err){
             console.log(err)
             alert(`login failed because ${err}`)
+        }finally{
+            setLoading(false)
         }
     }
 
@@ -56,15 +60,15 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     const [showPassword, setShowPassword] = useState(false);
     const [identifier, setIdentifier] = useState<string>("");
     const [password, setPassword] = useState<string>("");
-    const [loading, setLoading] = useState<boolean>(false);
+    const [loading,setLoading ] = useState<boolean>(false)
 
 
 
-    if (loading) {
-        return (
-            <div className='bg-black/80 flex justify-center items-center h-screen'>
-                <p className='text-white'>Loading.....</p>
-            </div>
+    if(loading){
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <LoaderOneDemo />
+        </div>
         )
     }
     return (

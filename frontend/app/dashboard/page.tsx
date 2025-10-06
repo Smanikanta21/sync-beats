@@ -4,63 +4,71 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Music, Menu, UserCircle, LogOut, ArrowRight, Play, Radio, RefreshCw, Cast, PlusCircle, Users } from 'lucide-react';
 import Link from 'next/link';
+import { LoaderOneDemo } from "../components/Loader";
+
 
 export default function DashBoard() {
   const router = useRouter();
-  const [refreshingSync, setRefreshingSync] = useState<boolean>(false);
 
   type Device = {
-  id: string;
-  name: string;
-  status: 'online' | 'offline';
-  ip?: string;
-  updatedAt?: string;
-};
-
-const [devices, setDevices] = useState<Device[]>([]);
-  const [name,setName] = useState<string>('')
+    id: string;
+    name: string;
+    status: 'online' | 'offline';
+    ip?: string;
+    updatedAt?: string;
+  };
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [name, setName] = useState<string>('')
   const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
+  const [loader, SetLoader] = useState<Boolean>(false)
 
   const handleLogout = async () => {
     try {
+      SetLoader(true)
       await fetch(`${url}/auth/logout`, { method: 'POST' });
     } catch (err) {
       alert("Logout unsuccessful");
       console.log(err);
     } finally {
       alert('Logged out successfully!');
+      SetLoader(false)
       router.push('/');
     }
   };
 
+
+
   useEffect(() => {
-    const token = localStorage.getItem("token");
     const dashboardInit = async () => {
-      
       try {
+        SetLoader(true)
+        const token = localStorage.getItem("token");
         const res = await fetch(`${url}/auth/dashboard`, {
           method: "GET",
-          headers: {"Authorization": `Bearer ${token}`},
-          credentials: 'include',
-        })
-        console.log(res.headers)
-        if (!res.ok) {
+          credentials: "include",
+          // only send Authorization if you actually use it
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+
+        const raw = await res.text();
+        let data = null;
+        try { data = raw ? JSON.parse(raw) : null } catch (e) { console.warn(e) }
+
+        if (res.ok && data) {
+          setName(data.message || "");
+          setDevices(Array.isArray(data.devices) ? data.devices : []);
+        } else {
           router.push('/')
-          console.log("Something went wrong")
-          return
         }
-        const data = await res.json() 
-        setName(data.message)
-        setDevices(Array.isArray(data?.devices) ? data.devices : []);
-        console.log("devices:",data.devices)
       } catch (err) {
-        alert("Error Failed to authenticate")
-        console.log("errr:",err)
-        router.push('/')
+        console.error(err);
+      } finally {
+        SetLoader(false)
       }
-    }
-    dashboardInit()
-  },[])
+    };
+
+    dashboardInit();
+  }, []);
 
   function formatLastSeen(dateString?: string) {
     if (!dateString) return '-';
@@ -96,7 +104,12 @@ const [devices, setDevices] = useState<Device[]>([]);
     const diffYears = Math.floor(diffDays / 365);
     return diffYears <= 1 ? 'Last online last year' : `Last online ${diffYears} years ago`;
   }
-
+  if (loader) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <LoaderOneDemo/>
+      </div>)
+  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
       <header className="flex flex-row justify-between items-center bg-black/60 backdrop-blur-md py-4 px-6 shadow-lg sticky top-0 z-10 border-b border-gray-800">
@@ -114,7 +127,7 @@ const [devices, setDevices] = useState<Device[]>([]);
           <button className="md:flex hidden items-center gap-1 px-4 py-2 rounded-lg border border-red-600 text-red-500 hover:bg-red-600 hover:text-white transition" onClick={handleLogout}>
             <LogOut className='' size={20} /> Logout
           </button>
-          <LogOut className='text-red-600 md:hidden' size={20}/>
+          <LogOut className='text-red-600 md:hidden' size={20} />
         </div>
       </header>
 
@@ -130,8 +143,8 @@ const [devices, setDevices] = useState<Device[]>([]);
             <button className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-gray-800 hover:bg-gray-700 font-semibold transition">
               <Users size={18} /> Join Session
             </button>
-            <button disabled={refreshingSync} className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg border border-gray-600 hover:border-blue-500 font-semibold transition disabled:opacity-50">
-              <RefreshCw size={18} className={refreshingSync ? 'animate-spin' : ''} /> Resync
+            <button className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg border border-gray-600 hover:border-blue-500 font-semibold transition">
+              <RefreshCw size={18} /> Resync
             </button>
           </div>
         </section>
@@ -139,15 +152,15 @@ const [devices, setDevices] = useState<Device[]>([]);
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 bg-gray-900/70 rounded-xl p-6 border border-gray-700 flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold flex items-center gap-2"><Radio className="text-green-400" size={22}/> Current Session</h2>
+              <h2 className="text-xl font-semibold flex items-center gap-2"><Radio className="text-green-400" size={22} /> Current Session</h2>
               <span className="text-xs text-gray-400">Prototype</span>
             </div>
             <div className="text-gray-400 text-sm">
               No active session. Start one to synchronize music across your devices.
             </div>
             <div className="mt-2 flex flex-wrap gap-3">
-              <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm flex items-center gap-2"><Play size={16}/> Start</button>
-              <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm flex items-center gap-2"><PlusCircle size={16}/> Join with Code</button>
+              <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm flex items-center gap-2"><Play size={16} /> Start</button>
+              <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm flex items-center gap-2"><PlusCircle size={16} /> Join with Code</button>
             </div>
             <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
               <div className="bg-gray-800/60 p-3 rounded-md border border-gray-700">
@@ -167,7 +180,7 @@ const [devices, setDevices] = useState<Device[]>([]);
 
           <div className="bg-gray-900/70 rounded-xl p-6 border border-gray-700 flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold flex items-center gap-2"><Cast className="text-purple-400" size={22}/> Devices</h2>
+              <h2 className="text-xl font-semibold flex items-center gap-2"><Cast className="text-purple-400" size={22} /> Devices</h2>
               <button className="text-xs px-3 py-1 rounded-md bg-gray-800 hover:bg-gray-700">Refresh</button>
             </div>
             {devices.length === 0 ? (
