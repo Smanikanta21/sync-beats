@@ -3,13 +3,16 @@ import { motion } from "motion/react";
 import React from "react";
 
 export const LoaderOne = () => {
-  const transition = (x: number) => {
+  const transition = (delay = 0) => {
     return {
-      duration: 1,
+      duration: 0.6,
       repeat: Infinity,
-      repeatType: "loop" as const,
-      delay: x * 0.2,
-      ease: [0.42, 0, 0.58, 1],
+      repeatType: "loop",
+      delay,
+      // Option A: use a named easing that matches TS types
+      ease: "easeInOut",
+      // Option B (if you need custom bezier): cast the array to satisfy types
+      // ease: [0.42, 0, 0.58, 1] as unknown as any
     };
   };
   return (
