@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { BorderBeam } from "@/components/magicui/border-beam";
 import { AnimatedTooltip } from '@/components/ui/animated-tooltip'
 import { json } from "stream/consumers";
-import { LoaderOneDemo } from '../components/Loader'
 
 type PropData = {
   showSignup?: boolean;

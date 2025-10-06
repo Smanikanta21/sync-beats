@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { BorderBeam } from "@/components/magicui/border-beam";
 import { useRouter } from 'next/navigation'
 import { AnimatedTooltip } from '@/components/ui/animated-tooltip'
-import { LoaderOneDemo } from '../components/Loader'
 
 type PropData = {
     setShowLogin?: (show: boolean) => void;
