@@ -8,7 +8,7 @@ app.use(cors({
   origin: ['http://localhost:3000','https://www.syncbeats.app'],
   methods: ['GET','POST','DELETE','PATCH','PUT'],
   credentials: true,
-//   allowedHeaders: ['Content-Type','Authorization']
+  allowedHeaders: ['Content-Type','Authorization']
 }))
 
 app.use(express.json())

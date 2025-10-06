@@ -46,7 +46,10 @@ async function login(req, res, next) {
                 ]
             }
         });
-        if (!user) return res.status(400).json({ message: "User not found" });
+        if (!user){
+            console.log(user)
+            return res.status(400).json({ message: "User not found" });
+            }
 
         const ok = await bcrypt.compare(password, user.password);
         if (!ok) return res.status(400).json({ message: "Invalid password" });
@@ -61,6 +64,7 @@ async function login(req, res, next) {
             .cookie("token", token, { httpOnly: true })
             .json({ message: "Login success", token });
     } catch (err) {
+        console.log(err)
         next(err);
     }
 }

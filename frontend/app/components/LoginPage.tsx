@@ -11,11 +11,11 @@ type PropData = {
 };
 
 export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
-
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"; 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         try {
-            const res = await fetch('https://www.syncbeats.app/auth/login', {
+            const res = await fetch(`${API_BASE}/auth/login`, {
                 method: "POST",
                 headers: { "content-type": "application/json" },
                 credentials: "include",

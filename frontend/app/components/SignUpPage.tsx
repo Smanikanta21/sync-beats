@@ -31,10 +31,12 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState<string>("");
 
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"; 
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     try{
-      const res = await fetch('https://www.syncbeats.app/auth/signup',{
+      const res = await fetch(`${API_BASE}/auth/signup`,{
         method : "POST",
         headers : {"content-type":"application/json"},
         body : JSON.stringify({name,username,email,password})
