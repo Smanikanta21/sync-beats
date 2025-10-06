@@ -5,7 +5,7 @@ const app = express()
 const authroutes = require('./routes/routes')
 
 app.use(cors({
-  origin: ['http://localhost:3000','https://www.syncbeats.app'],
+  origin: ['http://localhost:3000','https://www.syncbeats.app','https://sync-beats-81jq.vercel.app/'],
   methods: ['GET','POST','DELETE','PATCH','PUT'],
   credentials: true,
   allowedHeaders: ['Content-Type','Authorization']
