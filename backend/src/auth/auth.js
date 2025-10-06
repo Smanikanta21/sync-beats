@@ -83,7 +83,7 @@ async function login(req, res, next) {
 
         const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Unknown Device");
 
-        await prisma.device.upsert({
+        await prisma.devices.upsert({
             where: {
                 userId_name: {
                     userId: user.id,
