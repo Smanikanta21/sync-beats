@@ -82,26 +82,28 @@ async function login(req, res, next) {
         );
 
         const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Unknown Device");
-
-        await prisma.devices.upsert({
-            where: {
-                userId_name: {
-                    userId: user.id,
-                    name: deviceName
-                }
-            },
-            update: {
-                status: "online",
-                ip: req.ip,
-                updatedAt: new Date()
-            },
-            create: {
-                userId: user.id,
-                name: deviceName,
-                status: "online",
-                ip: req.ip
-            }
+        const existingDevice = await prisma.devices.findFirst({
+            where: { userId: user.id, name: deviceName }
         });
+        if (existingDevice) {
+            await prisma.devices.update({
+                where: { id: existingDevice.id },
+                data: {
+                    status: "online",
+                    ip: req.ip,
+                    updatedAt: new Date()
+                }
+            });
+        } else {
+            await prisma.devices.create({
+                data: {
+                    userId: user.id,
+                    name: deviceName,
+                    status: "online",
+                    ip: req.ip
+                }
+            });
+        }
 
         res
             .cookie("token", token, { httpOnly: true })
