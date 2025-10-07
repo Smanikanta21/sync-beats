@@ -47,7 +47,7 @@ export default function DashBoard() {
       try {
         SetLoader(true)
         const token = localStorage.getItem("token");
-        const res = await fetch(`http://localhost:5001/auth/dashboard`, {
+        const res = await fetch(`${url}auth/dashboard`, {
           method: "GET",
           credentials: "include",
           // only send Authorization if you actually use it
