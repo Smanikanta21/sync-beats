@@ -128,7 +128,7 @@ export default function DashBoard() {
           <button className="md:flex hidden items-center gap-1 px-4 py-2 rounded-lg border border-red-600 text-red-500 hover:bg-red-600 hover:text-white transition" onClick={handleLogout}>
             <LogOut className='' size={20} /> Logout
           </button>
-          <LogOut className='text-red-600 md:hidden' size={20} />
+          <LogOut className='text-red-600 md:hidden' size={20} onClick={handleLogout}/>
         </div>
       </header>
 
