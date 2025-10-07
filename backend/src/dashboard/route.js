@@ -11,8 +11,8 @@ async function getDashboardData(req, res) {
     }
 
     console.log('Querying devices for DeviceUserId =', user_id);
-    const devices = await prisma.devices.findMany({
-      where: { DeviceUserId: user_id }, // match schema field
+    const devices = await prisma.device.findMany({
+      where: { DeviceUserId: user_id },
       select: { id: true, name: true, status: true, ip: true, updatedAt: true }
     });
 

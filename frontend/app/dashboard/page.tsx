@@ -19,6 +19,7 @@ export default function DashBoard() {
   };
   const [devices, setDevices] = useState<Device[]>([]);
   const [name, setName] = useState<string>('')
+  const [createroomModal,setCrm] = useState<boolean>(false)
   const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
   const [loader, SetLoader] = useState<boolean>(false)
 
@@ -36,6 +37,9 @@ export default function DashBoard() {
     }
   };
 
+  const handleroomCreation = async()=>{
+    setCrm(!createroomModal)
+  }
 
 
   useEffect(() => {
@@ -43,7 +47,7 @@ export default function DashBoard() {
       try {
         SetLoader(true)
         const token = localStorage.getItem("token");
-        const res = await fetch(`${url}/auth/dashboard`, {
+        const res = await fetch(`http://localhost:5001/auth/dashboard`, {
           method: "GET",
           credentials: "include",
           // only send Authorization if you actually use it
@@ -111,8 +115,13 @@ export default function DashBoard() {
         <h1 className="text-4xl font-bold">Loading...</h1>
       </div>)
   }
+
   return (
+
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
+      {createroomModal ? (<div className='bg-black/40 backdrop-blur-3xl flex justify-center items-center'>
+        <h1>Create A room</h1>
+      </div>): null}
       <header className="flex flex-row justify-between items-center bg-black/60 backdrop-blur-md py-4 px-6 shadow-lg sticky top-0 z-10 border-b border-gray-800">
         <div className="flex items-center gap-2">
           <Menu className="md:hidden cursor-pointer" size={28} />
@@ -138,7 +147,7 @@ export default function DashBoard() {
             <h1 className='text-4xl font-bold'>{name}</h1>
           </div>
           <div className="flex flex-col gap-3 w-full md:w-auto">
-            <button className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition">
+            <button onClick={handleroomCreation} className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition">
               <Play size={18} /> Start New Session
             </button>
             <button className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-gray-800 hover:bg-gray-700 font-semibold transition">

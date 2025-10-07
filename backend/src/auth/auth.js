@@ -60,7 +60,7 @@ async function login(req, res, next) {
             return res.status(400).json({ message: " password required" })
         }
 
-        const user = await prisma.users.findFirst({
+        const user = await prisma.Users.findFirst({
             where: {
                 OR: [
                     { email: identifier },
@@ -82,11 +82,11 @@ async function login(req, res, next) {
         );
 
         const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Unknown Device");
-        const existingDevice = await prisma.devices.findFirst({
+        const existingDevice = await prisma.device.findFirst({
             where: { DeviceUserId: user.id, name: deviceName }
         });
         if (existingDevice) {
-            await prisma.devices.update({
+            await prisma.device.update({
                 where: { id: existingDevice.id },
                 data: {
                     status: "online",
@@ -95,7 +95,7 @@ async function login(req, res, next) {
                 }
             });
         } else {
-            await prisma.devices.create({
+            await prisma.device.create({
                 data: {
                     DeviceUserId: user.id,
                     name: deviceName,
