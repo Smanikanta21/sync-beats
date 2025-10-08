@@ -24,13 +24,17 @@ export default function LandingPage() {
       </div>) : null}
       <div className="fixed z-40 flex justify-center w-full pt-4">
         <div className="flex flex-col md:flex-row w-[90%] md:w-[60%] md:justify-baseline justify-between rounded-xl shadow-md md:gap-28 px-4 py-4 md:py-2 bg-white/5 backdrop-blur-lg text-white">
-          <div className='md:hidden fixed top-3 left-3' onClick={() => { setIsMenuOpen(!isMenuOpen) }}>{isMenuOpen ? <X size={28} /> : <Menu size={28} />}</div>
+          <div className="md:hidden fixed top-3 left-3 cursor-pointer transition-transform duration-300 ease-in-out" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+            <div className={`transform transition-all duration-300 ease-in-out ${isMenuOpen ? 'rotate-180 scale-90 opacity-70' : 'rotate-0 scale-100 opacity-100'}`}>{isMenuOpen ? <X size={28} /> : <Menu size={28} />}</div>
+          </div>
           <div className='flex md:pl-0 pl-8 flex-row items-center justify-center gap-1'><Music className='text-[#00e5ff]' size={28} /><a href="#" className='font-bold text-lg'>Sync Beats</a></div>
-          {isMenuOpen ? (<div className='flex-col flex md:flex-row items-center justify-center gap-4 md:mt-0 mt-4'>
-            <a className='text-sm text-white/60 hover:scale-110 transition-all duration-120 cursor-pointer text-shadow-cyan-400 hover:text-shadow-2xs' href="#">Features</a>
-            <a className='text-sm text-white/60 hover:scale-110 transition-all duration-120 cursor-pointer text-shadow-cyan-400 hover:text-shadow-2xs' href="#">About</a>
-            <a className='text-sm text-white/60 hover:scale-110 transition-all duration-120 cursor-pointer text-shadow-cyan-400 hover:text-shadow-2xs' href="#">Contact</a>
-          </div>) : null}
+          {(<div className="md:hidden flex flex-col items-center justify-center overflow-hidden transition-all duration-400 ease-in-out">
+              <div className={`flex flex-col gap-4 text-md font-semibold text-white transform transition-all duration-500 ease-in-out ${isMenuOpen ? 'scale-100 opacity-100 max-h-40' : 'scale-95 opacity-0 max-h-0'}`}>
+                <a href="#features" className="hover:text-cyan-300 mt-4">Features</a>
+                <a href="#about" className="hover:text-cyan-300">About</a>
+                <a href="#contact" className="hover:text-cyan-300">Contact</a>
+              </div>
+            </div>)}
 
           <div className='flex flex-row md:items-center md:justify-center float-right gap-4'>
             <button className='hidden md:flex bg-gradient-to-br from-[#00e5ff] to-[#a78bfa] px-4 py-2 rounded-xl cursor-pointer text-black hover:scale-110 ease-in-out duration-135' onClick={() => { setShowSignup(!showSignup) }}>Sign Up</button>
