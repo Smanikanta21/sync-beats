@@ -23,8 +23,8 @@ export default function LandingPage() {
         </div>
       </div>) : null}
       <div className="fixed z-40 flex justify-center w-full pt-4">
-        <div className="flex flex-col md:flex-row w-[90%] md:w-[60%] md:justify-baseline justify-between rounded-xl shadow-md md:gap-28 px-4 py-4 md:py-2 bg-white/5 backdrop-blur-lg text-white">
-          <div className="md:hidden fixed top-3 left-3 cursor-pointer transition-transform duration-300 ease-in-out" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+        <div className="flex flex-col md:flex-row w-[90%] md:w-[60%] md:justify-baseline justify-between rounded-xl shadow-md md:gap-28 px-4 py-4 md:py-2 md:bg-white/10 bg-black/5 backdrop-blur-md text-white">
+          <div className="md:hidden fixed top-4 left-3 cursor-pointer transition-transform duration-300 ease-in-out" onClick={() => setIsMenuOpen(!isMenuOpen)}>
             <div className={`transform transition-all duration-300 ease-in-out ${isMenuOpen ? 'rotate-180 scale-90 opacity-70' : 'rotate-0 scale-100 opacity-100'}`}>{isMenuOpen ? <X size={28} /> : <Menu size={28} />}</div>
           </div>
           <div className='flex md:pl-0 pl-8 flex-row items-center justify-center gap-1'><Music className='text-[#00e5ff]' size={28} /><a href="#" className='font-bold text-lg'>Sync Beats</a></div>
