@@ -47,13 +47,13 @@ export default function DashBoard() {
       try {
         SetLoader(true)
         const token = localStorage.getItem("token");
-        const res = await fetch(`${url}auth/dashboard`, {
+        const res = await fetch(`${url}/auth/dashboard`, {
           method: "GET",
           credentials: "include",
           // only send Authorization if you actually use it
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
-
+        console.log(`fetched data from ${url}`)
         const raw = await res.text();
         let data = null;
         try { data = raw ? JSON.parse(raw) : null } catch (e) { console.warn(e) }
