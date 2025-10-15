@@ -166,7 +166,7 @@ export default function LandingPage() {
       </div>
       <footer className='sb-glass mt-12 rounded-xl p-8'>
         <div className='flex flex-col md:flex-row justify-between items-center gap-4'>
-          <div className='text-white/60 text-sm'>© 2025 Sync Beats. All rights reserved.</div>
+          <div className='text-white/60 text-sm'>© {new Date().getFullYear()} Sync Beats. All rights reserved.</div>
           <div className='flex flex-row gap-4'>
             <a href="#" className='text-white/60 hover:text-cyan-300'>Privacy Policy</a>
             <a href="#" className='text-white/60 hover:text-cyan-300'>Terms of Service</a>

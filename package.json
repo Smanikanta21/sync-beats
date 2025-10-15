@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "frontend" : "cd frontend && npx next dev --turbopack",
-    "backend" : "cd backend && npm start"
+    "frontend": "cd frontend && npx next dev --turbopack",
+    "backend": "cd backend && npm start"
   },
   "repository": {
     "type": "git",
@@ -17,5 +17,8 @@
   "bugs": {
     "url": "https://github.com/Smanikanta21/sync-beats/issues"
   },
-  "homepage": "https://github.com/Smanikanta21/sync-beats#readme"
+  "homepage": "https://github.com/Smanikanta21/sync-beats#readme",
+  "dependencies": {
+    "datetime": "^0.0.3"
+  }
 }
