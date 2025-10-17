@@ -3,7 +3,6 @@ const cookieParser = require('cookie-parser')
 const cors = require('cors')
 const app = express()
 const authroutes = require('./routes/routes')
-const googleRoutes = require('../src/routes/google')
 
 app.use(cors({
   origin: ['http://localhost:3000','https://www.syncbeats.app','https://sync-beats-81jq.vercel.app/','http://172.20.10.2:3000'],
@@ -16,8 +15,6 @@ app.use(express.json())
 app.use(cookieParser())
 app.use
 app.use('/auth', authroutes)
-app.use('/googleauth',googleRoutes)
-
 app.get('/', (req, res) => {
   res.json({ message: "server is running" }) 
 })

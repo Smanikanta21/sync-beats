@@ -22,9 +22,10 @@
     "nodemon": "^3.1.10",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
+    "qrcode": "^1.5.4",
     "ua-parser-js": "^2.0.5"
   },
   "devDependencies": {
-    "prisma": "^6.16.3"
+    "prisma": "^6.17.1"
   }
 }

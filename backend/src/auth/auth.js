@@ -78,7 +78,6 @@ async function login(req, res, next) {
         const token = jwt.sign(
             { id: user.id, email: user.email, name: user.name },
             JWT_SECRET,
-            { expiresIn: '7d' }
         );
 
         const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Unknown Device");

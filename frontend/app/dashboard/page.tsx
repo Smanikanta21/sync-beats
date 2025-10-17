@@ -57,11 +57,17 @@ export default function DashBoard() {
       try {
         SetLoader(true)
         const token = localStorage.getItem("token");
-        const res = await fetch(`${url}/auth/dashboard`, {
+        const res = await fetch(`http://localhost:5001/auth/dashboard`, {
           method: "GET",
           credentials: "include", // ensures cookie is sent for Google OAuth
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
+        if (res.status === 401) {
+          // token expired or invalid
+          alert("Session expired. Please login again.");
+          router.push('/');
+          return;
+  }
         console.log(`fetched data from ${url}`)
         const raw = await res.text();
         let data = null;

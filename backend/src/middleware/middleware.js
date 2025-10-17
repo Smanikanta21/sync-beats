@@ -2,15 +2,16 @@ require("dotenv").config();
 const jwt = require('jsonwebtoken');
 
 function authMiddleWare(req, res, next) {
-  const header = req.headers.authorization;
-  const tokenFromHeader = header && header.startsWith('Bearer ') ? header.split(' ')[1] : null;
-  const cookieToken = req.cookies?.token
-  const token = headerToken || cookieToken;
-  console.log('auth middleware — token present?', !!token);
-
-  if (!token) return res.status(401).json({ message: 'No token provided' });
-
   try {
+    const header = req.headers.authorization;
+    const headerToken = header && header.startsWith('Bearer ') ? header.split(' ')[1] : null;
+    const cookieToken = req.cookies?.token;
+    const token = headerToken || cookieToken;
+
+    console.log('auth middleware — token present?', !!token);
+
+    if (!token) return res.status(401).json({ message: 'No token provided' });
+
     const decoded = jwt.verify(token, process.env.JWT);
     req.user = decoded;
     console.log('auth middleware — decoded:', decoded);
