@@ -2,7 +2,6 @@
 import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState } from "react";
 import { BorderBeam } from "@/components/magicui/border-beam";
-import { AnimatedTooltip } from '@/components/ui/animated-tooltip'
 import { json } from "stream/consumers";
 
 type PropData = {
@@ -110,7 +109,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
             </div>
             <button onClick={()=>{handleSignUp}} type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200" >Sign Up</button>
             <div className="w-full flex flex-row items-center justify-center mt-6 gap-2">
-              <AnimatedTooltip items={tooltipItems} />
+              
             </div>
           </form>
           <div>

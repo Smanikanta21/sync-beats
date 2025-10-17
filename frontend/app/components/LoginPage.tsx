@@ -3,7 +3,6 @@ import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import { BorderBeam } from "@/components/magicui/border-beam";
 import { useRouter } from 'next/navigation'
-import { AnimatedTooltip } from '@/components/ui/animated-tooltip'
 
 type PropData = {
     setShowLogin?: (show: boolean) => void;
@@ -24,33 +23,25 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
             })
             const data = await res.json()
             console.log(data)
-            
-            if(res.ok){
+
+            if (res.ok) {
                 localStorage.setItem("token", data.token);
                 alert("logged in Successfull")
                 router.push('/dashboard')
-            }else{
+            } else {
                 alert(`logging in failed ${data.message}`)
             }
-        }catch(err){
+        } catch (err) {
             console.log(err)
             alert(`login failed because ${err}`)
-        }finally{
+        } finally {
             setLoading(false)
         }
     }
 
-    const tooltipItems = [{
-        id: 1, name: "Sign In With Spotify", designation: "Sign in with your Spotify account.",
-        image: "/images/spotify.png"
-    }, {
-        id: 2, name: "Sign In With Apple Music", designation: "Sign in with your Apple Music account.",
-        image: "/images/applemusic.svg"
-    }, {
-        id: 3, name: "Sign In with Google", designation: "Sign in with your Google account.",
-        image: "/images/google.svg",
-    }]
-
+    const googleAuthFetcher = () => {
+        window.location.href = `${API_BASE}/googleauth/google`;
+    };
     const router = useRouter()
     const renderLogin = () => {
         setShowLogin && setShowLogin(false);
@@ -59,16 +50,16 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     const [showPassword, setShowPassword] = useState(false);
     const [identifier, setIdentifier] = useState<string>("");
     const [password, setPassword] = useState<string>("");
-    const [loading,setLoading ] = useState<boolean>(false)
+    const [loading, setLoading] = useState<boolean>(false)
 
 
 
-    if(loading){
-      return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          {/* <LoaderOneDemo /> */}
-          <h1 className="text-4xl font-bold">Loading...</h1>
-        </div>
+    if (loading) {
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+                {/* <LoaderOneDemo /> */}
+                <h1 className="text-4xl font-bold">Loading...</h1>
+            </div>
         )
     }
     return (
@@ -103,7 +94,9 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
                         <div className="mt-6 text-center text-white/60">
                             <div><p>---------- or continue with ----------</p></div>
                             <div className="w-full flex flex-row items-center justify-center mt-6 gap-2">
-                                <AnimatedTooltip items={tooltipItems} />
+                                <div>
+                                    <button className="border rounded-full p-2 hover:cursor-pointer hover:scale-110 transition-all ease-in-out duration-150" onClick={googleAuthFetcher}><img className="w-8 h-8" src="/images/google.svg" alt="" /></button>
+                                </div>
 
                             </div>
                             <p className="mt-2">{`Don't`} have an account? <span className="text-blue-400 cursor-pointer hover:underline" onClick={() => { renderLogin() }}>Sign Up</span></p>
