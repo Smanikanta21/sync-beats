@@ -15,7 +15,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
         e.preventDefault()
         try {
             setLoading(true)
-            const res = await fetch(`${API_BASE}/auth/login`, {
+            const res = await fetch(`http://localhost:5001/auth/login`, {
                 method: "POST",
                 headers: { "content-type": "application/json" },
                 credentials: "include",

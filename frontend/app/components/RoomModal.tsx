@@ -1,6 +1,44 @@
 "use client"
 import { QrCode } from "lucide-react"
+import { useState } from "react"
 export default function RoomModal() {
+
+    const [roomName, setRoomName] = useState<string>("");
+    const [roomType, setRoomType] = useState<string>("");
+    const [qrData, setQrData] = useState<string | null>(null);
+    const [roomCode, setRoomCode] = useState<string | null>(null)
+    const [loading, setLoading] = useState(false);
+
+    const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
+    const token = localStorage.getItem('token')
+
+    const handleCreateRoom = async () => {
+        // if (!roomCode || !roomType) {
+        //     alert("Please enter room name and type.");
+        //     return;
+        // }
+        try {
+            const res = await fetch(`${url}/createroom`, {
+                method: "POST",
+                headers: {
+                    "content-type": "application/json",
+                    Authorization: token ? `Bearer ${token}` : "",
+                },
+                body: JSON.stringify({ name: roomName, type: roomType }),
+                credentials: "include"
+            })
+            const data = await res.json()
+            if (res.ok && data.room) {
+                setQrData(data.qrDataURL);
+                setRoomCode(data.room.code);
+            }
+        } catch (err) {
+            console.log("room creation err:", err)
+        }
+
+
+    }
+
     return (
         <>
             <div className="flex flex-col items-center gap-3 w-full h-full">
@@ -8,22 +46,26 @@ export default function RoomModal() {
                 <div className="flex flex-col md:flex-row justify-evenly items-center w-full h-full gap-4">
                     <div className=" flex flex-col items-center justify-center gap-4">
                         <input type="text" placeholder="Enter Room Name" className="border rounded-xl py-2 px-4" />
-                        <select className="border px-3 py-2 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-400" defaultValue="">
+                        <select className="border px-3 py-2 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-400" defaultValue="" onChange={(e) => setRoomType(e.target.value)}>
                             <option value="" disabled>Select Room Type</option>
-                            <option value="public">Public</option>
-                            <option value="private">Private</option>
+                            <option value="public">Single User</option>
+                            <option value="private">Multiple Users</option>
                         </select>
                     </div>
                     <div className="flex flex-col gap-6 justify-center items-center h-full">
-                        <div className="p-2 shadow-white/20 rounded-xl shadow-2xl">
-                            <QrCode size={200} />
-                        </div>
-                        <div className=""><h1 className="font-bold">Scan For Joining the room</h1></div>
-                        <h1 className="font-bold">OR</h1>
-                        <div><h1 className="text-2xl font-bold">Join Using Room Code: { }</h1></div>
+                        {qrData ? (
+                            <img src={qrData} alt="Room QR Code" className="rounded-xl shadow-lg" />
+                        ) : (
+                            <div className="p-2 shadow-white/20 rounded-xl shadow-2xl">
+                                <QrCode size={200} />
+                            </div>
+                        )}
+                        {roomCode && <h1 className="text-xl font-bold">Room Code: {roomCode}</h1>}
                     </div>
                 </div>
-                <div className="mb-8"><button className="px-5 py-3 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition">Create a room</button></div>
+                <button className={`px-5 py-3 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition ${loading ? "opacity-50 cursor-not-allowed" : ""}`} onClick={handleCreateRoom}>
+                    {loading ? "Creating..." : "Create Room"}
+                </button>
             </div>
         </>
     )
