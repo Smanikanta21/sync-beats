@@ -2,7 +2,7 @@
 export const dynamic = "force-dynamic";
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X,Music, Menu, UserCircle, LogOut, ArrowRight, Play, Radio, RefreshCw, Cast, PlusCircle, Users } from 'lucide-react';
+import { X, Music, Menu, UserCircle, LogOut, ArrowRight, Play, Radio, RefreshCw, Cast, PlusCircle, Users } from 'lucide-react';
 import Link from 'next/link';
 import RoomModal from '../components/RoomModal'
 
@@ -18,7 +18,7 @@ export default function DashBoard() {
   };
   const [devices, setDevices] = useState<Device[]>([]);
   const [name, setName] = useState<string>('')
-  const [createroomModal,setCrm] = useState<boolean>(false)
+  const [createroomModal, setCrm] = useState<boolean>(false)
   const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
   const [loader, SetLoader] = useState<boolean>(false)
 
@@ -36,21 +36,21 @@ export default function DashBoard() {
     }
   };
 
-  const handleroomCreation = async()=>{
+  const handleroomCreation = async () => {
     setCrm(!createroomModal)
   }
 
-  useEffect(()=>{
-    if(createroomModal){
+  useEffect(() => {
+    if (createroomModal) {
       document.body.style.overflow = 'hidden';
       document.body.style.position = 'fixed';
       document.body.style.width = '100%';
-    }else{
-    document.body.style.overflow = '';
-    document.body.style.position = '';
-    document.body.style.width = '';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
     }
-  },[createroomModal]);
+  }, [createroomModal]);
 
   useEffect(() => {
     const dashboardInit = async () => {
@@ -59,7 +59,7 @@ export default function DashBoard() {
         const token = localStorage.getItem("token");
         const res = await fetch(`${url}/auth/dashboard`, {
           method: "GET",
-          credentials: "include",
+          credentials: "include", // ensures cookie is sent for Google OAuth
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         console.log(`fetched data from ${url}`)
@@ -129,11 +129,11 @@ export default function DashBoard() {
 
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
       {createroomModal ? (<div className='fixed inset-0 z-50 flex justify-center items-center'>
-        <div className={`rounded-2xl md:w-[50%] h-[80%] w-[90%] md:h-[60%] md:bg-blue/5 bg-black/40 backdrop-blur-3xl relative transition-all duration-150 ${createroomModal ? 'opacity-100' : "opacity-0" }`}>
+        <div className={`rounded-2xl md:w-[50%] h-[80%] w-[90%] md:h-[60%] md:bg-blue/5 bg-black/40 backdrop-blur-3xl relative transition-all duration-150 ${createroomModal ? 'opacity-100' : "opacity-0"}`}>
           <button onClick={() => setCrm(false)} className='absolute top-4 left-4 text-white hover:text-red-500'><X size={32} /></button>
-          <RoomModal/>
+          <RoomModal />
         </div>
-      </div>): null}
+      </div>) : null}
       <header className="flex flex-row justify-between items-center bg-black/60 backdrop-blur-md py-4 px-6 shadow-lg sticky top-0 z-10 border-b border-gray-800">
         <div className="flex items-center gap-2">
           <Menu className="md:hidden cursor-pointer" size={28} />
@@ -149,7 +149,7 @@ export default function DashBoard() {
           <button className="md:flex hidden items-center gap-1 px-4 py-2 rounded-lg border border-red-600 text-red-500 hover:bg-red-600 hover:text-white transition" onClick={handleLogout}>
             <LogOut className='' size={20} /> Logout
           </button>
-          <LogOut className='text-red-600 md:hidden' size={20} onClick={handleLogout}/>
+          <LogOut className='text-red-600 md:hidden' size={20} onClick={handleLogout} />
         </div>
       </header>
 
