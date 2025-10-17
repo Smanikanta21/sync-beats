@@ -2,14 +2,41 @@
 import { Music, PlayCircle, Users2, Menu, Radio, Smartphone, Headphones, MessageSquare, Mail, User, X } from 'lucide-react';
 import { CiInstagram } from "react-icons/ci";
 import { FaGithub, FaLinkedin } from "react-icons/fa";
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignUpPage';
 
 export default function LandingPage() {
+
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [showLogin, setShowLogin] = useState<boolean>(false);
   const [showSignup, setShowSignup] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (showLogin) {
+      document.body.style.overflow = "hidden"
+      document.body.style.position = "fixed"
+      document.body.style.width = "100%"
+    } else {
+      document.body.style.overflow = ""
+      document.body.style.position = ""
+      document.body.style.width = ""
+    }
+  }, [showLogin])
+
+
+  useEffect(()=>{
+        if (showSignup) {
+      document.body.style.overflow = "hidden"
+      document.body.style.position = "fixed"
+      document.body.style.width = "100%"
+    } else {
+      document.body.style.overflow = ""
+      document.body.style.position = ""
+      document.body.style.width = ""
+    }
+  },[showSignup])
+
   return (
     <>
       {showLogin ? (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
@@ -29,12 +56,12 @@ export default function LandingPage() {
           </div>
           <div className='flex md:pl-0 pl-8 flex-row items-center justify-center gap-1'><Music className='text-[#00e5ff]' size={28} /><a href="#" className='font-bold text-lg'>Sync Beats</a></div>
           {(<div className="md:hidden flex flex-col items-center justify-center overflow-hidden transition-all duration-400 ease-in-out">
-              <div className={`flex flex-col gap-4 text-md font-semibold text-white transform transition-all duration-500 ease-in-out ${isMenuOpen ? 'scale-100 opacity-100 max-h-40' : 'scale-95 opacity-0 max-h-0'}`}>
-                <a href="#features" className="hover:text-cyan-300 mt-4">Features</a>
-                <a href="#about" className="hover:text-cyan-300">About</a>
-                <a href="#contact" className="hover:text-cyan-300">Contact</a>
-              </div>
-            </div>)}
+            <div className={`flex flex-col gap-4 text-md font-semibold text-white transform transition-all duration-500 ease-in-out ${isMenuOpen ? 'scale-100 opacity-100 max-h-40' : 'scale-95 opacity-0 max-h-0'}`}>
+              <a href="#features" className="hover:text-cyan-300 mt-4">Features</a>
+              <a href="#about" className="hover:text-cyan-300">About</a>
+              <a href="#contact" className="hover:text-cyan-300">Contact</a>
+            </div>
+          </div>)}
 
           <div className='flex flex-row md:items-center md:justify-center float-right gap-4'>
             <button className='hidden md:flex bg-gradient-to-br from-[#00e5ff] to-[#a78bfa] px-4 py-2 rounded-xl cursor-pointer text-black hover:scale-110 ease-in-out duration-135' onClick={() => { setShowSignup(!showSignup) }}>Sign Up</button>

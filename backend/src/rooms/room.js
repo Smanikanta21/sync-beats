@@ -10,7 +10,7 @@ async function createRoom(req, res) {
     if (!roomtype) return res.status(400).json("Room name not selected")
 
     try {
-        const online_devices = await prisma.device.findMany({where: { userId: user_id, status: "online" }})
+        const online_devices = await prisma.device.findMany({ where: { userId: user_id, status: "online" } })
 
         if (type === 'single' && online_devices.length < 2) {
             res.status(400).json({ message: "Single User room needs atleast two online devices" })
@@ -27,11 +27,11 @@ async function createRoom(req, res) {
             include: { participants: true, devices: true }
         })
         console.log(room)
-        return res.status(200).json({message:"Room Created successfully!"})
-    }catch(err){
-        console.log("CreateRoom:",err)
-        return res.status(500).json({message:"Failed to create room"})
+        return res.status(200).json({ message: "Room Created successfully!" })
+    } catch (err) {
+        console.log("CreateRoom:", err)
+        return res.status(500).json({ message: "Failed to create room" })
     }
 }
 
-module.exports = {createRoom}
+module.exports = { createRoom }
