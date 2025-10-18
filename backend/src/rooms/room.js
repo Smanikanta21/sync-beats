@@ -1,5 +1,4 @@
 const { PrismaClient } = require('@prisma/client');
-const { join } = require('@prisma/client/runtime/library');
 const prisma = new PrismaClient()
 const qrcode = require('qrcode')
 
@@ -7,7 +6,7 @@ async function createRoom(req, res) {
     const user_id = req.user?.id
     const { name, type } = req.body;
     const frontend_url = process.env.FRONTEND_URL
-    if (!user_id) return res.status(404).json({ message: "Unauthorized" });
+    if (!user_id) return res.status(401).json({ message: "Unauthorized" });
     if (!name) return res.status(400).json({ message: "Room Name Can't be empty" })
     if (!type) return res.status(400).json("Room type not selected")
 
@@ -17,7 +16,7 @@ async function createRoom(req, res) {
         if (type === 'single' && online_devices.length < 2) {
             res.status(400).json({ message: "Single User room needs atleast two online devices" })
         }
-        console.log(type)
+
         const room = await prisma.room.create({
             data: {
                 name,
@@ -42,4 +41,40 @@ async function createRoom(req, res) {
     }
 }
 
-module.exports = { createRoom }
+async function joinRoom(req,res){
+    const user_id = req.user?.id
+    const { code } = req.body;
+    console.log(req.body)
+    if(!code) return res.status(400).json({message:"Enter Code"})
+    if(!user_id) return res.status(401).json({message:"Unauthorised"})
+    
+    try{
+        const rooms = await prisma.room.findUnique({
+            where:{code:code},
+            include:{participants:true,devices:true}
+        })
+
+        if(!rooms) return res.status(404).json({message:"Room Not Found"})
+        
+        const isParticipant = rooms.participants.some(p=>p.userId === user_id)
+        if (!isParticipant) {
+            await prisma.roomUsers.create({
+                data: {
+                    roomId: rooms.id,
+                    userId: rooms.user_id
+                }
+            })
+        }
+
+        const updatedRoom = await prisma.room.findUnique({
+            where:{ code },
+            include:{participants:true,devices:true}
+        })
+        return res.status(200).json({message:`Joined room: ${updatedRoom}`})
+    }catch(err){
+        console.log(`JoinRoom Err: ${err}`)
+        return res.status(404).json({message:"Failed to join room"})
+    }
+}
+
+module.exports = { createRoom, joinRoom }
