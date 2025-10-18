@@ -14,7 +14,7 @@ function authMiddleWare(req, res, next) {
 
     const decoded = jwt.verify(token, process.env.JWT);
     req.user = decoded;
-    console.log('auth middleware — decoded:', decoded);
+    // console.log('auth middleware — decoded:', decoded);
     return next();
   } catch (err) {
     // console.log('auth middleware — jwt verify error:', err.message);

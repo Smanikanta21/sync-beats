@@ -49,7 +49,7 @@ model Device {
 
 model Room{
   id String @id @default(cuid())
-  code String @unique @default(uuid())
+  code String @unique @default(dbgenerated("LPAD(FLOOR(RANDOM() * 100000)::text, 5, '0')"))
   name String
   type String?
   hostId String

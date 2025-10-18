@@ -31,7 +31,11 @@ async function createRoom(req, res) {
         console.log(room)
         const room_url = `${frontend_url}/join/${room.code}`
         const qr_url = await qrcode.toDataURL(room_url)
-        return res.status(200).json({ message: "Room Created successfully!" })
+        return res.status(200).json({
+            message: "Room Created successfully!",
+            room,
+            qrDataURL: qr_url
+        });
     } catch (err) {
         console.log("CreateRoom:", err)
         return res.status(500).json({ message: "Failed to create room" })

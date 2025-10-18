@@ -9,8 +9,6 @@ async function getDashboardData(req, res) {
       console.warn('getDashboardData: no user id on req');
       return res.status(401).json({ message: 'Unauthorized', devices: [] });
     }
-
-    console.log('Querying devices for DeviceUserId =', user_id);
     const devices = await prisma.device.findMany({
       where: { DeviceUserId: user_id },
       select: { id: true, name: true, status: true, ip: true, updatedAt: true }
