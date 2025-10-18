@@ -2,7 +2,8 @@ const express = require('express')
 const cookieParser = require('cookie-parser')
 const cors = require('cors')
 const app = express()
-const authroutes = require('./routes/routes')
+const authroutes = require('./routes/routes');
+const router = require('../src/routes/routes')
 
 app.use(cors({
   origin: ['http://localhost:3000','https://www.syncbeats.app','https://sync-beats-81jq.vercel.app/','http://172.20.10.2:3000'],
@@ -13,11 +14,13 @@ app.use(cors({
 
 app.use(express.json())
 app.use(cookieParser())
-app.use
-app.use('/auth', authroutes)
+app.use('/auth', authroutes);
+
+app.use('/api' , router)
 app.get('/', (req, res) => {
   res.json({ message: "server is running" }) 
 })
+
 
 app.use((req,res) => {
   res.status(404).json({ message: 'Not Found' })

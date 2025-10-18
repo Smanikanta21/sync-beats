@@ -9,15 +9,15 @@ async function createRoom(req, res) {
     const frontend_url = process.env.FRONTEND_URL
     if (!user_id) return res.status(404).json({ message: "Unauthorized" });
     if (!name) return res.status(400).json({ message: "Room Name Can't be empty" })
-    if (!roomtype) return res.status(400).json("Room name not selected")
+    if (!type) return res.status(400).json("Room type not selected")
 
     try {
-        const online_devices = await prisma.device.findMany({ where: { userId: user_id, status: "online" } })
+        const online_devices = await prisma.device.findMany({ where: { DeviceUserId: user_id, status: "online" } })
 
         if (type === 'single' && online_devices.length < 2) {
             res.status(400).json({ message: "Single User room needs atleast two online devices" })
         }
-
+        console.log(type)
         const room = await prisma.room.create({
             data: {
                 name,

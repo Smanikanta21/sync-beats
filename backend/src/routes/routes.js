@@ -2,7 +2,7 @@ const express = require('express')
 const {signup,login,logout} = require('../auth/auth')
 const {authMiddleWare} = require('../middleware/middleware')
 const {getDashboardData} = require('../dashboard/route')
-const {createRoom} = require('../rooms/room')
+const { createRoom} = require('../rooms/room')
 const router = express.Router()
 
 router.post('/signup',signup);

@@ -57,7 +57,7 @@ export default function DashBoard() {
       try {
         SetLoader(true)
         const token = localStorage.getItem("token");
-        const res = await fetch(`http://localhost:5001/auth/dashboard`, {
+        const res = await fetch(`http://localhost:5001/api/createroom`, {
           method: "GET",
           credentials: "include", // ensures cookie is sent for Google OAuth
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,

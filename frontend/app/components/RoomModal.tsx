@@ -18,7 +18,7 @@ export default function RoomModal() {
         //     return;
         // }
         try {
-            const res = await fetch(`${url}/createroom`, {
+            const res = await fetch(`http://localhost:5001/api/createroom`, {
                 method: "POST",
                 headers: {
                     "content-type": "application/json",
@@ -35,8 +35,6 @@ export default function RoomModal() {
         } catch (err) {
             console.log("room creation err:", err)
         }
-
-
     }
 
     return (
