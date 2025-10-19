@@ -219,6 +219,8 @@ async function googleAuthCallback(req, res) {
     } catch (err) {
         console.log("Google Auth Callback Error:", err);
         res.status(500).json({ message: "could not signup with google" })
+    }finally{
+        res.redirect(`${process.env.FRONTEND_URL}/dashboard`)
     }
 }
 
