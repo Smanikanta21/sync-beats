@@ -179,7 +179,7 @@ async function googleAuthCallback(req, res) {
         const user = req.user;
         
         if (!user) {
-            return res.redirect('http://localhost:3000?error=auth_failed');
+            return res.redirect(`${process.env.FRONTEND_URL}?error=auth_failed`);
         }
 
         const token = jwt.sign(
@@ -215,10 +215,10 @@ async function googleAuthCallback(req, res) {
         }
 
         // Redirect to frontend with token
-        res.redirect(`http://localhost:3000/dashboard?token=${token}&user=${user.name}`);
+        res.redirect(`${process.env.FRONTEND_URL}?token=${token}&user=${user.name}`);
     } catch (err) {
         console.log("Google Auth Callback Error:", err);
-        res.redirect('http://localhost:3000?error=server_error');
+        res.redirect(`${process.env.FRONTEND_URL}?error=server_error`);
     }
 }
 
