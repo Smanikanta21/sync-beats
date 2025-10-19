@@ -59,7 +59,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     }
 
     const googleAuthFetcher = () => {
-        window.location.href = `http://localhost:5001/auth/google`;
+        window.location.href = `${API_BASE}/auth/auth/google`;
     };
     const renderLogin = (): void => {
         setShowLogin?.(false);

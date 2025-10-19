@@ -37,7 +37,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
   }, [router, setShowSignup]);
 
   const googleAuthFetcher = () => {
-    window.location.href = `${API_BASE}/auth/google`;
+    window.location.href = `${API_BASE}/auth/auth/google`;
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
