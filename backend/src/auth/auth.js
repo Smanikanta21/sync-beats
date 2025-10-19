@@ -24,7 +24,6 @@ function getDeviceName(name, userAgent) {
     else if (os.name === 'macOS') device_type = 'Mac';
     else if (os.name === 'Windows') device_type = 'Windows PC';
     else if (os.name === 'Linux') device_type = 'Linux PC';
-    // else if (browser.name) device_type = browser.name;
 
     return `${name}'s ${device_type}`
 }
@@ -124,7 +123,6 @@ async function logout(req, res, next) {
     }
 }
 
-// Google OAuth Strategy
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -135,19 +133,17 @@ async (accessToken, refreshToken, profile, done) => {
         const email = profile.emails[0].value;
         const name = profile.displayName;
         
-        // Check if user exists
         let user = await prisma.Users.findUnique({
             where: { email }
         });
 
-        // If user doesn't exist, create one
         if (!user) {
             user = await prisma.Users.create({
                 data: {
                     name,
                     email,
                     username: email.split('@')[0] + Math.random().toString(36).substring(7),
-                    password: '' // No password for OAuth users
+                    password: ''
                 }
             });
         }
@@ -173,7 +169,7 @@ passport.deserializeUser(async (id, done) => {
     }
 });
 
-// Google Auth Callback
+
 async function googleAuthCallback(req, res) {
     try {
         const user = req.user;

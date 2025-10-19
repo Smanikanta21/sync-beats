@@ -17,8 +17,6 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     const [identifier, setIdentifier] = useState<string>("");
     const [password, setPassword] = useState<string>("");
     const [loading, setLoading] = useState<boolean>(false)
-    
-    // Handle Google Auth Callback
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const token = params.get('token');
@@ -61,7 +59,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     }
 
     const googleAuthFetcher = () => {
-        window.location.href = `${API_BASE}/auth/google`;
+        window.location.href = `http://localhost:5001/auth/google`;
     };
     const renderLogin = (): void => {
         setShowLogin?.(false);

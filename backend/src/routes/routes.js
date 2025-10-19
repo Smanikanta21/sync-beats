@@ -18,7 +18,6 @@ router.post('/createroom', authMiddleWare, createRoom);
 
 router.post('/joinroom', authMiddleWare, joinRoom);
 
-// Google OAuth Routes
 router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
 router.get('/auth/callback/google', passport.authenticate('google', { failureRedirect: '/' }), googleAuthCallback);
