@@ -21,6 +21,15 @@ app.use(cookieSession({
   keys: ['key1', 'key2'],
 }))
 
+const session = require('express-session');
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+  })
+);
+
 app.use(passport.initialize())
 app.use(passport.session())
 
