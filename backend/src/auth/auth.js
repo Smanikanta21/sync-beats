@@ -128,31 +128,31 @@ passport.use(new GoogleStrategy({
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: process.env.GOOGLE_REDIRECT_URL
 },
-async (accessToken, refreshToken, profile, done) => {
-    try {
-        const email = profile.emails[0].value;
-        const name = profile.displayName;
-        
-        let user = await prisma.Users.findUnique({
-            where: { email }
-        });
+    async (accessToken, refreshToken, profile, done) => {
+        try {
+            const email = profile.emails[0].value;
+            const name = profile.displayName;
 
-        if (!user) {
-            user = await prisma.Users.create({
-                data: {
-                    name,
-                    email,
-                    username: email.split('@')[0] + Math.random().toString(36).substring(7),
-                    password: ''
-                }
+            let user = await prisma.Users.findUnique({
+                where: { email }
             });
-        }
 
-        return done(null, user);
-    } catch (err) {
-        return done(err, null);
-    }
-}));
+            if (!user) {
+                user = await prisma.Users.create({
+                    data: {
+                        name,
+                        email,
+                        username: email.split('@')[0] + Math.random().toString(36).substring(7),
+                        password: ''
+                    }
+                });
+            }
+
+            return done(null, user);
+        } catch (err) {
+            return done(err, null);
+        }
+    }));
 
 passport.serializeUser((user, done) => {
     done(null, user.id);
@@ -173,19 +173,18 @@ passport.deserializeUser(async (id, done) => {
 async function googleAuthCallback(req, res) {
     try {
         const user = req.user;
-        
+
         if (!user) {
-            return res.redirect(`${process.env.FRONTEND_URL}?error=auth_failed`);
+            return res.status(401).json({ message: "Authentication failed" });
         }
 
         const token = jwt.sign(
             { id: user.id, email: user.email, name: user.name },
             JWT_SECRET,
-            { expiresIn: '7d' }
         );
 
         const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Google OAuth Device");
-        
+
         const existingDevice = await prisma.device.findFirst({
             where: { DeviceUserId: user.id, name: deviceName }
         });
@@ -209,12 +208,17 @@ async function googleAuthCallback(req, res) {
                 }
             });
         }
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+        });
+        res.status(200).json({ message: "Google login success", token, deviceName });
 
-        // Redirect to frontend with token
-        res.redirect(`${process.env.FRONTEND_URL}?token=${token}&user=${user.name}`);
+
     } catch (err) {
         console.log("Google Auth Callback Error:", err);
-        res.redirect(`${process.env.FRONTEND_URL}?error=server_error`);
+        res.status(500).json({ message: "could not signup with google" })
     }
 }
 

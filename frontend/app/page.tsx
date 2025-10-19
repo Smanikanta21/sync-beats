@@ -1,10 +1,36 @@
 "use client";
 import { Music, PlayCircle, Users2, Menu, Radio, Smartphone, Headphones, MessageSquare, Mail, User, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignUpPage';
 
 export default function LandingPage() {
+  const router = useRouter();
+
+  // Capture token if Google redirected to root with ?token=...&user=...
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      const user = params.get('user');
+      if (token) {
+        localStorage.setItem('token', token);
+        // push to dashboard
+        router.push('/dashboard');
+        // remove token from URL so it doesn't remain in address bar or history
+        try {
+          const cleanUrl = window.location.origin + window.location.pathname;
+          window.history.replaceState({}, document.title, cleanUrl);
+        } catch (e) {
+          // ignore replaceState failures
+        }
+        // Optionally show a toast - but avoid importing toast here to keep landing lightweight
+      }
+    } catch (e) {
+      // ignore in SSR or malformed URL
+    }
+  }, [router]);
 
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [showLogin, setShowLogin] = useState<boolean>(false);
