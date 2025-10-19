@@ -1,7 +1,5 @@
 "use client";
 import { Music, PlayCircle, Users2, Menu, Radio, Smartphone, Headphones, MessageSquare, Mail, User, X } from 'lucide-react';
-import { CiInstagram } from "react-icons/ci";
-import { FaGithub, FaLinkedin } from "react-icons/fa";
 import { useEffect, useState } from 'react';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignUpPage';

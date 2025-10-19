@@ -1,6 +1,8 @@
 "use client"
 import { QrCode, ArrowLeft } from "lucide-react"
 import { useState } from "react"
+import Image from 'next/image';
+import { toast } from 'react-toastify';
 
 export function CreateRoom({ onBack }: { onBack: () => void }) {
     const [roomName, setRoomName] = useState<string>("");
@@ -35,7 +37,7 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
                 setQrData(data.qrDataURL);
                 setRoomCode(data.room.code);
             } else {
-                alert(data.message || "Failed to create room.");
+                toast.error(data.message || "Failed to create room.");
             }
         } catch (err) {
             console.log("room creation err:", err)
@@ -61,7 +63,7 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
                     <div className="flex flex-col gap-6 justify-center items-center h-full">
                         {qrData ? (
                             <div className="flex flex-col items-center">
-                                <img
+                                <Image
                                     src={qrData}
                                     alt="Room QR Code"
                                     className="rounded-xl shadow-lg border border-gray-300"
@@ -96,14 +98,18 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
     const [roomCode, setRoomCode] = useState<string>("");
     const [loading, setLoading] = useState(false);
     const [joined, setJoined] = useState(false);
-    const [joinedRoomData, setJoinedRoomData] = useState<any>(null);
+    const [joinedRoomData, setJoinedRoomData] = useState<{
+        name: string;
+        code: string;
+        participants?: Array<{ userId: string }>;
+    } | null>(null);
 
     const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
     const token = localStorage.getItem('token')
 
     const handleJoinRoom = async () => {
         if (!roomCode.trim()) {
-            alert("Please enter a room code");
+            toast.warning("Please enter a room code");
             return;
         }
 
@@ -124,12 +130,13 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
             if (res.ok && data.room) {
                 setJoined(true);
                 setJoinedRoomData(data.room);
+                toast.success("Joined room successfully!");
             } else {
-                alert(data.message || "Failed to join room. Please check the room code.");
+                toast.error(data.message || "Failed to join room. Please check the room code.");
             }
         } catch (err) {
             console.log("join room err:", err);
-            alert("Error joining room. Please try again.");
+            toast.error("Error joining room. Please try again.");
         } finally {
             setLoading(false);
         }

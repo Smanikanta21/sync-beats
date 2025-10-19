@@ -2,7 +2,7 @@
 import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
-import { json } from "stream/consumers";
+
 
 type PropData = {
   showSignup?: boolean;

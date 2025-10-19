@@ -1,6 +1,8 @@
 "use client";
 import { X, Eye, EyeClosed } from "lucide-react";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
+import Image from "next/image";
+import { toast } from "react-toastify";
 import { useRouter } from 'next/navigation'
 
 type PropData = {
