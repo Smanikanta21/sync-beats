@@ -1,7 +1,7 @@
 "use client"
 import { X, Eye, EyeClosed } from "lucide-react";
-import React, { useState } from "react";
-import { BorderBeam } from "@/components/magicui/border-beam";
+import React, { useState, useEffect } from "react";
+import { useRouter } from 'next/navigation';
 import { json } from "stream/consumers";
 
 type PropData = {
@@ -13,6 +13,21 @@ type PropData = {
 
 
 export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
+  const router = useRouter();
+
+  // Handle Google Auth Callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    const user = params.get('user');
+    
+    if (token) {
+      localStorage.setItem('token', token);
+      alert(`Welcome ${user}!`);
+      router.push('/dashboard');
+      setShowSignup(false);
+    }
+  }, []);
 
 
   const tooltipItems = [{
@@ -34,6 +49,10 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
   const [loading,setLoading ] = useState<boolean>(false)
   
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
+
+  const googleAuthFetcher = () => {
+    window.location.href = `${API_BASE}/auth/google`;
+  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,17 +93,6 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
       <div className="fixed top-6 left-4 cursor-pointer hover:scale-120 ease-in-out duration-150" onClick={() => setShowSignup(false)}><X /></div>
       <div className="flex items-center justify-center h-screen bg-transparent">
         <div className="bg-black/60 backdrop-blur-lg p-8 rounded-lg w-full max-w-md  shadow-yellow-500 ">
-          <BorderBeam
-            size={150}
-            borderWidth={4}
-            duration={8}
-            className="from-transparent via-yellow-500 to-transparent"
-            transition={{
-              type: "spring",
-              stiffness: 10,
-              damping: 10,
-            }}
-          />
           <h1 className="text-2xl font-bold text-center text-white mb-6">Sign Up</h1>
           <form onSubmit={handleSignUp}>
             <div className="mb-4">
@@ -108,8 +116,17 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
               <button type="button" className="absolute right-2 top-10 cursor-pointer hover:scale-115 ease-in-out duration-150" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <Eye /> : <EyeClosed />} </button>
             </div>
             <button onClick={()=>{handleSignUp}} type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200" >Sign Up</button>
-            <div className="w-full flex flex-row items-center justify-center mt-6 gap-2">
-              
+            <div className="mt-6 text-center text-white/60">
+              <div><p>---------- or continue with ----------</p></div>
+              <div className="w-full flex flex-row items-center justify-center mt-6 gap-2">
+                <button 
+                  type="button"
+                  className="border rounded-full p-2 hover:cursor-pointer hover:scale-110 transition-all ease-in-out duration-150" 
+                  onClick={googleAuthFetcher}
+                >
+                  <img className="w-8 h-8" src="/images/google.svg" alt="Google" />
+                </button>
+              </div>
             </div>
           </form>
           <div>

@@ -39,12 +39,12 @@ export default function LandingPage() {
 
   return (
     <>
-      {showLogin ? (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
+      {showLogin ? (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-10 flex items-center justify-center'>
         <div className='w-screen transition-all duration-150 ease-in-out'>
           <LoginPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />
         </div>
       </div>) : null}
-      {showSignup ? (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 flex items-center justify-center'>
+      {showSignup ? (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-10 flex items-center justify-center'>
         <div className='w-screen'>
           <SignupPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />
         </div>

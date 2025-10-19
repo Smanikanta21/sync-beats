@@ -1,6 +1,8 @@
 const express = require('express')
 const cookieParser = require('cookie-parser')
+const cookieSession = require('cookie-session')
 const cors = require('cors')
+const passport = require('passport')
 const app = express()
 const authroutes = require('./routes/routes');
 const router = require('../src/routes/routes')
@@ -14,6 +16,14 @@ app.use(cors({
 
 app.use(express.json())
 app.use(cookieParser())
+app.use(cookieSession({
+  name: 'session',
+  keys: ['key1', 'key2'],
+}))
+
+app.use(passport.initialize())
+app.use(passport.session())
+
 app.use('/auth', authroutes);
 
 app.use('/api' , router)

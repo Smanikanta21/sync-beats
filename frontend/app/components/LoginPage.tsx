@@ -1,7 +1,6 @@
 "use client";
 import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
-import { BorderBeam } from "@/components/magicui/border-beam";
 import { useRouter } from 'next/navigation'
 
 type PropData = {
@@ -11,6 +10,22 @@ type PropData = {
 
 export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
+    const router = useRouter()
+    
+    // Handle Google Auth Callback
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+        const user = params.get('user');
+        
+        if (token) {
+            localStorage.setItem('token', token);
+            alert(`Welcome ${user}!`);
+            router.push('/dashboard');
+            setShowLogin && setShowLogin(false);
+        }
+    }, []);
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         try {
@@ -40,9 +55,8 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     }
 
     const googleAuthFetcher = () => {
-        window.location.href = `${API_BASE}/googleauth/google`;
+        window.location.href = `${API_BASE}/auth/google`;
     };
-    const router = useRouter()
     const renderLogin = () => {
         setShowLogin && setShowLogin(false);
         setShowSignup && setShowSignup(true);
@@ -67,17 +81,6 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
             <div className="fixed top-6 left-4 hover:cursor-pointer hover:scale-125 ease-in-out duration-150" onClick={() => setShowLogin && setShowLogin(false)}><X /></div>
             <div className="flex items-center justify-center h-screen bg-transparent">
                 <div className="bg-black/60 backdrop-blur-lg p-8 rounded-lg shadow-lg w-full max-w-md">
-                    <BorderBeam
-                        size={150}
-                        borderWidth={4}
-                        duration={4}
-                        className="from-transparent via-yellow-500 to-transparent"
-                        transition={{
-                            type: "spring",
-                            stiffness: 60,
-                            damping: 20,
-                        }}
-                    />
                     <h1 className="text-2xl font-bold text-center text-white mb-6">Login</h1>
                     <form onSubmit={handleLogin}>
                         <div className="mb-4">

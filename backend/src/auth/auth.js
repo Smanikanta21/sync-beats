@@ -3,6 +3,8 @@ const UAParser = require('ua-parser-js')
 const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT;
@@ -122,4 +124,102 @@ async function logout(req, res, next) {
     }
 }
 
-module.exports = { signup, login, logout, getDeviceName };
+// Google OAuth Strategy
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_REDIRECT_URL
+},
+async (accessToken, refreshToken, profile, done) => {
+    try {
+        const email = profile.emails[0].value;
+        const name = profile.displayName;
+        
+        // Check if user exists
+        let user = await prisma.Users.findUnique({
+            where: { email }
+        });
+
+        // If user doesn't exist, create one
+        if (!user) {
+            user = await prisma.Users.create({
+                data: {
+                    name,
+                    email,
+                    username: email.split('@')[0] + Math.random().toString(36).substring(7),
+                    password: '' // No password for OAuth users
+                }
+            });
+        }
+
+        return done(null, user);
+    } catch (err) {
+        return done(err, null);
+    }
+}));
+
+passport.serializeUser((user, done) => {
+    done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+    try {
+        const user = await prisma.Users.findUnique({
+            where: { id }
+        });
+        done(null, user);
+    } catch (err) {
+        done(err, null);
+    }
+});
+
+// Google Auth Callback
+async function googleAuthCallback(req, res) {
+    try {
+        const user = req.user;
+        
+        if (!user) {
+            return res.redirect('http://localhost:3000?error=auth_failed');
+        }
+
+        const token = jwt.sign(
+            { id: user.id, email: user.email, name: user.name },
+            JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Google OAuth Device");
+        
+        const existingDevice = await prisma.device.findFirst({
+            where: { DeviceUserId: user.id, name: deviceName }
+        });
+
+        if (existingDevice) {
+            await prisma.device.update({
+                where: { id: existingDevice.id },
+                data: {
+                    status: "online",
+                    ip: req.ip,
+                    updatedAt: new Date()
+                }
+            });
+        } else {
+            await prisma.device.create({
+                data: {
+                    DeviceUserId: user.id,
+                    name: deviceName,
+                    status: "online",
+                    ip: req.ip
+                }
+            });
+        }
+
+        // Redirect to frontend with token
+        res.redirect(`http://localhost:3000/dashboard?token=${token}&user=${user.name}`);
+    } catch (err) {
+        console.log("Google Auth Callback Error:", err);
+        res.redirect('http://localhost:3000?error=server_error');
+    }
+}
+
+module.exports = { signup, login, logout, getDeviceName, googleAuthCallback };
