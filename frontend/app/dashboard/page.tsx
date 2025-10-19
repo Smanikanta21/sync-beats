@@ -2,9 +2,10 @@
 export const dynamic = "force-dynamic";
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, Music, Menu, UserCircle, LogOut, ArrowRight, Play, Radio, RefreshCw, Cast, PlusCircle, Users } from 'lucide-react';
+import { Music, Menu, UserCircle, LogOut, ArrowRight, Play, Radio, RefreshCw, Cast, PlusCircle, Users } from 'lucide-react';
 import Link from 'next/link';
 import { CreateRoom, JoinRoom } from '../components/RoomModal'
+import { toast } from 'react-toastify';
 
 export default function DashBoard() {
   const router = useRouter();
@@ -27,11 +28,11 @@ export default function DashBoard() {
     try {
       SetLoader(true)
       await fetch(`${url}/auth/logout`, { method: 'POST' });
+      toast.success('Logged out successfully!');
     } catch (err) {
-      alert("Logout unsuccessful");
+      toast.error("Logout unsuccessful");
       console.log(err);
     } finally {
-      alert('Logged out successfully!');
       SetLoader(false)
       router.push('/');
     }
@@ -100,7 +101,7 @@ export default function DashBoard() {
     };
 
     dashboardInit();
-  }, []);
+  }, [router, url]);
 
   function formatLastSeen(dateString?: string) {
     if (!dateString) return '-';

@@ -2,7 +2,8 @@
 import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation';
-
+import Image from 'next/image';
+import { toast } from 'react-toastify';
 
 type PropData = {
   showSignup?: boolean;
@@ -10,10 +11,16 @@ type PropData = {
   setShowSignup: (show: boolean) => void;
 };
 
-
-
 export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
   const router = useRouter();
+  const [email, setEmail] = useState<string>("");
+  const [username, setUsername] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [name, setName] = useState<string>("");
+  const [loading,setLoading ] = useState<boolean>(false)
+  
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
 
   // Handle Google Auth Callback
   useEffect(() => {
@@ -23,32 +30,11 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
     
     if (token) {
       localStorage.setItem('token', token);
-      alert(`Welcome ${user}!`);
+      toast.success(`Welcome ${user}!`);
       router.push('/dashboard');
       setShowSignup(false);
     }
-  }, []);
-
-
-  const tooltipItems = [{
-    id: 1, name: "Sign In With Spotify", designation: "Sign in with your Spotify account.",
-    image: "/images/spotify.png"
-  }, {
-    id: 2, name: "Sign In With Apple Music", designation: "Sign in with your Apple Music account.",
-    image: "/images/applemusic.svg"
-  }, {
-    id: 3, name: "Sign In with Google", designation: "Sign in with your Google account.",
-    image: "/images/google.svg",
-  }]
-
-  const [email, setEmail] = useState<string>("");
-  const [username, setUsername] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [name, setName] = useState<string>("");
-  const [loading,setLoading ] = useState<boolean>(false)
-  
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
+  }, [router, setShowSignup]);
 
   const googleAuthFetcher = () => {
     window.location.href = `${API_BASE}/auth/google`;
@@ -63,18 +49,18 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
         headers : {"content-type":"application/json"},
         body : JSON.stringify({name,username,email,password})
       })
-      const data = res.json()
+      const data = await res.json()
       console.log(data)
 
       if(res.ok){
-        alert("Signup Successfull")
+        toast.success("Signup Successfull")
         setShowSignup(false)
         setShowLogin(true);
       }else{
-        alert("signup Failed" + data);
+        toast.error("signup Failed: " + JSON.stringify(data));
       }
     }catch(err){
-      alert(`Error during Signup : ${err}`)
+      toast.error(`Error during Signup : ${err}`)
     }finally{
       setLoading(false)
     }
@@ -115,7 +101,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
               <input type={showPassword ? "text" : "password"} id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter Your Password" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
               <button type="button" className="absolute right-2 top-10 cursor-pointer hover:scale-115 ease-in-out duration-150" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <Eye /> : <EyeClosed />} </button>
             </div>
-            <button onClick={()=>{handleSignUp}} type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200" >Sign Up</button>
+            <button onClick={handleSignUp} type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200" >Sign Up</button>
             <div className="mt-6 text-center text-white/60">
               <div><p>---------- or continue with ----------</p></div>
               <div className="w-full flex flex-row items-center justify-center mt-6 gap-2">
@@ -124,7 +110,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
                   className="border rounded-full p-2 hover:cursor-pointer hover:scale-110 transition-all ease-in-out duration-150" 
                   onClick={googleAuthFetcher}
                 >
-                  <img className="w-8 h-8" src="/images/google.svg" alt="Google" />
+                  <Image src="/images/google.svg" alt="Google" width={32} height={32} />
                 </button>
               </div>
             </div>

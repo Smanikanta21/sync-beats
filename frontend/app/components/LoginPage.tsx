@@ -1,9 +1,9 @@
 "use client";
 import { X, Eye, EyeClosed } from "lucide-react";
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
-import { toast } from "react-toastify";
 import { useRouter } from 'next/navigation'
+import Image from 'next/image';
+import { toast } from 'react-toastify';
 
 type PropData = {
     setShowLogin?: (show: boolean) => void;
@@ -13,6 +13,10 @@ type PropData = {
 export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
     const router = useRouter()
+    const [showPassword, setShowPassword] = useState(false);
+    const [identifier, setIdentifier] = useState<string>("");
+    const [password, setPassword] = useState<string>("");
+    const [loading, setLoading] = useState<boolean>(false)
     
     // Handle Google Auth Callback
     useEffect(() => {
@@ -22,11 +26,11 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
         
         if (token) {
             localStorage.setItem('token', token);
-            alert(`Welcome ${user}!`);
+            toast.success(`Welcome ${user}!`);
             router.push('/dashboard');
-            setShowLogin && setShowLogin(false);
+            setShowLogin?.(false);
         }
-    }, []);
+    }, [router, setShowLogin]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -43,14 +47,14 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
 
             if (res.ok) {
                 localStorage.setItem("token", data.token);
-                alert("logged in Successfull")
+                toast.success("logged in Successfull")
                 router.push('/dashboard')
             } else {
-                alert(`logging in failed ${data.message}`)
+                toast.error(`logging in failed ${data.message}`)
             }
         } catch (err) {
             console.log(err)
-            alert(`login failed because ${err}`)
+            toast.error(`login failed because ${err}`)
         } finally {
             setLoading(false)
         }
@@ -59,14 +63,10 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     const googleAuthFetcher = () => {
         window.location.href = `${API_BASE}/auth/google`;
     };
-    const renderLogin = () => {
-        setShowLogin && setShowLogin(false);
-        setShowSignup && setShowSignup(true);
+    const renderLogin = (): void => {
+        setShowLogin?.(false);
+        setShowSignup?.(true);
     }
-    const [showPassword, setShowPassword] = useState(false);
-    const [identifier, setIdentifier] = useState<string>("");
-    const [password, setPassword] = useState<string>("");
-    const [loading, setLoading] = useState<boolean>(false)
 
 
 
@@ -100,7 +100,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
                             <div><p>---------- or continue with ----------</p></div>
                             <div className="w-full flex flex-row items-center justify-center mt-6 gap-2">
                                 <div>
-                                    <button className="border rounded-full p-2 hover:cursor-pointer hover:scale-110 transition-all ease-in-out duration-150" onClick={googleAuthFetcher}><img className="w-8 h-8" src="/images/google.svg" alt="" /></button>
+                                    <button type="button" className="border rounded-full p-2 hover:cursor-pointer hover:scale-110 transition-all ease-in-out duration-150" onClick={googleAuthFetcher}><Image src="/images/google.svg" alt="Google" width={32} height={32} /></button>
                                 </div>
 
                             </div>
