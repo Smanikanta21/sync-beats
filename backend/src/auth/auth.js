@@ -211,16 +211,15 @@ async function googleAuthCallback(req, res) {
         res.cookie("token", token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
+            sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
         });
-        res.status(200).json({ message: "Google login success", token, deviceName });
 
+        return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/dashboard`);
 
     } catch (err) {
         console.log("Google Auth Callback Error:", err);
-        res.status(500).json({ message: "could not signup with google" })
-    }finally{
-        res.redirect(`${process.env.FRONTEND_URL}/dashboard`)
+        return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/?error=google_auth_failed`);
     }
 }
 
