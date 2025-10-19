@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, Music, Menu, UserCircle, LogOut, ArrowRight, Play, Radio, RefreshCw, Cast, PlusCircle, Users } from 'lucide-react';
 import Link from 'next/link';
-import RoomModal from '../components/RoomModal'
+import { CreateRoom, JoinRoom } from '../components/RoomModal'
 
 export default function DashBoard() {
   const router = useRouter();
@@ -19,6 +19,7 @@ export default function DashBoard() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [name, setName] = useState<string>('')
   const [createroomModal, setCrm] = useState<boolean>(false)
+  const [joinroomModal, setJoinRm] = useState<boolean>(false)
   const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
   const [loader, SetLoader] = useState<boolean>(false)
 
@@ -51,6 +52,18 @@ export default function DashBoard() {
       document.body.style.width = '';
     }
   }, [createroomModal]);
+
+  useEffect(() => {
+    if (joinroomModal) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+    }
+  }, [joinroomModal]);
 
   useEffect(() => {
     const dashboardInit = async () => {
@@ -136,8 +149,14 @@ export default function DashBoard() {
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
       {createroomModal ? (<div className='fixed inset-0 z-50 flex justify-center items-center'>
         <div className={`rounded-2xl md:w-[50%] h-[80%] w-[90%] md:h-[60%] md:bg-blue/5 bg-black/40 backdrop-blur-3xl relative transition-all duration-150 ${createroomModal ? 'opacity-100' : "opacity-0"}`}>
-          <button onClick={() => setCrm(false)} className='absolute top-4 left-4 text-white hover:text-red-500'><X size={32} /></button>
-          <RoomModal />
+          {/* <button onClick={() => setCrm(false)} className='absolute top-4 left-4 text-white hover:text-red-500 z-10'><X size={32} /></button> */}
+          <CreateRoom onBack={()=> setCrm(false)}/>
+        </div>
+      </div>) : null}
+      {joinroomModal ? (<div className='fixed inset-0 z-50 flex justify-center items-center'>
+        <div className={`rounded-2xl md:w-[50%] h-[80%] w-[90%] md:h-[60%] md:bg-blue/5 bg-black/40 backdrop-blur-3xl relative transition-all duration-150 ${joinroomModal ? 'opacity-100' : "opacity-0"}`}>
+          {/* <button onClick={() => setJoinRm(false)} className='absolute top-4 left-4 text-white hover:text-red-500 z-10'><X size={32} /></button> */}
+          <JoinRoom onBack={() => setJoinRm(false)} />
         </div>
       </div>) : null}
       <header className="flex flex-row justify-between items-center bg-black/60 backdrop-blur-md py-4 px-6 shadow-lg sticky top-0 z-10 border-b border-gray-800">
@@ -168,7 +187,7 @@ export default function DashBoard() {
             <button onClick={handleroomCreation} className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition">
               <Play size={18} /> Start New Session
             </button>
-            <button className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-gray-800 hover:bg-gray-700 font-semibold transition">
+            <button onClick={() => setJoinRm(!joinroomModal)} className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-gray-800 hover:bg-gray-700 font-semibold transition">
               <Users size={18} /> Join Session
             </button>
             <button className="flex items-center justify-center gap-2 px-5 py-3 rounded-lg border border-gray-600 hover:border-blue-500 font-semibold transition">

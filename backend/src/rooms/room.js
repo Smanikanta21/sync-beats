@@ -41,39 +41,44 @@ async function createRoom(req, res) {
     }
 }
 
-async function joinRoom(req,res){
-    const user_id = req.user?.id
+async function joinRoom(req, res) {
+    const user_id = req.user?.id;
     const { code } = req.body;
-    console.log(req.body)
-    if(!code) return res.status(400).json({message:"Enter Code"})
-    if(!user_id) return res.status(401).json({message:"Unauthorised"})
-    
-    try{
-        const rooms = await prisma.room.findUnique({
-            where:{code:code},
-            include:{participants:true,devices:true}
-        })
+    console.log(user_id)
+    if (!code) return res.status(400).json({ message: "Enter Code" });
+    if (!user_id) return res.status(401).json({ message: "Unauthorised" });
 
-        if(!rooms) return res.status(404).json({message:"Room Not Found"})
-        
-        const isParticipant = rooms.participants.some(p=>p.userId === user_id)
+    try {
+        const userExists = await prisma.Users.findUnique({ where: { id: user_id } });
+        console.log(userExists)
+        if (!userExists) return res.status(400).json({ message: "User not found in database" });
+
+        const room = await prisma.room.findUnique({
+            where: { code },
+            include: { participants: true, devices: true }
+        });
+
+        if (!room) return res.status(404).json({ message: "Room Not Found" });
+
+        const isParticipant = room.participants.some(p => p.userId === user_id);
         if (!isParticipant) {
             await prisma.roomUsers.create({
                 data: {
-                    roomId: rooms.id,
-                    userId: rooms.user_id
+                    roomId: room.id,
+                    userId: user_id
                 }
-            })
+            });
         }
 
         const updatedRoom = await prisma.room.findUnique({
-            where:{ code },
-            include:{participants:true,devices:true}
-        })
-        return res.status(200).json({message:`Joined room: ${updatedRoom}`})
-    }catch(err){
-        console.log(`JoinRoom Err: ${err}`)
-        return res.status(404).json({message:"Failed to join room"})
+            where: { code },
+            include: { participants: true, devices: true }
+        });
+
+        return res.status(200).json({ message: "Joined room successfully", room: updatedRoom });
+    } catch (err) {
+        console.log(`JoinRoom Err: ${err}`);
+        return res.status(500).json({ message: "Failed to join room" });
     }
 }
 
