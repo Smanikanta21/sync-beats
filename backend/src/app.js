@@ -1,6 +1,6 @@
 const express = require('express')
 const cookieParser = require('cookie-parser')
-const cookieSession = require('cookie-session')
+const session = require('express-session')
 const cors = require('cors')
 const passport = require('passport')
 const app = express()
@@ -16,17 +16,12 @@ app.use(cors({
 
 app.use(express.json())
 app.use(cookieParser())
-app.use(cookieSession({
-  name: 'session',
-  keys: ['key1', 'key2'],
-}))
-
-const session = require('express-session');
 app.use(
   session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: false,
+    cookie: { secure: false, httpOnly: true, maxAge: 24 * 60 * 60 * 1000 }
   })
 );
 
