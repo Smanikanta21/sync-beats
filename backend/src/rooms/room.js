@@ -82,4 +82,99 @@ async function joinRoom(req, res) {
     }
 }
 
-module.exports = { createRoom, joinRoom }
+async function verifyRoom(req, res) {
+    const { code } = req.params;
+    const user_id = req.user?.id;
+
+    if (!code) return res.status(400).json({ message: "Room code is required" });
+    if (!user_id) return res.status(401).json({ message: "Unauthorised" });
+
+    try {
+        const room = await prisma.room.findUnique({
+            where: { code },
+            include: { 
+                participants: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true 
+                            }
+                        }
+                    }
+                },
+                devices: true 
+            }
+        });
+
+        if (!room) {
+            return res.status(404).json({ message: "Room not found", room: null });
+        }
+
+        return res.status(200).json({ 
+            message: "Room verified", 
+            room: {
+                id: room.id,
+                name: room.name,
+                code: room.code,
+                type: room.type,
+                hostId: room.hostId,
+                isActive: room.isActive,
+                participants: room.participants
+            }
+        });
+    } catch (err) {
+        console.log(`VerifyRoom Err: ${err}`);
+        return res.status(500).json({ message: "Failed to verify room" });
+    }
+}
+
+async function getRoomDetails(req, res) {
+    const { code } = req.params;
+    const user_id = req.user?.id;
+
+    if (!code) return res.status(400).json({ message: "Room code is required" });
+    if (!user_id) return res.status(401).json({ message: "Unauthorised" });
+
+    try {
+        const room = await prisma.room.findUnique({
+            where: { code },
+            include: { 
+                participants: {
+                    include: {
+                        user: {
+                            select: { id: true, name: true }
+                        }
+                    }
+                },
+                devices: {
+                    include: {
+                        device: {
+                            select: { id: true, name: true, status: true }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!room) {
+            return res.status(404).json({ message: "Room not found" });
+        }
+
+        const isParticipant = room.participants.some(p => p.userId === user_id);
+        if (!isParticipant) {
+            return res.status(403).json({ message: "You are not a participant of this room" });
+        }
+
+        return res.status(200).json({ 
+            message: "Room details fetched successfully", 
+            room,
+            userId: user_id
+        });
+    } catch (err) {
+        console.log(`GetRoomDetails Err: ${err}`);
+        return res.status(500).json({ message: "Failed to fetch room details" });
+    }
+}
+
+module.exports = { createRoom, joinRoom, verifyRoom, getRoomDetails }

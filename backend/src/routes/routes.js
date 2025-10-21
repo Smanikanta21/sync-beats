@@ -2,7 +2,7 @@ const express = require('express')
 const {signup,login,logout,googleAuthCallback} = require('../auth/auth')
 const {authMiddleWare} = require('../middleware/middleware')
 const {getDashboardData} = require('../dashboard/route')
-const { createRoom,joinRoom } = require('../rooms/room')
+const { createRoom, joinRoom, verifyRoom, getRoomDetails } = require('../rooms/room')
 const passport = require('passport')
 const router = express.Router()
 
@@ -17,6 +17,10 @@ router.get('/dashboard',authMiddleWare,getDashboardData);
 router.post('/createroom', authMiddleWare, createRoom);
 
 router.post('/joinroom', authMiddleWare, joinRoom);
+
+router.get('/verifyroom/:code', authMiddleWare, verifyRoom);
+
+router.get('/room/:code', authMiddleWare, getRoomDetails);
 
 router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 

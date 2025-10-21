@@ -88,8 +88,8 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
                             Creating...
                         </button>
                     ) : resok ? (
-                        <button className="px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition" onClick={() => { setResok(false); setQrData(null); setRoomCode(null); setRoomName(""); }}>
-                            Create Another
+                        <button className="px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition" onClick={() => {router.push(`/room/${roomCode}`)}}>
+                            Start Syncing...
                         </button>
                     ) : (
                         <button className={`px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition`} onClick={handleCreateRoom}>
@@ -107,6 +107,7 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
     const [roomCode, setRoomCode] = useState<string>("");
     const [loading, setLoading] = useState(false);
     const [joined, setJoined] = useState(false);
+    const [showQRScanner, setShowQRScanner] = useState(false);
     const [joinedRoomData, setJoinedRoomData] = useState<{
         name: string;
         code: string;
@@ -116,8 +117,10 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
     const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
     const token = localStorage.getItem('token')
 
-    const handleJoinRoom = async () => {
-        if (!roomCode.trim()) {
+    const handleJoinRoom = async (code?: string) => {
+        const codeToJoin = code || roomCode.trim();
+        
+        if (!codeToJoin) {
             toast.warning("Please enter a room code");
             return;
         }
@@ -130,7 +133,7 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                     "content-type": "application/json",
                     Authorization: token ? `Bearer ${token}` : "",
                 },
-                body: JSON.stringify({ code: roomCode.trim() }),
+                body: JSON.stringify({ code: codeToJoin }),
                 credentials: "include"
             });
 
@@ -140,8 +143,9 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                 setJoined(true);
                 setJoinedRoomData(data.room);
                 toast.success("Joined room successfully!");
-                router.push(`/dashboard/room/${data.room.code}`);
-
+                setTimeout(() => {
+                    router.push(`/dashboard/room/${data.room.code}`);
+                }, 1000);
             } else {
                 toast.error(data.message || "Failed to join room. Please check the room code.");
             }
@@ -151,6 +155,43 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleQRScan = (scannedData: string) => {
+        // Extract room code from URL or use directly
+        const match = scannedData.match(/\/join\/([A-Za-z0-9]+)/);
+        if (match) {
+            const code = match[1];
+            setRoomCode(code);
+            setShowQRScanner(false);
+            handleJoinRoom(code);
+        } else {
+            toast.error("Invalid QR code. Please scan a valid room QR code.");
+        }
+    };
+
+    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                // Create canvas to read QR code from image
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                context?.drawImage(img, 0, 0);
+
+                // Use jsQR or similar library to decode
+                // For now, show a message
+                toast.info("QR code scanning from image - feature in progress. Please enter the code manually.");
+            };
+            img.src = e.target?.result as string;
+        };
+        reader.readAsDataURL(file);
     };
 
     return (
@@ -164,27 +205,108 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
 
                 {!joined ? (
                     <div className="flex flex-col items-center gap-6 w-full max-w-md">
-                        <div className="w-full">
-                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                Enter Room Code
-                            </label>
-                            <input type="text" placeholder="e.g., 12345" value={roomCode} onChange={(e) => setRoomCode(e.target.value)} className="w-full border border-gray-400 rounded-xl py-3 px-4 text-white bg-gray-900/50 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center text-2xl tracking-widest" maxLength={6} />
+                        {/* Tab Selection */}
+                        <div className="w-full flex gap-2 bg-gray-800/50 p-1 rounded-lg">
+                            <button 
+                                onClick={() => setShowQRScanner(false)}
+                                className={`flex-1 py-2 px-4 rounded-md transition ${!showQRScanner ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                Enter Code
+                            </button>
+                            <button 
+                                onClick={() => setShowQRScanner(true)}
+                                className={`flex-1 py-2 px-4 rounded-md transition ${showQRScanner ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                Scan QR
+                            </button>
                         </div>
 
-                        <button onClick={handleJoinRoom} disabled={loading} className={`w-full px-6 py-3 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition ${loading ? "opacity-50 cursor-not-allowed" : ""}`}>{loading ? "Joining..." : "Join Room"}
-                        </button>
+                        {!showQRScanner ? (
+                            <>
+                                <div className="w-full">
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        Enter Room Code
+                                    </label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="e.g., ABC123" 
+                                        value={roomCode} 
+                                        onChange={(e) => setRoomCode(e.target.value.toUpperCase())} 
+                                        className="w-full border border-gray-400 rounded-xl py-3 px-4 text-white bg-gray-900/50 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center text-2xl tracking-widest" 
+                                        maxLength={10}
+                                        onKeyPress={(e) => {
+                                            if (e.key === 'Enter') {
+                                                handleJoinRoom();
+                                            }
+                                        }}
+                                    />
+                                    <p className="text-xs text-gray-400 mt-2 text-center">
+                                        Press Enter or click the button below to join
+                                    </p>
+                                </div>
+
+                                <button 
+                                    onClick={() => handleJoinRoom()} 
+                                    disabled={loading || !roomCode.trim()} 
+                                    className={`w-full px-6 py-3 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition ${(loading || !roomCode.trim()) ? "opacity-50 cursor-not-allowed" : ""}`}
+                                >
+                                    {loading ? "Joining..." : "Join Room"}
+                                </button>
+                            </>
+                        ) : (
+                            <div className="w-full space-y-4">
+                                <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-600 text-center">
+                                    <QrCode size={80} className="mx-auto text-blue-400 mb-4" />
+                                    <h3 className="text-lg font-semibold mb-2">Scan QR Code</h3>
+                                    <p className="text-sm text-gray-400 mb-4">
+                                        Upload a QR code image or paste the room link
+                                    </p>
+                                    
+                                    {/* File Upload */}
+                                    <label className="block w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold cursor-pointer transition">
+                                        Upload QR Image
+                                        <input 
+                                            type="file" 
+                                            accept="image/*" 
+                                            onChange={handleFileUpload}
+                                            className="hidden"
+                                        />
+                                    </label>
+                                </div>
+
+                                <div className="text-center">
+                                    <p className="text-xs text-gray-500">
+                                        Or ask the host to share the room code
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className="flex flex-col items-center gap-4 w-full max-w-md text-center">
                         <div className="w-full bg-green-500/20 border border-green-500 rounded-xl p-6">
                             <h2 className="text-2xl font-bold text-green-400 mb-4">✓ Joined Successfully!</h2>
+                            {joinedRoomData && (
+                                <div className="text-left space-y-2 mt-4">
+                                    <p className="text-sm text-gray-300">
+                                        <span className="text-gray-400">Room:</span> {joinedRoomData.name}
+                                    </p>
+                                    <p className="text-sm text-gray-300">
+                                        <span className="text-gray-400">Code:</span> <span className="font-mono text-blue-400">{joinedRoomData.code}</span>
+                                    </p>
+                                </div>
+                            )}
                         </div>
-                        <button onClick={() => {
-                            setJoined(false);
-                            setRoomCode("");
-                            setJoinedRoomData(null);
-                        }}
-                            className="w-full px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition">Join Another Room</button>
+                        <button 
+                            onClick={() => {
+                                setJoined(false);
+                                setRoomCode("");
+                                setJoinedRoomData(null);
+                            }}
+                            className="w-full px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition"
+                        >
+                            Join Another Room
+                        </button>
                     </div>
                 )}
             </div>
