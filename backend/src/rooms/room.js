@@ -6,15 +6,37 @@ async function createRoom(req, res) {
     const user_id = req.user?.id
     const { name, type } = req.body;
     const frontend_url = process.env.FRONTEND_URL
+    
+    console.log('Creating room - user_id:', user_id);
+    
     if (!user_id) return res.status(401).json({ message: "Unauthorized" });
     if (!name) return res.status(400).json({ message: "Room Name Can't be empty" })
     if (!type) return res.status(400).json("Room type not selected")
 
     try {
-        const online_devices = await prisma.device.findMany({ where: { DeviceUserId: user_id, status: "online" } })
+        // Verify user exists in database (Prisma model is 'Users' with capital U)
+        const userExists = await prisma.Users.findUnique({ 
+            where: { id: user_id } 
+        });
+        
+        console.log('User exists check:', !!userExists, 'user_id:', user_id);
+        
+        if (!userExists) {
+            return res.status(404).json({ 
+                message: "User not found in database. Please login again." 
+            });
+        }
+
+        const online_devices = await prisma.device.findMany({ 
+            where: { DeviceUserId: user_id, status: "online" } 
+        });
+        
+        console.log('Online devices count:', online_devices.length);
 
         if (type === 'single' && online_devices.length < 2) {
-            res.status(400).json({ message: "Single User room needs atleast two online devices" })
+            return res.status(400).json({ 
+                message: "Single User room needs atleast two online devices" 
+            });
         }
 
         const room = await prisma.room.create({
@@ -27,7 +49,7 @@ async function createRoom(req, res) {
             },
             include: { participants: true, devices: true }
         })
-        console.log(room)
+        console.log('Room created successfully:', room.code)
         const room_url = `${frontend_url}/join/${room.code}`
         const qr_url = await qrcode.toDataURL(room_url)
         return res.status(200).json({
