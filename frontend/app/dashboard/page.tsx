@@ -27,14 +27,24 @@ export default function DashBoard() {
   const handleLogout = async () => {
     try {
       SetLoader(true)
-      await fetch(`${url}/auth/logout`, { method: 'POST' });
+      await fetch(`http://localhost:5001/auth/logout`, { 
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      localStorage.removeItem('token');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('deviceName');
       toast.success('Logged out successfully!');
+      router.push('/');
     } catch (err) {
       toast.error("Logout unsuccessful");
       console.log(err);
+      localStorage.removeItem('token');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('deviceName');
     } finally {
       SetLoader(false)
-      router.push('/');
     }
   };
 
@@ -77,7 +87,7 @@ export default function DashBoard() {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (res.status === 401) {
-          alert("Session expired. Please login again.");
+          toast("Session expired. Please login again.");
           router.push('/');
           return;
   }

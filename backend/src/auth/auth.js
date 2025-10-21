@@ -116,8 +116,24 @@ async function login(req, res, next) {
 
 async function logout(req, res, next) {
     try {
-        res.clearCookie("token");
-        res.json({ message: "Logout success" });
+        res.clearCookie("token", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+        });
+        
+        if (req.session) {
+            req.session.destroy((err) => {
+                if (err) {
+                    console.log("Session destruction error:", err);
+                }
+            });
+        }
+        
+        res.json({ 
+            message: "Logout success",
+            note: "All cookies cleared. Client should also clear localStorage tokens."
+        });
     } catch (err) {
         next(err);
     }

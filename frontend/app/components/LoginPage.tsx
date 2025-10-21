@@ -34,7 +34,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
         e.preventDefault()
         try {
             setLoading(true)
-            const res = await fetch(`${API_BASE}/auth/login`, {
+            const res = await fetch(`http://localhost:5001/auth/login`, {
                 method: "POST",
                 headers: { "content-type": "application/json" },
                 credentials: "include",
@@ -44,7 +44,6 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
             console.log(data)
 
             if (res.ok) {
-                localStorage.setItem("token", data.token);
                 toast.success("logged in Successfull")
                 router.push('/dashboard')
             } else {
