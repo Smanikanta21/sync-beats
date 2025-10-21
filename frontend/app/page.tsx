@@ -8,7 +8,6 @@ import SignupPage from './components/SignUpPage';
 export default function LandingPage() {
   const router = useRouter();
 
-  // Capture token if Google redirected to root with ?token=...&user=...
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -16,19 +15,16 @@ export default function LandingPage() {
       const user = params.get('user');
       if (token) {
         localStorage.setItem('token', token);
-        // push to dashboard
         router.push('/dashboard');
-        // remove token from URL so it doesn't remain in address bar or history
         try {
           const cleanUrl = window.location.origin + window.location.pathname;
           window.history.replaceState({}, document.title, cleanUrl);
         } catch (e) {
-          // ignore replaceState failures
+          console.log(e)
         }
-        // Optionally show a toast - but avoid importing toast here to keep landing lightweight
       }
     } catch (e) {
-      // ignore in SSR or malformed URL
+      console.log(e)
     }
   }, [router]);
 
@@ -50,7 +46,7 @@ export default function LandingPage() {
 
 
   useEffect(()=>{
-        if (showSignup) {
+    if (showSignup) {
       document.body.style.overflow = "hidden"
       document.body.style.position = "fixed"
       document.body.style.width = "100%"
@@ -59,7 +55,7 @@ export default function LandingPage() {
       document.body.style.position = ""
       document.body.style.width = ""
     }
-  },[showSignup])
+  }, [showSignup])
 
   return (
     <>

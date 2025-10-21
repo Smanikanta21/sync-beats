@@ -1,0 +1,13 @@
+import { useParams,useRouter } from "next/navigation"
+import { useEffect,useState } from "react"
+import { toast } from "react-toastify"
+
+export default function JoinRoomPage(){
+    const params = useParams();
+    const router = useRouter();
+    const roomcode = params.code as String
+
+    const [loading,setLoading] = useState(false)
+    const [roomExists,setRoomExists] = useState<boolean | null>(null)
+
+}

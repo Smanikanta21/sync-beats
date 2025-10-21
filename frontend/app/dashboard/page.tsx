@@ -1,11 +1,11 @@
 "use client"
-export const dynamic = "force-dynamic";
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Music, Menu, UserCircle, LogOut, ArrowRight, Play, Radio, RefreshCw, Cast, PlusCircle, Users } from 'lucide-react';
 import Link from 'next/link';
 import { CreateRoom, JoinRoom } from '../components/RoomModal'
 import { toast } from 'react-toastify';
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function DashBoard() {
   const router = useRouter();
@@ -73,11 +73,10 @@ export default function DashBoard() {
         const token = localStorage.getItem("token");
         const res = await fetch(`http://localhost:5001/auth/dashboard`, {
           method: "GET",
-          credentials: "include", // ensures cookie is sent for Google OAuth
+          credentials: "include",
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (res.status === 401) {
-          // token expired or invalid
           alert("Session expired. Please login again.");
           router.push('/');
           return;
@@ -139,10 +138,73 @@ export default function DashBoard() {
   }
   if (loader) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-        {/* <LoaderOneDemo/> */}
-        <h1 className="text-4xl font-bold">Loading...</h1>
-      </div>)
+      <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
+        <header className="flex flex-row justify-between items-center bg-black/60 backdrop-blur-md py-4 px-6 shadow-lg sticky top-0 z-10 border-b border-gray-800">
+          <div className="flex items-center gap-2">
+            <Menu className="md:hidden cursor-pointer" size={28} />
+            <Music className="text-blue-400" size={28} />
+            <span className="text-2xl font-extrabold tracking-tight ml-2">SyncBeats</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-10 w-32 rounded-lg" />
+            <Skeleton className="h-10 w-24 rounded-lg" />
+          </div>
+        </header>
+
+        <main className="w-full px-4 py-10 md:py-14 max-w-7xl mx-auto flex flex-col gap-10">
+          {/* Hero Section Skeleton */}
+          <section className="w-full bg-gray-900/70 rounded-2xl shadow-xl p-6 md:p-8 border border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div className="flex flex-col gap-3">
+              <Skeleton className="h-10 w-48 rounded-lg" />
+              <Skeleton className="h-4 w-32 rounded-lg" />
+            </div>
+            <div className="flex flex-col gap-3 w-full md:w-auto">
+              <Skeleton className="h-12 w-full md:w-64 rounded-lg" />
+              <Skeleton className="h-12 w-full md:w-64 rounded-lg" />
+              <Skeleton className="h-12 w-full md:w-64 rounded-lg" />
+            </div>
+          </section>
+
+          {/* Main Content Grid Skeleton */}
+          <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 bg-gray-900/70 rounded-xl p-6 border border-gray-700 flex flex-col gap-4">
+              <Skeleton className="h-8 w-48 rounded-lg" />
+              <Skeleton className="h-20 w-full rounded-lg" />
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
+                <Skeleton className="h-20 w-full rounded-md" />
+                <Skeleton className="h-20 w-full rounded-md" />
+                <Skeleton className="h-20 w-full rounded-md" />
+              </div>
+            </div>
+
+            <div className="bg-gray-900/70 rounded-xl p-6 border border-gray-700 flex flex-col gap-4">
+              <Skeleton className="h-8 w-32 rounded-lg" />
+              <div className="space-y-3">
+                <Skeleton className="h-24 w-full rounded-lg" />
+                <Skeleton className="h-24 w-full rounded-lg" />
+                <Skeleton className="h-24 w-full rounded-lg" />
+              </div>
+            </div>
+          </section>
+
+          {/* Bottom Grid Skeleton */}
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-gray-900/70 rounded-xl p-6 border border-gray-700 flex flex-col gap-4">
+              <Skeleton className="h-8 w-40 rounded-lg" />
+              <Skeleton className="h-16 w-full rounded-lg" />
+            </div>
+            <div className="bg-gray-900/70 rounded-xl p-6 border border-gray-700 flex flex-col gap-4">
+              <Skeleton className="h-8 w-40 rounded-lg" />
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-full rounded-lg" />
+                <Skeleton className="h-6 w-full rounded-lg" />
+                <Skeleton className="h-6 w-full rounded-lg" />
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
   }
 
   return (

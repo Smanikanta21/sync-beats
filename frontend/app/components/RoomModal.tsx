@@ -3,8 +3,12 @@ import { QrCode, ArrowLeft } from "lucide-react"
 import { useState } from "react"
 import Image from 'next/image';
 import { toast } from 'react-toastify';
+import { useRouter } from "next/navigation";
 
 export function CreateRoom({ onBack }: { onBack: () => void }) {
+
+    const router = useRouter();
+
     const [roomName, setRoomName] = useState<string>("");
     const [roomType, setRoomType] = useState<string>("");
     const [qrData, setQrData] = useState<string | null>(null);
@@ -16,10 +20,6 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
     const token = localStorage.getItem('token')
 
     const handleCreateRoom = async () => {
-        // if (!roomCode || !roomType) {
-        //     alert("Please enter room name and type.");
-        //     return;
-        // }
         try {
             setLoading(true)
             const res = await fetch(`${url}/api/createroom`, {
@@ -36,6 +36,10 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
                 setResok(true)
                 setQrData(data.qrDataURL);
                 setRoomCode(data.room.code);
+                toast.success("Room created successfully!");
+                setTimeout(() => {
+                    router.push(`/dashboard/room/${data.room.code}`);
+                }, 1000);
             } else {
                 toast.error(data.message || "Failed to create room.");
             }
@@ -63,13 +67,7 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
                     <div className="flex flex-col gap-6 justify-center items-center h-full">
                         {qrData ? (
                             <div className="flex flex-col items-center">
-                                <Image
-                                    src={qrData}
-                                    alt="Room QR Code"
-                                    className="rounded-xl shadow-lg border border-gray-300"
-                                    width={220}
-                                    height={220}
-                                />
+                                <Image src={qrData} alt="Room QR Code" className="rounded-xl shadow-lg border border-gray-300" width={220} height={220} />
                                 <p className="text-sm text-gray-600">Scan this QR to join</p>
                                 {roomCode && (
                                     <h1 className="text-xl font-bold text-blue-700">
@@ -85,9 +83,19 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
                     </div>
                 </div>
                 <div className=" flex justify-center items-center mb-8">
-                    <button className={`px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition ${loading ? "opacity-50 cursor-not-allowed" : ""}`} onClick={handleCreateRoom}>
-                        {loading ? "Creating..." : resok ? "Start Syncing" : "Create Room"}
-                    </button>
+                    {loading ? (
+                        <button className={`px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition ${loading ? "opacity-50 cursor-not-allowed" : ""}`} disabled>
+                            Creating...
+                        </button>
+                    ) : resok ? (
+                        <button className="px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition" onClick={() => { setResok(false); setQrData(null); setRoomCode(null); setRoomName(""); }}>
+                            Create Another
+                        </button>
+                    ) : (
+                        <button className={`px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition`} onClick={handleCreateRoom}>
+                            Create Room
+                        </button>
+                    )}
                 </div>
             </div>
         </>
@@ -95,6 +103,7 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
 }
 
 export function JoinRoom({ onBack }: { onBack: () => void }) {
+    const router = useRouter()
     const [roomCode, setRoomCode] = useState<string>("");
     const [loading, setLoading] = useState(false);
     const [joined, setJoined] = useState(false);
@@ -131,6 +140,8 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                 setJoined(true);
                 setJoinedRoomData(data.room);
                 toast.success("Joined room successfully!");
+                router.push(`/dashboard/room/${data.room.code}`);
+
             } else {
                 toast.error(data.message || "Failed to join room. Please check the room code.");
             }
@@ -157,55 +168,23 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                             <label className="block text-sm font-medium text-gray-300 mb-2">
                                 Enter Room Code
                             </label>
-                            <input
-                                type="text"
-                                placeholder="e.g., 12345"
-                                value={roomCode}
-                                onChange={(e) => setRoomCode(e.target.value)}
-                                className="w-full border border-gray-400 rounded-xl py-3 px-4 text-white bg-gray-900/50 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center text-2xl tracking-widest"
-                                maxLength={6}
-                            />
+                            <input type="text" placeholder="e.g., 12345" value={roomCode} onChange={(e) => setRoomCode(e.target.value)} className="w-full border border-gray-400 rounded-xl py-3 px-4 text-white bg-gray-900/50 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center text-2xl tracking-widest" maxLength={6} />
                         </div>
 
-                        <button
-                            onClick={handleJoinRoom}
-                            disabled={loading}
-                            className={`w-full px-6 py-3 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
-                        >
-                            {loading ? "Joining..." : "Join Room"}
+                        <button onClick={handleJoinRoom} disabled={loading} className={`w-full px-6 py-3 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition ${loading ? "opacity-50 cursor-not-allowed" : ""}`}>{loading ? "Joining..." : "Join Room"}
                         </button>
                     </div>
                 ) : (
                     <div className="flex flex-col items-center gap-4 w-full max-w-md text-center">
                         <div className="w-full bg-green-500/20 border border-green-500 rounded-xl p-6">
                             <h2 className="text-2xl font-bold text-green-400 mb-4">✓ Joined Successfully!</h2>
-                            {joinedRoomData && (
-                                <div className="space-y-3 text-left">
-                                    <div>
-                                        <p className="text-sm text-gray-400">Room Name</p>
-                                        <p className="font-semibold text-white">{joinedRoomData.name}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-gray-400">Room Code</p>
-                                        <p className="font-semibold text-white">{joinedRoomData.code}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-gray-400">Participants</p>
-                                        <p className="font-semibold text-white">{joinedRoomData.participants?.length || 0}</p>
-                                    </div>
-                                </div>
-                            )}
                         </div>
-                        <button
-                            onClick={() => {
-                                setJoined(false);
-                                setRoomCode("");
-                                setJoinedRoomData(null);
-                            }}
-                            className="w-full px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition"
-                        >
-                            Join Another Room
-                        </button>
+                        <button onClick={() => {
+                            setJoined(false);
+                            setRoomCode("");
+                            setJoinedRoomData(null);
+                        }}
+                            className="w-full px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition">Join Another Room</button>
                     </div>
                 )}
             </div>

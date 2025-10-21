@@ -70,8 +70,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
 
     if (loading) {
         return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                {/* <LoaderOneDemo /> */}
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">``
                 <h1 className="text-4xl font-bold">Loading...</h1>
             </div>
         )
