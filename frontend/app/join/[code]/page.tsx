@@ -115,7 +115,7 @@ export default function JoinRoomPage() {
                     <AlertCircle className="mx-auto text-red-500 mb-4" size={64} />
                     <h1 className="text-3xl font-bold mb-4">Room Not Found</h1>
                     <p className="text-gray-400 mb-6">
-                        The room code <span className="text-blue-400 font-mono">{roomcode}</span> doesn't exist or has expired.
+                        The room code <span className="text-blue-400 font-mono">{roomcode}</span> {"doesn't"} exist or has expired.
                     </p>
                     <button 
                         onClick={() => router.push('/dashboard')}
