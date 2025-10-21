@@ -66,14 +66,6 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
     }
   }
 
-  if(loading){
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-        <h1 className="text-4xl font-bold">Loading...</h1>
-      </div>
-      )
-  }
-
   return (
     <>
       <div className="fixed top-6 left-4 cursor-pointer hover:scale-120 ease-in-out duration-150" onClick={() => setShowSignup(false)}><X /></div>
@@ -101,7 +93,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
               <input type={showPassword ? "text" : "password"} id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter Your Password" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
               <button type="button" className="absolute right-2 top-10 cursor-pointer hover:scale-115 ease-in-out duration-150" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <Eye /> : <EyeClosed />} </button>
             </div>
-            <button onClick={handleSignUp} type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200" >Sign Up</button>
+            <button onClick={handleSignUp} type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200" >{loading ? "Signing Up..." : "Sign Up"}</button>
             <div className="mt-6 text-center text-white/60">
               <div><p>---------- or continue with ----------</p></div>
               <div className="w-full flex flex-row items-center justify-center mt-6 gap-2">

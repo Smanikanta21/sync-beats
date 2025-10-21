@@ -65,16 +65,6 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
         setShowLogin?.(false);
         setShowSignup?.(true);
     }
-
-
-
-    if (loading) {
-        return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">``
-                <h1 className="text-4xl font-bold">Loading...</h1>
-            </div>
-        )
-    }
     return (
         <>
             <div className="fixed top-6 left-4 hover:cursor-pointer hover:scale-125 ease-in-out duration-150" onClick={() => setShowLogin && setShowLogin(false)}><X /></div>
@@ -92,7 +82,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
                             <button type="button" className="absolute right-3 top-10 cursor-pointer hover:scale-115 ease-in-out duration-150" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <Eye /> : <EyeClosed />}</button>
                             <p className="text-sm text-white/60 duration-150 hover:text-md hover:text-white ">Forgot Password</p>
                         </div>
-                        <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200" onClick={handleLogin}>Login</button>
+                        <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200" onClick={handleLogin}>{loading ? "Logging in..." : "login"}</button>
                         <div className="mt-6 text-center text-white/60">
                             <div><p>---------- or continue with ----------</p></div>
                             <div className="w-full flex flex-row items-center justify-center mt-6 gap-2">
