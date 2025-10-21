@@ -12,7 +12,7 @@ export default function LandingPage() {
     try {
       const params = new URLSearchParams(window.location.search);
       const token = params.get('token');
-      const user = params.get('user');
+      // const user = params.get('user'); // Uncomment if needed in the future
       if (token) {
         localStorage.setItem('token', token);
         router.push('/dashboard');

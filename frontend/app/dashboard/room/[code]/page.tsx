@@ -2,7 +2,7 @@
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { toast } from "react-toastify"
-import { Music, Users, Loader2, Radio, Play, Pause, SkipForward, SkipBack, Volume2, ArrowLeft, Settings, UserCircle, LogOut } from "lucide-react"
+import { Music, Users, Loader2, Radio, Play, SkipForward, SkipBack, Volume2, ArrowLeft, Settings, UserCircle, LogOut } from "lucide-react"
 
 export default function RoomPage() {
     const params = useParams();

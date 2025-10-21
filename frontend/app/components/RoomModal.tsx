@@ -157,39 +157,31 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
         }
     };
 
-    const handleQRScan = (scannedData: string) => {
-        // Extract room code from URL or use directly
-        const match = scannedData.match(/\/join\/([A-Za-z0-9]+)/);
-        if (match) {
-            const code = match[1];
-            setRoomCode(code);
-            setShowQRScanner(false);
-            handleJoinRoom(code);
-        } else {
-            toast.error("Invalid QR code. Please scan a valid room QR code.");
-        }
-    };
-
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
         const reader = new FileReader();
         reader.onload = (e) => {
-            const img = new Image();
-            img.onload = () => {
-                // Create canvas to read QR code from image
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                context?.drawImage(img, 0, 0);
+            // Check if we're in browser environment
+            if (typeof window !== 'undefined') {
+                const img = document.createElement('img');
+                img.onload = () => {
+                    // Create canvas to read QR code from image
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    if (context) {
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        context.drawImage(img, 0, 0);
 
-                // Use jsQR or similar library to decode
-                // For now, show a message
-                toast.info("QR code scanning from image - feature in progress. Please enter the code manually.");
-            };
-            img.src = e.target?.result as string;
+                        // Use jsQR or similar library to decode
+                        // For now, show a message
+                        toast.info("QR code scanning from image - feature in progress. Please enter the code manually.");
+                    }
+                };
+                img.src = e.target?.result as string;
+            }
         };
         reader.readAsDataURL(file);
     };
