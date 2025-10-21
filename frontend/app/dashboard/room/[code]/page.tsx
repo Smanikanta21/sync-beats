@@ -29,6 +29,12 @@ export default function RoomPage() {
         const fetchRoomData = async () => {
             try {
                 setLoading(true)
+                
+                // Check if we're in the browser
+                if (typeof window === 'undefined') {
+                    return;
+                }
+                
                 const token = localStorage.getItem("token");
                 
                 if (!token) {
@@ -139,18 +145,15 @@ export default function RoomPage() {
                     </h2>
                     
                     <div className="flex flex-col items-center gap-6">
-                        {/* Album Art Placeholder */}
                         <div className="w-64 h-64 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center shadow-2xl">
                             <Music size={80} className="text-white/40" />
                         </div>
 
-                        {/* Track Info */}
                         <div className="text-center">
                             <h3 className="text-2xl font-bold mb-1">No track playing</h3>
                             <p className="text-gray-400">Start syncing music across devices</p>
                         </div>
 
-                        {/* Progress Bar */}
                         <div className="w-full max-w-2xl">
                             <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden mb-2">
                                 <div className="h-full w-0 bg-blue-500 rounded-full"></div>
@@ -161,7 +164,6 @@ export default function RoomPage() {
                             </div>
                         </div>
 
-                        {/* Controls */}
                         <div className="flex items-center gap-6">
                             <button className="p-3 rounded-full hover:bg-gray-800 transition">
                                 <SkipBack size={24} />
@@ -244,7 +246,6 @@ export default function RoomPage() {
                     </section>
                 </div>
 
-                {/* Room Settings (Host Only) */}
                 {isHost && (
                     <section className="bg-gray-900/70 rounded-xl p-6 border border-gray-700">
                         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">

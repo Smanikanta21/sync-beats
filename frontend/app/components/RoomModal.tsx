@@ -17,11 +17,11 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
     const [resok, setResok] = useState(false)
 
     const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
-    const token = localStorage.getItem('token')
 
     const handleCreateRoom = async () => {
         try {
             setLoading(true)
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
             const res = await fetch(`${url}/api/createroom`, {
                 method: "POST",
                 headers: {
@@ -88,7 +88,7 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
                             Creating...
                         </button>
                     ) : resok ? (
-                        <button className="px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition" onClick={() => {router.push(`/room/${roomCode}`)}}>
+                        <button className="px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition" onClick={() => {router.push(`/dashboard/room/${roomCode}`)}}>
                             Start Syncing...
                         </button>
                     ) : (
@@ -115,7 +115,6 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
     } | null>(null);
 
     const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
-    const token = localStorage.getItem('token')
 
     const handleJoinRoom = async (code?: string) => {
         const codeToJoin = code || roomCode.trim();
@@ -127,6 +126,7 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
 
         try {
             setLoading(true);
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
             const res = await fetch(`${url}/api/joinroom`, {
                 method: "POST",
                 headers: {

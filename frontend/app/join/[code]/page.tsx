@@ -25,6 +25,11 @@ export default function JoinRoomPage() {
         const verifyRoom = async () => {
             try {
                 setLoading(true)
+            
+                if (typeof window === 'undefined') {
+                    return;
+                }
+                
                 const token = localStorage.getItem("token");
                 
                 if (!token) {
@@ -67,13 +72,23 @@ export default function JoinRoomPage() {
     const handleJoinRoom = async () => {
         try {
             setJoining(true);
+            if (typeof window === 'undefined') {
+                return;
+            }
+            
             const token = localStorage.getItem("token");
+            
+            if (!token) {
+                toast.error("Please login first");
+                router.push('/');
+                return;
+            }
 
             const res = await fetch(`${url}/api/joinroom`, {
                 method: "POST",
                 headers: {
                     "content-type": "application/json",
-                    Authorization: token ? `Bearer ${token}` : "",
+                    Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({ code: roomcode }),
                 credentials: "include"
