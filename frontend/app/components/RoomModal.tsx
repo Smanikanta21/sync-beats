@@ -52,50 +52,52 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
 
     return (
         <>
-            <div className="flex flex-col items-center w-full h-full">
+            <div className="flex flex-col items-center w-full h-full py-8">
                 <button onClick={onBack} className="fixed left-4 top-4 flex items-center gap-2 mb-4 text-gray-400 hover:text-white transition"><ArrowLeft size={24} /><span className="text-lg">Back</span></button>
-                <div className="w-full justify-center items-center mt-4"><h1 className="text-center text-2xl font-bold">Create A Room</h1></div>
-                <div className="flex flex-col md:flex-row justify-evenly items-center w-full h-full gap-4">
-                    <div className=" flex flex-col items-center justify-center gap-4">
-                        <input type="text" placeholder="Enter Room Name" className="border rounded-xl py-2 px-4" onChange={(e) => setRoomName(e.target.value)} />
-                        <select className="border px-3 py-2 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-400" defaultValue="" onChange={(e) => setRoomType(e.target.value)}>
-                            <option value="" disabled>Select Room Type</option>
-                            <option value="single">Single User</option>
-                            <option value="multi">Multiple Users</option>
-                        </select>
+                <div className="flex flex-col gap-2">
+                    <div className="w-full justify-center items-center mt-4"><h1 className="text-center text-2xl gap-2 mb-12 font-bold">Create A Room</h1></div>
+                    <div className="flex flex-col md:flex-row justify-evenly items-center w-full h-full gap-12">
+                        <div className=" flex flex-col items-center justify-center gap-4">
+                            <input type="text" placeholder="Enter Room Name" className="border rounded-xl py-2 px-4" onChange={(e) => setRoomName(e.target.value)} />
+                            <select className="border px-3 py-2 rounded-xl w-full focus:outline-none focus:ring-2 focus:ring-blue-400" defaultValue="" onChange={(e) => setRoomType(e.target.value)}>
+                                <option value="" disabled>Select Room Type</option>
+                                <option value="single">Single User</option>
+                                <option value="multi">Multiple Users</option>
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-6 justify-center items-center h-full">
+                            {qrData ? (
+                                <div className="flex flex-col items-center">
+                                    <Image src={qrData} alt="Room QR Code" className="rounded-xl shadow-lg border border-gray-300" width={220} height={220} />
+                                    <p className="text-sm text-gray-600">Scan this QR to join</p>
+                                    {roomCode && (
+                                        <h1 className="text-xl font-bold text-blue-700">
+                                            Room Code: {roomCode}
+                                        </h1>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="p-2 shadow-white/20 rounded-xl shadow-2xl">
+                                    <QrCode size={200} />
+                                </div>
+                            )}
+                        </div>
                     </div>
-                    <div className="flex flex-col gap-6 justify-center items-center h-full">
-                        {qrData ? (
-                            <div className="flex flex-col items-center">
-                                <Image src={qrData} alt="Room QR Code" className="rounded-xl shadow-lg border border-gray-300" width={220} height={220} />
-                                <p className="text-sm text-gray-600">Scan this QR to join</p>
-                                {roomCode && (
-                                    <h1 className="text-xl font-bold text-blue-700">
-                                        Room Code: {roomCode}
-                                    </h1>
-                                )}
-                            </div>
+                    <div className=" flex justify-center items-center mt-8">
+                        {loading ? (
+                            <button className={`px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition ${loading ? "opacity-50 cursor-not-allowed" : ""}`} disabled>
+                                Creating...
+                            </button>
+                        ) : resok ? (
+                            <button className="px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition" onClick={() => { router.push(`/dashboard/room/${roomCode}`) }}>
+                                Start Syncing...
+                            </button>
                         ) : (
-                            <div className="p-2 shadow-white/20 rounded-xl shadow-2xl">
-                                <QrCode size={200} />
-                            </div>
+                            <button className={`px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition`} onClick={handleCreateRoom}>
+                                Create Room
+                            </button>
                         )}
                     </div>
-                </div>
-                <div className=" flex justify-center items-center mb-8">
-                    {loading ? (
-                        <button className={`px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition ${loading ? "opacity-50 cursor-not-allowed" : ""}`} disabled>
-                            Creating...
-                        </button>
-                    ) : resok ? (
-                        <button className="px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition" onClick={() => { router.push(`/dashboard/room/${roomCode}`) }}>
-                            Start Syncing...
-                        </button>
-                    ) : (
-                        <button className={`px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition`} onClick={handleCreateRoom}>
-                            Create Room
-                        </button>
-                    )}
                 </div>
             </div>
         </>
@@ -191,6 +193,7 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
             })
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
+                await videoRef.current.play()
                 setCameraActive(true)
                 toast.info('camera started, please allow camera permissions@')
             }
@@ -203,7 +206,7 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
     const StopCamera = async () => {
         if (videoRef.current && videoRef.current.srcObject) {
             const stream = videoRef.current.srcObject as MediaStream
-            stream.getTracks().forEach(track => track.stop)
+            stream.getTracks().forEach(track => track.stop())
             videoRef.current.srcObject = null
             setCameraActive(false)
         }
@@ -262,22 +265,22 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                                             <p className="text-sm text-gray-400 mb-4">Use Camera to join a room</p>
                                         </div>
                                     ) : (<div className="space-y-4">
-                                            <div className="relative w-full aspect-square bg-black rounded-lg overflow-hidden z-50">
-                                                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover"
-                                                />
-                                                <div className="absolute inset-0 border-4 border-blue-500 rounded-lg pointer-events-none">
-                                                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500"></div>
-                                                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500"></div>
-                                                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500"></div>
-                                                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500"></div>
-                                                </div>
-                                                <p className="text-sm text-gray-400 text-center">
-                                                    Position the QR code within the frame
-                                                </p>
-                                                <button onClick={StopCamera} className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition">Close Camera
-                                                </button>
+                                        <div className="relative w-full aspect-square bg-black rounded-lg overflow-hidden z-50">
+                                            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover"
+                                            />
+                                            <div className="absolute inset-0 border-4 border-blue-500 rounded-lg pointer-events-none">
+                                                <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500"></div>
+                                                <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500"></div>
+                                                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500"></div>
+                                                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500"></div>
                                             </div>
                                         </div>
+                                        <p className="text-sm text-gray-400 text-center">
+                                            Position the QR code within the frame
+                                        </p>
+                                        <button onClick={StopCamera} className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition">Close Camera
+                                        </button>
+                                    </div>
                                     )}
                                 </div>
                             </div>
