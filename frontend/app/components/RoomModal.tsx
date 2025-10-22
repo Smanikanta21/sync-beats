@@ -22,7 +22,7 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
         try {
             setLoading(true)
             const token = localStorage.getItem('token')
-            const res = await fetch(`${url}api/createroom`, {
+            const res = await fetch(`${url}/api/createroom`, {
                 method: "POST",
                 headers: {
                     "content-type": "application/json",
@@ -193,18 +193,8 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                 {!joined ? (
                     <div className="flex flex-col items-center gap-6 w-full max-w-md">
                         <div className="w-full flex gap-2 bg-gray-800/50 p-1 rounded-lg">
-                            <button 
-                                onClick={() => setShowQRScanner(false)}
-                                className={`flex-1 py-2 px-4 rounded-md transition ${!showQRScanner ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                            >
-                                Enter Code
-                            </button>
-                            <button 
-                                onClick={() => setShowQRScanner(true)}
-                                className={`flex-1 py-2 px-4 rounded-md transition ${showQRScanner ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
-                            >
-                                Scan QR
-                            </button>
+                            <button onClick={() => setShowQRScanner(false)} className={`flex-1 py-2 px-4 rounded-md transition ${!showQRScanner ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>Enter Code</button>
+                            <button onClick={() => setShowQRScanner(true)} className={`flex-1 py-2 px-4 rounded-md transition ${showQRScanner ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>Scan QR</button>
                         </div>
 
                         {!showQRScanner ? (
@@ -213,13 +203,7 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                                     <label className="block text-sm font-medium text-gray-300 mb-2">
                                         Enter Room Code
                                     </label>
-                                    <input 
-                                        type="int" 
-                                        placeholder="e.g:01357" 
-                                        value={roomCode} 
-                                        onChange={(e) => setRoomCode(e.target.value.toUpperCase())} 
-                                        className="w-full border border-gray-400 rounded-xl py-3 px-4 text-white bg-gray-900/50 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center text-2xl tracking-widest" 
-                                        maxLength={10}
+                                    <input type="number" placeholder="e.g:01357" value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} className="w-full border border-gray-400 rounded-xl py-3 px-4 text-white bg-gray-900/50 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center text-2xl tracking-widest" maxLength={5}
                                         onKeyPress={(e) => {
                                             if (e.key === 'Enter') {
                                                 handleJoinRoom();
