@@ -23,6 +23,7 @@
     "framer-motion": "^12.23.22",
     "jose": "^6.0.12",
     "jsonwebtoken": "^9.0.2",
+    "jsqr": "^1.4.0",
     "lucide-react": "^0.539.0",
     "motion": "^12.23.12",
     "next": "^15.5.3",

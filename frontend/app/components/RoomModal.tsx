@@ -1,9 +1,10 @@
 "use client"
 import { QrCode, ArrowLeft, Camera } from "lucide-react"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import Image from 'next/image';
 import { toast } from 'react-toastify';
 import { useRouter } from "next/navigation";
+import jsQR from 'jsqr';
 
 export function CreateRoom({ onBack }: { onBack: () => void }) {
 
@@ -112,6 +113,8 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
     const [showQRScanner, setShowQRScanner] = useState(false);
     const [cameraActive, setCameraActive] = useState(false)
     const videoRef = useRef<HTMLVideoElement>(null)
+    const canvasRef = useRef<HTMLCanvasElement>(null)
+    const scanIntervalRef = useRef<NodeJS.Timeout | null>(null)
     const [joinedRoomData, setJoinedRoomData] = useState<{
         name: string;
         code: string;
@@ -186,6 +189,42 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
     };
 
 
+    const vibrateDevice = () => {
+        if ('vibrate' in navigator) {
+            navigator.vibrate(200); // Vibrate for 200ms
+        }
+    }
+
+    const scanQRCode = () => {
+        if (videoRef.current && canvasRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+            const canvas = canvasRef.current;
+            const video = videoRef.current;
+            const context = canvas.getContext('2d');
+
+            if (context) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                if (code) {
+                    console.log('QR Code detected:', code.data);
+                    let detectedCode = code.data;
+                    if (detectedCode.includes('/')) {
+                        const parts = detectedCode.split('/');
+                        detectedCode = parts[parts.length - 1];
+                    }
+                    vibrateDevice();
+                    StopCamera();
+                    toast.success(`QR Code detected: ${detectedCode}`);
+                    handleJoinRoom(detectedCode);
+                }
+            }
+        }
+    }
+
     const StartCamera = async () => {
         try {
             console.log('Setting camera active state first...');
@@ -209,7 +248,8 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                     try {
                         await videoRef.current?.play();
                         console.log('Video playing');
-                        toast.success('Camera started successfully!');
+                        toast.success('Camera started! Point at QR code');
+                        scanIntervalRef.current = setInterval(scanQRCode, 500);
                     } catch (playError) {
                         console.error('Play error:', playError);
                         toast.error('Failed to start video playback');
@@ -227,7 +267,11 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
         }
     }
 
-    const StopCamera = async () => {
+    const StopCamera = () => {
+        if (scanIntervalRef.current) {
+            clearInterval(scanIntervalRef.current);
+            scanIntervalRef.current = null;
+        }
         if (videoRef.current && videoRef.current.srcObject) {
             const stream = videoRef.current.srcObject as MediaStream
             stream.getTracks().forEach(track => track.stop())
@@ -235,6 +279,11 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
             setCameraActive(false)
         }
     }
+    useEffect(() => {
+        return () => {
+            StopCamera();
+        };
+    }, [])
 
     return (
         <>
@@ -298,11 +347,15 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                 className="w-full h-full object-cover"
                                             ></video>
+                                            <canvas ref={canvasRef} className="hidden"></canvas>
                                             <div className="absolute inset-0 border-4 border-blue-500 rounded-lg pointer-events-none">
                                                 <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500"></div>
                                                 <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500"></div>
                                                 <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500"></div>
                                                 <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500"></div>
+                                            </div>
+                                            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/70 px-4 py-2 rounded-lg">
+                                                <p className="text-xs text-white">Scanning for QR code...</p>
                                             </div>
                                         </div>
                                         <p className="text-sm text-gray-400 text-center">
