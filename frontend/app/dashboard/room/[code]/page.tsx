@@ -2,7 +2,8 @@
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { toast } from "react-toastify"
-import { Music, Users, Loader2, Radio, Play, SkipForward, SkipBack, Volume2, ArrowLeft, Settings, UserCircle, LogOut } from "lucide-react"
+import { Music, Users, Loader2, Radio, Play, SkipForward, SkipBack, Volume2, ArrowLeft, Settings, UserCircle, LogOut, Pause, Wifi, WifiOff } from "lucide-react"
+import { useSync } from "@/hooks/useSync"
 
 export default function RoomPage() {
     const params = useParams();
@@ -25,6 +26,12 @@ export default function RoomPage() {
 
     const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
 
+    // Initialize sync hook after we have userId
+    const { syncState, isConnected, clientCount, hostPlay, hostPause, hostSeek } = useSync({
+        roomCode: roomcode,
+        userId: userId || '',
+        isHost: isHost
+    });
 
     useEffect(() => {
         const fetchRoomData = async () => {
@@ -133,23 +140,34 @@ export default function RoomPage() {
                     </div>
                 </div>
 
-                {isHost && (
+                                {isHost && (
                     <section className="bg-gray-900/70 rounded-xl p-6 border border-gray-700">
                         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                             <Settings className="text-yellow-400" size={22} />
                             Host Controls
                         </h2>
                         <div className="flex flex-wrap gap-3">
-                            <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition">
+                            <button 
+                                onClick={() => hostPlay(0)}
+                                disabled={!isConnected || syncState.isPlaying}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
                                 Start Sync
                             </button>
-                            <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition">
+                            <button 
+                                onClick={() => hostPause(syncState.currentTime)}
+                                disabled={!isConnected || !syncState.isPlaying}
+                                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
                                 Pause All
                             </button>
-                            <button className="px-4 py-2 bg-red-800 hover:bg-red-700 rounded-lg transition">
+                            <button className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition">
                                 End Room
                             </button>
                         </div>
+                        {!isConnected && (
+                            <p className="mt-4 text-sm text-red-400">⚠️ Disconnected from sync server</p>
+                        )}
                     </section>
                 )}
 
@@ -165,28 +183,65 @@ export default function RoomPage() {
                         </div>
 
                         <div className="text-center">
-                            <h3 className="text-2xl font-bold mb-1">No track playing</h3>
-                            <p className="text-gray-400">Start syncing music across devices</p>
+                            <h3 className="text-2xl font-bold mb-1">
+                                {syncState.isPlaying ? 'Now Playing' : 'No track playing'}
+                            </h3>
+                            <p className="text-gray-400">
+                                {isConnected ? (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <Wifi size={16} className="text-green-400" />
+                                        Synced • {clientCount} device{clientCount !== 1 ? 's' : ''}
+                                    </span>
+                                ) : (
+                                    <span className="flex items-center justify-center gap-2">
+                                        <WifiOff size={16} className="text-red-400" />
+                                        Disconnected
+                                    </span>
+                                )}
+                            </p>
                         </div>
 
                         <div className="w-full max-w-2xl">
                             <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden mb-2">
-                                <div className="h-full w-0 bg-blue-500 rounded-full"></div>
+                                <div 
+                                    className="h-full bg-blue-500 rounded-full transition-all" 
+                                    style={{ width: `${(syncState.currentTime / 180) * 100}%` }}
+                                ></div>
                             </div>
                             <div className="flex justify-between text-xs text-gray-400">
-                                <span>0:00</span>
-                                <span>0:00</span>
+                                <span>{Math.floor(syncState.currentTime / 60)}:{String(Math.floor(syncState.currentTime % 60)).padStart(2, '0')}</span>
+                                <span>3:00</span>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-6">
-                            <button className="p-3 rounded-full hover:bg-gray-800 transition">
+                            <button 
+                                className="p-3 rounded-full hover:bg-gray-800 transition"
+                                disabled={!isHost || !isConnected}
+                            >
                                 <SkipBack size={24} />
                             </button>
-                            <button className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 transition">
-                                <Play size={32} />
-                            </button>
-                            <button className="p-3 rounded-full hover:bg-gray-800 transition">
+                            {syncState.isPlaying ? (
+                                <button 
+                                    onClick={() => hostPause(syncState.currentTime)}
+                                    disabled={!isHost || !isConnected}
+                                    className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <Pause size={32} />
+                                </button>
+                            ) : (
+                                <button 
+                                    onClick={() => hostPlay(syncState.currentTime)}
+                                    disabled={!isHost || !isConnected}
+                                    className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <Play size={32} />
+                                </button>
+                            )}
+                            <button 
+                                className="p-3 rounded-full hover:bg-gray-800 transition"
+                                disabled={!isHost || !isConnected}
+                            >
                                 <SkipForward size={24} />
                             </button>
                         </div>
