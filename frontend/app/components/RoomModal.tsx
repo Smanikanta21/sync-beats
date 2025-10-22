@@ -188,18 +188,42 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
 
     const StartCamera = async () => {
         try {
+            console.log('Setting camera active state first...');
+            setCameraActive(true);
+            await new Promise(resolve => setTimeout(resolve, 100));
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: "environment" }
+                video: { 
+                    facingMode: 'environment',
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
+                }
             })
+            console.log('Camera stream obtained:', stream);
+            console.log('Video tracks:', stream.getVideoTracks());
+            
             if (videoRef.current) {
+                console.log('Video ref exists');
                 videoRef.current.srcObject = stream;
-                await videoRef.current.play()
-                setCameraActive(true)
-                toast.info('camera started, please allow camera permissions@')
+                videoRef.current.onloadedmetadata = async () => {
+                    console.log('Video metadata loaded');
+                    try {
+                        await videoRef.current?.play();
+                        console.log('Video playing');
+                        toast.success('Camera started successfully!');
+                    } catch (playError) {
+                        console.error('Play error:', playError);
+                        toast.error('Failed to start video playback');
+                    }
+                };
+            } else {
+                console.error('Video ref is null');
+                toast.error('Video element not found');
+                setCameraActive(false);
             }
         } catch (e) {
-            console.log("camera Acc err:", e)
-            toast.error('unable to access camera, Please check your permissions')
+            console.error("Camera access error:", e)
+            toast.error('Unable to access camera. Please check your permissions')
+            setCameraActive(false);
         }
     }
 
@@ -265,9 +289,15 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                                             <p className="text-sm text-gray-400 mb-4">Use Camera to join a room</p>
                                         </div>
                                     ) : (<div className="space-y-4">
-                                        <div className="relative w-full aspect-square bg-black rounded-lg overflow-hidden z-50">
-                                            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover"
-                                            />
+                                        <div className="relative w-full aspect-square bg-black rounded-lg overflow-hidden">
+                                            <video 
+                                                ref={videoRef} 
+                                                autoPlay 
+                                                playsInline
+                                                muted
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                className="w-full h-full object-cover"
+                                            ></video>
                                             <div className="absolute inset-0 border-4 border-blue-500 rounded-lg pointer-events-none">
                                                 <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500"></div>
                                                 <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500"></div>

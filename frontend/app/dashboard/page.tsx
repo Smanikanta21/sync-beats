@@ -220,14 +220,14 @@ export default function DashBoard() {
   return (
 
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
-      {createroomModal ? (<div className='fixed  inset-0 z-50 flex justify-center items-center'>
-        <div className={`rounded-2xl md:w-[50%] backdrop-blur-3xl h-auto w-[90%] md:h-[60%] md:bg-blue/5 bg-black/40  relative transition-all duration-150 ${createroomModal ? 'opacity-100' : "opacity-0"}`}>
+      {createroomModal ? (<div className='fixed  inset-0 z-50 flex justify-center items-center bg-black/50 backdrop-blur-sm'>
+        <div className={`rounded-2xl md:w-[50%] backdrop-blur-3xl h-auto w-[90%] md:h-[60%] md:bg-blue/5 bg-black/40  relative transition-all duration-150 overflow-y-auto ${createroomModal ? 'opacity-100' : "opacity-0"}`}>
           {/* <button onClick={() => setCrm(false)} className='absolute top-4 left-4 text-white hover:text-red-500 z-10'><X size={32} /></button> */}
           <CreateRoom onBack={()=> setCrm(false)}/>
         </div>
       </div>) : null}
-      {joinroomModal ? (<div className='fixed inset-0 z-50 flex justify-center items-center'>
-        <div className={`rounded-2xl md:w-[50%] h-auto w-[90%] md:h-[60%] md:bg-blue/5 bg-black/40 backdrop-blur-3xl relative transition-all duration-150 ${joinroomModal ? 'opacity-100' : "opacity-0"}`}>
+      {joinroomModal ? (<div className='fixed inset-0 z-50 flex justify-center items-center bg-black/50 backdrop-blur-sm'>
+        <div className={`rounded-2xl md:w-[50%] h-auto w-[90%] md:h-[60%] md:bg-blue/5 bg-black/40 backdrop-blur-3xl relative transition-all duration-150 overflow-y-auto ${joinroomModal ? 'opacity-100' : "opacity-0"}`}>
           {/* <button onClick={() => setJoinRm(false)} className='absolute top-4 left-4 text-white hover:text-red-500 z-10'><X size={32} /></button> */}
           <JoinRoom onBack={() => setJoinRm(false)} />
         </div>
