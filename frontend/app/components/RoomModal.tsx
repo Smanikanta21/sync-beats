@@ -1,6 +1,6 @@
 "use client"
-import { QrCode, ArrowLeft,Camera } from "lucide-react"
-import { useState,useRef } from "react"
+import { QrCode, ArrowLeft, Camera } from "lucide-react"
+import { useState, useRef } from "react"
 import Image from 'next/image';
 import { toast } from 'react-toastify';
 import { useRouter } from "next/navigation";
@@ -88,7 +88,7 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
                             Creating...
                         </button>
                     ) : resok ? (
-                        <button className="px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition" onClick={() => {router.push(`/dashboard/room/${roomCode}`)}}>
+                        <button className="px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition" onClick={() => { router.push(`/dashboard/room/${roomCode}`) }}>
                             Start Syncing...
                         </button>
                     ) : (
@@ -108,7 +108,7 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
     const [loading, setLoading] = useState(false);
     const [joined, setJoined] = useState(false);
     const [showQRScanner, setShowQRScanner] = useState(false);
-    const [cameraActive,setCameraActive] = useState(false)
+    const [cameraActive, setCameraActive] = useState(false)
     const videoRef = useRef<HTMLVideoElement>(null)
     const [joinedRoomData, setJoinedRoomData] = useState<{
         name: string;
@@ -120,7 +120,7 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
 
     const handleJoinRoom = async (code?: string) => {
         const codeToJoin = code || roomCode.trim();
-        
+
         if (!codeToJoin) {
             toast.warning("Please enter a room code");
             return;
@@ -184,19 +184,28 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
     };
 
 
-    const StartCamera = async() =>{
-        try{
+    const StartCamera = async () => {
+        try {
             const stream = await navigator.mediaDevices.getUserMedia({
-                video:{facingMode:"environment"}
+                video: { facingMode: "environment" }
             })
-            if(videoRef.current){
+            if (videoRef.current) {
                 videoRef.current.srcObject = stream;
                 setCameraActive(true)
                 toast.info('camera started, please allow camera permissions@')
             }
-        }catch(e){
-            console.log("camera Acc err:",e)
+        } catch (e) {
+            console.log("camera Acc err:", e)
             toast.error('unable to access camera, Please check your permissions')
+        }
+    }
+
+    const StopCamera = async () => {
+        if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream
+            stream.getTracks().forEach(track => track.stop)
+            videoRef.current.srcObject = null
+            setCameraActive(false)
         }
     }
 
@@ -224,7 +233,9 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                                     <input type="number" placeholder="e.g:01357" value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} className="w-full border border-gray-400 rounded-xl py-3 px-4 text-white bg-gray-900/50 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center text-2xl tracking-widest" maxLength={5}
                                         onKeyPress={(e) => {
                                             if (e.key === 'Enter') {
-                                                handleJoinRoom();}}}/>
+                                                handleJoinRoom();
+                                            }
+                                        }} />
                                     <p className="text-xs text-gray-400 mt-2 text-center">Press Enter or click the button below to join</p>
                                 </div>
                                 <button onClick={() => handleJoinRoom()} disabled={loading || !roomCode.trim()} className={`w-full px-6 py-3 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition ${(loading || !roomCode.trim()) ? "opacity-50 cursor-not-allowed" : ""}`}>{loading ? "Joining..." : "Join Room"}</button>
@@ -237,29 +248,37 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                                     <p className="text-sm text-gray-400 mb-4">
                                         Upload a QR code image or paste the room link
                                     </p>
-                                    <label className="block w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold cursor-pointer transition">Upload QR Image<input type="file" accept="image/*" onChange={handleFileUpload}className="hidden"/></label>
+                                    <label className="block w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold cursor-pointer transition">Upload QR Image<input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" /></label>
                                 </div>
 
                                 <div className="text-center">
                                     <p className="text-xs text-gray-500">Or ask the host to share the room code</p>
                                 </div>
                                 <div className="md:hidden border-gray-600 p-6 border text-center rounded-xl bg-gray-800/50">
-                                    { !cameraActive?(
+                                    {!cameraActive ? (
                                         <div className="text-center" onClick={StartCamera}>
-                                            <Camera className="mx-auto text-blue-400 rounded-lg font-semibold transition" size={80}/>
+                                            <Camera className="mx-auto text-blue-400 rounded-lg font-semibold transition" size={80} />
                                             <h3 className="text-lg font-semibold mb-2">Scan a QR Code</h3>
                                             <p className="text-sm text-gray-400 mb-4">Use Camera to join a room</p>
                                         </div>
-                                    ) : (
-                                        <div>
-                                            <video
-                                                ref = {videoRef}
-                                                autoPlay
-                                                playsInline
-                                                className="w-full h-full object-cover"
-                                            />
+                                    ) : (<div className="space-y-4">
+                                            <div className="relative w-full aspect-square bg-black rounded-lg overflow-hidden z-50">
+                                                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover"
+                                                />
+                                                <div className="absolute inset-0 border-4 border-blue-500 rounded-lg pointer-events-none">
+                                                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500"></div>
+                                                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500"></div>
+                                                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500"></div>
+                                                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500"></div>
+                                                </div>
+                                                <p className="text-sm text-gray-400 text-center">
+                                                    Position the QR code within the frame
+                                                </p>
+                                                <button onClick={StopCamera} className="w-full px-4 py-3 bg-red-600 hover:bg-red-700 rounded-lg font-semibold transition">Close Camera
+                                                </button>
+                                            </div>
                                         </div>
-                                    ) }
+                                    )}
                                 </div>
                             </div>
                         )}
