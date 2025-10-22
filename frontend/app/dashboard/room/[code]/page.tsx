@@ -9,7 +9,6 @@ export default function RoomPage() {
     const params = useParams();
     const router = useRouter();
     const roomcode = params.code as string
-
     const [loading, setLoading] = useState(true)
     const [roomData, setRoomData] = useState<{
         id: string;
@@ -23,15 +22,18 @@ export default function RoomPage() {
     } | null>(null)
     const [isHost, setIsHost] = useState(false)
     const [userId, setUserId] = useState<string | null>(null)
+    const [shouldInitSync, setShouldInitSync] = useState(false)
 
     const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
 
-    // Initialize sync hook after we have userId
-    const { syncState, isConnected, clientCount, hostPlay, hostPause, hostSeek } = useSync({
+    const syncHook = useSync({
         roomCode: roomcode,
         userId: userId || '',
-        isHost: isHost
+        isHost: isHost,
+        enabled: shouldInitSync && userId !== null
     });
+
+    const { syncState, isConnected, clientCount, hostPlay, hostPause, hostSeek } = syncHook;
 
     useEffect(() => {
         const fetchRoomData = async () => {
@@ -61,6 +63,7 @@ export default function RoomPage() {
                     setRoomData(data.room);
                     setUserId(data.userId);
                     setIsHost(data.room.hostId === data.userId);
+                    setShouldInitSync(true);
                 } else {
                     toast.error(data.message || "Room not found");
                     router.push('/dashboard');
@@ -140,8 +143,8 @@ export default function RoomPage() {
                     </div>
                 </div>
 
-                                {isHost && (
-                    <section className="bg-gray-900/70 rounded-xl p-6 border border-gray-700">
+                {isHost && (
+                    <div className="bg-gray-900/70 rounded-xl p-6 border border-gray-700">
                         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                             <Settings className="text-yellow-400" size={22} />
                             Host Controls
@@ -168,7 +171,7 @@ export default function RoomPage() {
                         {!isConnected && (
                             <p className="mt-4 text-sm text-red-400">⚠️ Disconnected from sync server</p>
                         )}
-                    </section>
+                    </div>
                 )}
 
                 <div className="bg-gray-900/70 rounded-2xl p-6 md:p-8 border border-gray-700">

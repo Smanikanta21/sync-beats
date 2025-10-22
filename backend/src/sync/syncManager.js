@@ -11,10 +11,8 @@ class SyncManager {
         this.io.on('connection', (socket) => {
             console.log('Client connected:', socket.id);
 
-            // Join a room
             socket.on('join-room', async ({ roomCode, userId, deviceId }) => {
                 try {
-                    // Verify room exists
                     const room = await prisma.room.findUnique({
                         where: { code: roomCode },
                         include: { participants: true }
@@ -24,22 +22,16 @@ class SyncManager {
                         socket.emit('error', { message: 'Room not found' });
                         return;
                     }
-
-                    // Verify user is participant
                     const isParticipant = room.participants.some(p => p.userId === userId);
                     if (!isParticipant) {
                         socket.emit('error', { message: 'Not authorized to join this room' });
                         return;
                     }
-
-                    // Join socket room
                     socket.join(roomCode);
                     socket.roomCode = roomCode;
                     socket.userId = userId;
                     socket.deviceId = deviceId;
                     socket.isHost = room.hostId === userId;
-
-                    // Initialize room state if it doesn't exist
                     if (!this.rooms.has(roomCode)) {
                         this.rooms.set(roomCode, {
                             state: {
@@ -51,17 +43,11 @@ class SyncManager {
                             clients: new Set()
                         });
                     }
-
-                    // Add client to room
                     const roomData = this.rooms.get(roomCode);
                     roomData.clients.add(socket.id);
 
                     console.log(`User ${userId} joined room ${roomCode}`);
-
-                    // Send current state to the client
                     socket.emit('sync-state', roomData.state);
-
-                    // Notify others in the room
                     socket.to(roomCode).emit('user-joined', {
                         userId,
                         deviceId,
@@ -74,7 +60,6 @@ class SyncManager {
                 }
             });
 
-            // Host controls - Play
             socket.on('host-play', ({ roomCode, currentTime, track }) => {
                 if (!socket.isHost) {
                     socket.emit('error', { message: 'Only host can control playback' });
@@ -90,8 +75,6 @@ class SyncManager {
                     track,
                     timestamp: Date.now()
                 };
-
-                // Broadcast to all clients in the room
                 this.io.to(roomCode).emit('sync-play', {
                     currentTime,
                     track,
@@ -100,8 +83,6 @@ class SyncManager {
 
                 console.log(`Room ${roomCode}: Play command at ${currentTime}s`);
             });
-
-            // Host controls - Pause
             socket.on('host-pause', ({ roomCode, currentTime }) => {
                 if (!socket.isHost) {
                     socket.emit('error', { message: 'Only host can control playback' });
@@ -123,7 +104,6 @@ class SyncManager {
                 console.log(`Room ${roomCode}: Pause command at ${currentTime}s`);
             });
 
-            // Host controls - Seek
             socket.on('host-seek', ({ roomCode, currentTime }) => {
                 if (!socket.isHost) {
                     socket.emit('error', { message: 'Only host can control playback' });
@@ -144,7 +124,6 @@ class SyncManager {
                 console.log(`Room ${roomCode}: Seek to ${currentTime}s`);
             });
 
-            // Client time sync request
             socket.on('request-time-sync', ({ roomCode, clientTime }) => {
                 const serverTime = Date.now();
                 socket.emit('time-sync-response', {
@@ -154,18 +133,14 @@ class SyncManager {
                 });
             });
 
-            // Heartbeat to check sync
             socket.on('heartbeat', ({ roomCode, currentTime }) => {
                 const roomData = this.rooms.get(roomCode);
                 if (!roomData) return;
 
-                // Calculate expected time based on state
                 if (roomData.state.isPlaying) {
                     const elapsed = (Date.now() - roomData.state.timestamp) / 1000;
                     const expectedTime = roomData.state.currentTime + elapsed;
                     const drift = Math.abs(currentTime - expectedTime);
-
-                    // If drift is more than 0.5 seconds, request resync
                     if (drift > 0.5) {
                         socket.emit('resync-required', {
                             expectedTime: expectedTime,
@@ -175,8 +150,6 @@ class SyncManager {
                     }
                 }
             });
-
-            // Handle disconnect
             socket.on('disconnect', () => {
                 console.log('Client disconnected:', socket.id);
 
@@ -184,15 +157,11 @@ class SyncManager {
                     const roomData = this.rooms.get(socket.roomCode);
                     if (roomData) {
                         roomData.clients.delete(socket.id);
-
-                        // Notify others
                         socket.to(socket.roomCode).emit('user-left', {
                             userId: socket.userId,
                             deviceId: socket.deviceId,
                             clientCount: roomData.clients.size
                         });
-
-                        // Clean up empty rooms
                         if (roomData.clients.size === 0) {
                             this.rooms.delete(socket.roomCode);
                             console.log(`Room ${socket.roomCode} cleaned up (empty)`);
@@ -200,8 +169,6 @@ class SyncManager {
                     }
                 }
             });
-
-            // Leave room
             socket.on('leave-room', ({ roomCode }) => {
                 socket.leave(roomCode);
                 
@@ -217,7 +184,6 @@ class SyncManager {
                         });
                     }
                 }
-
                 socket.roomCode = null;
                 socket.userId = null;
                 socket.deviceId = null;

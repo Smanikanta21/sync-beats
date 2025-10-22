@@ -13,9 +13,10 @@ interface UseSyncProps {
     roomCode: string;
     userId: string;
     isHost: boolean;
+    enabled?: boolean;
 }
 
-export function useSync({ roomCode, userId, isHost }: UseSyncProps) {
+export function useSync({ roomCode, userId, isHost, enabled = true }: UseSyncProps) {
     const socketRef = useRef<Socket | null>(null);
     const [syncState, setSyncState] = useState<SyncState>({
         isPlaying: false,
@@ -27,6 +28,11 @@ export function useSync({ roomCode, userId, isHost }: UseSyncProps) {
     const [clientCount, setClientCount] = useState(0);
 
     useEffect(() => {
+        // Don't connect if not enabled or missing userId
+        if (!enabled || !userId) {
+            return;
+        }
+
         const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
         const socket = io(url, {
             transports: ['websocket', 'polling'],
@@ -38,8 +44,6 @@ export function useSync({ roomCode, userId, isHost }: UseSyncProps) {
         socket.on('connect', () => {
             console.log('Connected to sync server');
             setIsConnected(true);
-            
-            // Join the room
             const deviceId = localStorage.getItem('deviceId') || 'unknown';
             socket.emit('join-room', { roomCode, userId, deviceId });
         });
@@ -48,12 +52,10 @@ export function useSync({ roomCode, userId, isHost }: UseSyncProps) {
             console.log('Disconnected from sync server');
             setIsConnected(false);
         });
-
         socket.on('sync-state', (state: SyncState) => {
             console.log('Received sync state:', state);
             setSyncState(state);
         });
-
         socket.on('sync-play', ({ currentTime, track, timestamp }) => {
             console.log('Sync play command:', currentTime);
             setSyncState({
@@ -64,7 +66,6 @@ export function useSync({ roomCode, userId, isHost }: UseSyncProps) {
             });
             toast.info('Playback started');
         });
-
         socket.on('sync-pause', ({ currentTime, timestamp }) => {
             console.log('Sync pause command:', currentTime);
             setSyncState(prev => ({
@@ -75,7 +76,6 @@ export function useSync({ roomCode, userId, isHost }: UseSyncProps) {
             }));
             toast.info('Playback paused');
         });
-
         socket.on('sync-seek', ({ currentTime, timestamp }) => {
             console.log('Sync seek command:', currentTime);
             setSyncState(prev => ({
@@ -84,7 +84,6 @@ export function useSync({ roomCode, userId, isHost }: UseSyncProps) {
                 timestamp
             }));
         });
-
         socket.on('resync-required', ({ expectedTime, drift }) => {
             console.log(`Resync required. Drift: ${drift}s`);
             setSyncState(prev => ({
@@ -93,34 +92,27 @@ export function useSync({ roomCode, userId, isHost }: UseSyncProps) {
                 timestamp: Date.now()
             }));
         });
-
         socket.on('user-joined', ({ userId: joinedUserId, clientCount: count }) => {
             console.log(`User ${joinedUserId} joined`);
             setClientCount(count);
             toast.success('User joined the room');
         });
-
         socket.on('user-left', ({ userId: leftUserId, clientCount: count }) => {
             console.log(`User ${leftUserId} left`);
             setClientCount(count);
             toast.info('User left the room');
         });
-
         socket.on('error', ({ message }) => {
             console.error('Sync error:', message);
             toast.error(message);
         });
-
-        // Cleanup on unmount
         return () => {
             if (socketRef.current) {
                 socketRef.current.emit('leave-room', { roomCode });
                 socketRef.current.disconnect();
             }
         };
-    }, [roomCode, userId]);
-
-    // Host control functions
+    }, [roomCode, userId, enabled]);
     const hostPlay = (currentTime: number = 0, track: any = null) => {
         if (!isHost) {
             toast.error('Only host can control playback');
@@ -128,7 +120,6 @@ export function useSync({ roomCode, userId, isHost }: UseSyncProps) {
         }
         socketRef.current?.emit('host-play', { roomCode, currentTime, track });
     };
-
     const hostPause = (currentTime: number) => {
         if (!isHost) {
             toast.error('Only host can control playback');
@@ -136,7 +127,6 @@ export function useSync({ roomCode, userId, isHost }: UseSyncProps) {
         }
         socketRef.current?.emit('host-pause', { roomCode, currentTime });
     };
-
     const hostSeek = (currentTime: number) => {
         if (!isHost) {
             toast.error('Only host can control playback');
@@ -144,11 +134,9 @@ export function useSync({ roomCode, userId, isHost }: UseSyncProps) {
         }
         socketRef.current?.emit('host-seek', { roomCode, currentTime });
     };
-
     const sendHeartbeat = (currentTime: number) => {
         socketRef.current?.emit('heartbeat', { roomCode, currentTime });
     };
-
     return {
         syncState,
         isConnected,
