@@ -37,9 +37,9 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
                 setQrData(data.qrDataURL);
                 setRoomCode(data.room.code);
                 toast.success("Room created successfully!");
-                setTimeout(() => {
-                    router.push(`/dashboard/room/${data.room.code}`);
-                }, 1000);
+                // setTimeout(() => {
+                //     router.push(`/dashboard/room/${data.room.code}`);
+                // }, 1000);
             } else {
                 toast.error(data.message || "Failed to create room.");
             }

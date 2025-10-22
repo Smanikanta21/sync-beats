@@ -26,6 +26,13 @@ export default function RoomPage() {
     const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
 
     useEffect(() => {
+        // Ensure body is scrollable when this page loads
+        document.body.style.overflow = ""
+        document.body.style.position = ""
+        document.body.style.width = ""
+    }, [])
+
+    useEffect(() => {
         const fetchRoomData = async () => {
             try {
                 setLoading(true)
@@ -87,8 +94,8 @@ export default function RoomPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
-            <header className="flex flex-row justify-between items-center bg-black/60 backdrop-blur-md py-4 px-6 shadow-lg sticky top-0 z-10 border-b border-gray-800">
+        <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white overflow-y-auto">
+            <div className="flex  flex-row justify-between items-center bg-black/60 backdrop-blur-md py-4 px-6 shadow-lg sticky top-0 z-10 border-b border-gray-800">
                 <div className="flex items-center gap-4">
                     <button onClick={() => router.push('/dashboard')} className="hover:text-blue-400 transition">
                         <ArrowLeft size={24} />
@@ -105,10 +112,10 @@ export default function RoomPage() {
                         <span className="hidden md:inline">Leave Room</span>
                     </button>
                 </div>
-            </header>
+            </div>
 
-            <main className="w-full px-4 py-10 md:py-14 max-w-7xl mx-auto flex flex-col gap-8">
-                <section className="bg-gray-900/70 rounded-2xl p-6 md:p-8 border border-gray-700">
+            <div className="w-full px-4 py-10 md:py-14 max-w-7xl mx-auto flex flex-col gap-8">
+                <div className="bg-gray-900/70 rounded-2xl p-6 md:p-8 border border-gray-700">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
                             <h1 className="text-3xl md:text-4xl font-bold mb-2">{roomData?.name}</h1>
@@ -128,10 +135,9 @@ export default function RoomPage() {
                             <p className="text-2xl font-mono font-bold text-blue-400">{roomcode}</p>
                         </div>
                     </div>
-                </section>
+                </div>
 
-                {/* Player Section */}
-                <section className="bg-gray-900/70 rounded-2xl p-6 md:p-8 border border-gray-700">
+                <div className="bg-gray-900/70 rounded-2xl p-6 md:p-8 border border-gray-700">
                     <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
                         <Radio className="text-purple-400" size={24} />
                         Synced Playback
@@ -169,18 +175,15 @@ export default function RoomPage() {
                             </button>
                         </div>
 
-                        {/* Volume */}
                         <div className="flex items-center gap-3 w-full max-w-xs">
                             <Volume2 size={20} className="text-gray-400" />
                             <input type="range" min="0" max="100" defaultValue="50" className="w-full" />
                         </div>
                     </div>
-                </section>
-
-                {/* Participants & Devices Grid */}
+                </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Participants */}
-                    <section className="bg-gray-900/70 rounded-xl p-6 border border-gray-700">
+                    <div className="bg-gray-900/70 rounded-xl p-6 border border-gray-700">
                         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                             <Users className="text-green-400" size={22} />
                             Participants ({roomData?.participants?.length || 0})
@@ -209,10 +212,10 @@ export default function RoomPage() {
                                 <p className="text-gray-400 text-sm">No participants yet</p>
                             )}
                         </div>
-                    </section>
+                    </div>
 
-                    {/* Devices */}
-                    <section className="bg-gray-900/70 rounded-xl p-6 border border-gray-700">
+
+                    <div className="bg-gray-900/70 rounded-xl p-6 border border-gray-700">
                         <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
                             <Radio className="text-purple-400" size={22} />
                             Connected Devices ({roomData?.devices?.length || 0})
@@ -236,7 +239,7 @@ export default function RoomPage() {
                                 <p className="text-gray-400 text-sm">No devices connected</p>
                             )}
                         </div>
-                    </section>
+                    </div>
                 </div>
 
                 {isHost && (
@@ -258,7 +261,7 @@ export default function RoomPage() {
                         </div>
                     </section>
                 )}
-            </main>
+            </div>
         </div>
     );
 }
