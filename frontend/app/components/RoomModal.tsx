@@ -22,7 +22,7 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
         try {
             setLoading(true)
             const token = localStorage.getItem('token')
-            const res = await fetch(`http://localhost:5001/api/createroom`, {
+            const res = await fetch(`${url}api/createroom`, {
                 method: "POST",
                 headers: {
                     "content-type": "application/json",

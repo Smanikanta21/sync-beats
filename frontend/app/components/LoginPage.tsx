@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation'
 import Image from 'next/image';
 import { toast } from 'react-toastify';
+import { url } from "inspector";
 
 type PropData = {
     setShowLogin?: (show: boolean) => void;
@@ -34,7 +35,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
         e.preventDefault()
         try {
             setLoading(true)
-            const res = await fetch(`http://localhost:5001/auth/login`, {
+            const res = await fetch(`${API_BASE}/auth/login`, {
                 method: "POST",
                 headers: { "content-type": "application/json" },
                 credentials: "include",

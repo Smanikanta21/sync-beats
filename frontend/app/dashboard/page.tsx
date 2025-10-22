@@ -27,7 +27,7 @@ export default function DashBoard() {
   const handleLogout = async () => {
     try {
       SetLoader(true)
-      await fetch(`http://localhost:5001/auth/logout`, { 
+      await fetch(`${url}/auth/logout`, { 
         method: 'POST',
         credentials: 'include'
       });
@@ -81,7 +81,7 @@ export default function DashBoard() {
       try {
         SetLoader(true)
         const token = localStorage.getItem("token");
-        const res = await fetch(`http://localhost:5001/auth/dashboard`, {
+        const res = await fetch(`${url}/auth/dashboard`, {
           method: "GET",
           credentials: "include",
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
