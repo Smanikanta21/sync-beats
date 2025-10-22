@@ -139,7 +139,7 @@ export default function JoinRoomPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white flex items-center justify-center p-4">
+        <div className="min-h-screen overflow-y-auto bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white flex items-center justify-center p-4">
             <div className="max-w-lg w-full bg-gray-900/70 rounded-2xl p-8 border border-gray-700">
                 <div className="flex items-center justify-center mb-6">
                     <Music className="text-blue-400 mr-3" size={40} />

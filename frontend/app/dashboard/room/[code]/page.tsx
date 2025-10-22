@@ -17,7 +17,7 @@ export default function RoomPage() {
         code: string;
         hostId: string;
         participants: Array<{ userId: string; user?: { name: string } }>;
-        devices: Array<{ deviceId: string; device?: { name: string; status: string } }>;
+        devices: Array<{ deviceId: string; devices?: { name: string; status: string } }>;
         isActive: boolean;
     } | null>(null)
     const [isHost, setIsHost] = useState(false)
@@ -25,12 +25,6 @@ export default function RoomPage() {
 
     const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
 
-    useEffect(() => {
-        // Ensure body is scrollable when this page loads
-        document.body.style.overflow = ""
-        document.body.style.position = ""
-        document.body.style.width = ""
-    }, [])
 
     useEffect(() => {
         const fetchRoomData = async () => {
@@ -56,6 +50,7 @@ export default function RoomPage() {
                 const data = await res.json();
 
                 if (res.ok && data.room) {
+                    console.log(data)
                     setRoomData(data.room);
                     setUserId(data.userId);
                     setIsHost(data.room.hostId === data.userId);
@@ -113,8 +108,9 @@ export default function RoomPage() {
                     </button>
                 </div>
             </div>
-
+    
             <div className="w-full px-4 py-10 md:py-14 max-w-7xl mx-auto flex flex-col gap-8">
+                
                 <div className="bg-gray-900/70 rounded-2xl p-6 md:p-8 border border-gray-700">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
@@ -136,6 +132,26 @@ export default function RoomPage() {
                         </div>
                     </div>
                 </div>
+
+                {isHost && (
+                    <section className="bg-gray-900/70 rounded-xl p-6 border border-gray-700">
+                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                            <Settings className="text-yellow-400" size={22} />
+                            Host Controls
+                        </h2>
+                        <div className="flex flex-wrap gap-3">
+                            <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition">
+                                Start Sync
+                            </button>
+                            <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition">
+                                Pause All
+                            </button>
+                            <button className="px-4 py-2 bg-red-800 hover:bg-red-700 rounded-lg transition">
+                                End Room
+                            </button>
+                        </div>
+                    </section>
+                )}
 
                 <div className="bg-gray-900/70 rounded-2xl p-6 md:p-8 border border-gray-700">
                     <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
@@ -182,12 +198,14 @@ export default function RoomPage() {
                     </div>
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Participants */}
-                    <div className="bg-gray-900/70 rounded-xl p-6 border border-gray-700">
-                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                            <Users className="text-green-400" size={22} />
-                            Participants ({roomData?.participants?.length || 0})
-                        </h2>
+                    <div className="flex flex-col bg-gray-900/70 rounded-xl p-6 border border-gray-700">
+                        <div className="flex flex-row justify-between items-center text-center mb-4">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <Users className="text-green-400" size={22} />
+                                Participants ({roomData?.participants?.length || 0})
+                            </h2>
+                            <button className="text-2xl items-center text-cente p-1">+</button>
+                        </div>
                         <div className="space-y-3">
                             {roomData?.participants && roomData.participants.length > 0 ? (
                                 roomData.participants.map((participant, idx) => (
@@ -226,13 +244,13 @@ export default function RoomPage() {
                                     <div key={idx} className="bg-gray-800/60 p-4 rounded-lg flex items-center justify-between">
                                         <div>
                                             <p className="font-semibold">
-                                                {device.device?.name || `Device ${device.deviceId.slice(0, 8)}`}
+                                                {device.devices?.name || `Device ${device.deviceId.slice(0, 8)}`}
                                             </p>
                                             <p className="text-xs text-gray-400">
-                                                {device.device?.status || 'unknown'}
+                                                {device.devices?.status || 'unknown'}
                                             </p>
                                         </div>
-                                        <div className={`w-3 h-3 rounded-full ${device.device?.status === 'online' ? 'bg-green-400' : 'bg-red-400'}`}></div>
+                                        <div className={`w-3 h-3 rounded-full ${device.devices?.status === 'online' ? 'bg-green-400' : 'bg-red-400'}`}></div>
                                     </div>
                                 ))
                             ) : (
@@ -241,26 +259,6 @@ export default function RoomPage() {
                         </div>
                     </div>
                 </div>
-
-                {isHost && (
-                    <section className="bg-gray-900/70 rounded-xl p-6 border border-gray-700">
-                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                            <Settings className="text-yellow-400" size={22} />
-                            Host Controls
-                        </h2>
-                        <div className="flex flex-wrap gap-3">
-                            <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition">
-                                Start Sync
-                            </button>
-                            <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition">
-                                Pause All
-                            </button>
-                            <button className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition">
-                                End Room
-                            </button>
-                        </div>
-                    </section>
-                )}
             </div>
         </div>
     );

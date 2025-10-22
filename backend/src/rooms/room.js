@@ -64,9 +64,9 @@ async function createRoom(req, res) {
 }
 
 async function joinRoom(req, res) {
-    const user_id = req.user?.id;
     const { code } = req.body;
-    console.log(user_id)
+    const user_id = req.user?.id;
+
     if (!code) return res.status(400).json({ message: "Enter Code" });
     if (!user_id) return res.status(401).json({ message: "Unauthorised" });
 
@@ -81,6 +81,11 @@ async function joinRoom(req, res) {
         });
 
         if (!room) return res.status(404).json({ message: "Room Not Found" });
+        if (room.type === 'single' && room.hostId !== user_id) {
+            return res.status(403).json({ 
+                message: "This is a private room. Only the host can access it." 
+            });
+        }
 
         const isParticipant = room.participants.some(p => p.userId === user_id);
         if (!isParticipant) {
@@ -91,10 +96,45 @@ async function joinRoom(req, res) {
                 }
             });
         }
+        if (room.type === 'multi') {
+            const userDevices = await prisma.device.findMany({
+                where: { 
+                    DeviceUserId: user_id,
+                    status: 'online'
+                }
+            });
+
+            for (const device of userDevices) {
+                const deviceInRoom = room.devices.some(d => d.deviceId === device.id);
+                if (!deviceInRoom) {
+                    await prisma.roomDevices.create({
+                        data: {
+                            roomId: room.id,
+                            deviceId: device.id
+                        }
+                    });
+                }
+            }
+        }
 
         const updatedRoom = await prisma.room.findUnique({
             where: { code },
-            include: { participants: true, devices: true }
+            include: { 
+                participants: {
+                    include: {
+                        user: {
+                            select: { id: true, name: true }
+                        }
+                    }
+                },
+                devices: {
+                    include: {
+                        devices: {
+                            select: { id: true, name: true, status: true }
+                        }
+                    }
+                }
+            }
         });
 
         return res.status(200).json({ message: "Joined room successfully", room: updatedRoom });
