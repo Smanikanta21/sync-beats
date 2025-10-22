@@ -28,15 +28,19 @@ export function useSync({ roomCode, userId, isHost, enabled = true }: UseSyncPro
     const [clientCount, setClientCount] = useState(0);
 
     useEffect(() => {
-        // Don't connect if not enabled or missing userId
         if (!enabled || !userId) {
             return;
         }
-
-        const url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
-        const socket = io(url, {
+        const wsUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
+        
+        console.log('Connecting to WebSocket server:', wsUrl);
+        
+        const socket = io(wsUrl, {
             transports: ['websocket', 'polling'],
-            withCredentials: true
+            withCredentials: true,
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 5
         });
 
         socketRef.current = socket;
@@ -51,6 +55,17 @@ export function useSync({ roomCode, userId, isHost, enabled = true }: UseSyncPro
         socket.on('disconnect', () => {
             console.log('Disconnected from sync server');
             setIsConnected(false);
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('WebSocket connection error:', error);
+            setIsConnected(false);
+            toast.error('Failed to connect to sync server. Using localhost?');
+        });
+
+        socket.on('reconnect_failed', () => {
+            console.error('WebSocket reconnection failed');
+            toast.error('Could not reconnect to sync server');
         });
         socket.on('sync-state', (state: SyncState) => {
             console.log('Received sync state:', state);

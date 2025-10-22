@@ -5,10 +5,8 @@ const SyncManager = require('./sync/syncManager');
 
 const Port = process.env.PORT || 5001;
 
-// Create HTTP server
 const server = http.createServer(app);
 
-// Initialize Socket.IO with CORS
 const io = new Server(server, {
     cors: {
         origin: ['http://localhost:3000', 'https://www.syncbeats.app', 'https://sync-beats-81jq.vercel.app', 'http://172.20.10.2:3000'],

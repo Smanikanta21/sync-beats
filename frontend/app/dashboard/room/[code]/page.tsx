@@ -225,28 +225,11 @@ export default function RoomPage() {
                                 <SkipBack size={24} />
                             </button>
                             {syncState.isPlaying ? (
-                                <button 
-                                    onClick={() => hostPause(syncState.currentTime)}
-                                    disabled={!isHost || !isConnected}
-                                    className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <Pause size={32} />
-                                </button>
+                                <button onClick={() => hostPause(syncState.currentTime)} disabled={!isHost || !isConnected} className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"><Pause size={32} /></button>
                             ) : (
-                                <button 
-                                    onClick={() => hostPlay(syncState.currentTime)}
-                                    disabled={!isHost || !isConnected}
-                                    className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <Play size={32} />
-                                </button>
+                                <button onClick={() => hostPlay(syncState.currentTime)}disabled={!isHost || !isConnected}className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"><Play size={32} /></button>
                             )}
-                            <button 
-                                className="p-3 rounded-full hover:bg-gray-800 transition"
-                                disabled={!isHost || !isConnected}
-                            >
-                                <SkipForward size={24} />
-                            </button>
+                            <button className="p-3 rounded-full hover:bg-gray-800 transition" disabled={!isHost || !isConnected}><SkipForward size={24} /></button>
                         </div>
 
                         <div className="flex items-center gap-3 w-full max-w-xs">
