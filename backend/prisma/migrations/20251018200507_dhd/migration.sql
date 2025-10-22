@@ -1,3 +1,0 @@
--- AlterTable
-ALTER TABLE "Room" ADD COLUMN     "type" TEXT,
-ALTER COLUMN "code" SET DEFAULT LPAD(FLOOR(RANDOM() * 100000)::text, 5, '0');

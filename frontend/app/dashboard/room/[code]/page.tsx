@@ -30,11 +30,6 @@ export default function RoomPage() {
             try {
                 setLoading(true)
                 
-                // Check if we're in the browser
-                if (typeof window === 'undefined') {
-                    return;
-                }
-                
                 const token = localStorage.getItem("token");
                 
                 if (!token) {
@@ -93,7 +88,6 @@ export default function RoomPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
-            {/* Header */}
             <header className="flex flex-row justify-between items-center bg-black/60 backdrop-blur-md py-4 px-6 shadow-lg sticky top-0 z-10 border-b border-gray-800">
                 <div className="flex items-center gap-4">
                     <button onClick={() => router.push('/dashboard')} className="hover:text-blue-400 transition">
@@ -114,7 +108,6 @@ export default function RoomPage() {
             </header>
 
             <main className="w-full px-4 py-10 md:py-14 max-w-7xl mx-auto flex flex-col gap-8">
-                {/* Room Info Section */}
                 <section className="bg-gray-900/70 rounded-2xl p-6 md:p-8 border border-gray-700">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>

@@ -14,7 +14,7 @@ async function createRoom(req, res) {
     if (!type) return res.status(400).json("Room type not selected")
 
     try {
-        // Verify user exists in database (Prisma model is 'Users' with capital U)
+
         const userExists = await prisma.Users.findUnique({ 
             where: { id: user_id } 
         });
@@ -171,7 +171,7 @@ async function getRoomDetails(req, res) {
                 },
                 devices: {
                     include: {
-                        device: {
+                        devices: {
                             select: { id: true, name: true, status: true }
                         }
                     }

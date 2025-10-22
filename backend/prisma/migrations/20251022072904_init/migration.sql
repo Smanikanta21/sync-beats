@@ -1,5 +1,15 @@
--- AlterTable
-ALTER TABLE "Users" ALTER COLUMN "updatedAt" DROP DEFAULT;
+-- CreateTable
+CREATE TABLE "Users" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "username" TEXT,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Users_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "Device" (
@@ -18,8 +28,9 @@ CREATE TABLE "Device" (
 -- CreateTable
 CREATE TABLE "Room" (
     "id" TEXT NOT NULL,
-    "code" TEXT NOT NULL,
+    "code" TEXT NOT NULL DEFAULT LPAD(FLOOR(RANDOM() * 100000)::text, 5, '0'),
     "name" TEXT NOT NULL,
+    "type" TEXT,
     "hostId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -46,6 +57,12 @@ CREATE TABLE "RoomDevices" (
 
     CONSTRAINT "RoomDevices_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Users_username_key" ON "Users"("username");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Users_email_key" ON "Users"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Device_DeviceUserId_name_key" ON "Device"("DeviceUserId", "name");

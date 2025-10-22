@@ -3,11 +3,11 @@ const prisma = new PrismaClient();
 
 async function getDashboardData(req, res) {
   try {
-    console.log('getDashboardData hit; req.user =', req.user);
+    // console.log('getDashboardData hit; req.user =', req.user);
     const user_id = req.user?.id;
     if (!user_id) {
       console.warn('getDashboardData: no user id on req');
-      return res.status(401).json({ message: 'Unauthorized', devices: [] });
+      return res.status(401).json({ message: 'Unauthorized'});
     }
     
     const user = await prisma.Users.findUnique({ 

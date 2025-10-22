@@ -21,8 +21,8 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
     const handleCreateRoom = async () => {
         try {
             setLoading(true)
-            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-            const res = await fetch(`${url}/api/createroom`, {
+            const token = localStorage.getItem('token')
+            const res = await fetch(`http://localhost:5001/api/createroom`, {
                 method: "POST",
                 headers: {
                     "content-type": "application/json",
@@ -163,20 +163,15 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
 
         const reader = new FileReader();
         reader.onload = (e) => {
-            // Check if we're in browser environment
             if (typeof window !== 'undefined') {
                 const img = document.createElement('img');
                 img.onload = () => {
-                    // Create canvas to read QR code from image
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
                     if (context) {
                         canvas.width = img.width;
                         canvas.height = img.height;
                         context.drawImage(img, 0, 0);
-
-                        // Use jsQR or similar library to decode
-                        // For now, show a message
                         toast.info("QR code scanning from image - feature in progress. Please enter the code manually.");
                     }
                 };
@@ -197,7 +192,6 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
 
                 {!joined ? (
                     <div className="flex flex-col items-center gap-6 w-full max-w-md">
-                        {/* Tab Selection */}
                         <div className="w-full flex gap-2 bg-gray-800/50 p-1 rounded-lg">
                             <button 
                                 onClick={() => setShowQRScanner(false)}
@@ -220,8 +214,8 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                                         Enter Room Code
                                     </label>
                                     <input 
-                                        type="text" 
-                                        placeholder="e.g., ABC123" 
+                                        type="int" 
+                                        placeholder="e.g:01357" 
                                         value={roomCode} 
                                         onChange={(e) => setRoomCode(e.target.value.toUpperCase())} 
                                         className="w-full border border-gray-400 rounded-xl py-3 px-4 text-white bg-gray-900/50 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center text-2xl tracking-widest" 

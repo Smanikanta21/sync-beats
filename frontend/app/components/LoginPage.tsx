@@ -44,6 +44,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
             console.log(data)
 
             if (res.ok) {
+                localStorage.setItem('token',data.token)
                 toast.success("logged in Successfull")
                 router.push('/dashboard')
             } else {

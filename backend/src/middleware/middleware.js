@@ -8,7 +8,7 @@ function authMiddleWare(req, res, next) {
     const cookieToken = req.cookies?.token;
     const token = headerToken || cookieToken;
 
-    console.log('auth middleware — token present?', !!token);
+    // console.log('auth middleware — token present?', !!token);
 
     if (!token) return res.status(401).json({ message: 'No token provided' });
 
