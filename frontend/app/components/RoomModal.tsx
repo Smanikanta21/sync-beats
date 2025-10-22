@@ -1,6 +1,6 @@
 "use client"
-import { QrCode, ArrowLeft } from "lucide-react"
-import { useState } from "react"
+import { QrCode, ArrowLeft,Camera } from "lucide-react"
+import { useState,useRef } from "react"
 import Image from 'next/image';
 import { toast } from 'react-toastify';
 import { useRouter } from "next/navigation";
@@ -108,6 +108,8 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
     const [loading, setLoading] = useState(false);
     const [joined, setJoined] = useState(false);
     const [showQRScanner, setShowQRScanner] = useState(false);
+    const [cameraActive,setCameraActive] = useState(false)
+    const videoRef = useRef<HTMLVideoElement>(null)
     const [joinedRoomData, setJoinedRoomData] = useState<{
         name: string;
         code: string;
@@ -172,7 +174,7 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                         canvas.width = img.width;
                         canvas.height = img.height;
                         context.drawImage(img, 0, 0);
-                        toast.info("QR code scanning from image - feature in progress. Please enter the code manually.");
+                        toast.info("QR code scanning from image - in progress. Please enter the code manually.");
                     }
                 };
                 img.src = e.target?.result as string;
@@ -181,12 +183,29 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
         reader.readAsDataURL(file);
     };
 
+
+    const StartCamera = async() =>{
+        try{
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video:{facingMode:"environment"}
+            })
+            if(videoRef.current){
+                videoRef.current.srcObject = stream;
+                setCameraActive(true)
+                toast.info('camera started, please allow camera permissions@')
+            }
+        }catch(e){
+            console.log("camera Acc err:",e)
+            toast.error('unable to access camera, Please check your permissions')
+        }
+    }
+
     return (
         <>
-            <div className="flex flex-col gap-32 items-center w-full h-full p-6 md:p-8">
-                <button onClick={onBack} className="fixed left-4 top-4 flex items-center gap-2 mb-4 text-gray-400 hover:text-white transition"><ArrowLeft size={24} /><span className="text-lg">Back</span></button>
+            <div className="flex flex-col gap-12 md:gap-32 items-center w-full p-6 md:p-8">
+                <button onClick={onBack} className="fixed left-4 top-6 flex items-center gap-2 mb-4 text-gray-400 hover:text-white transition"><ArrowLeft size={24} /><span className="text-lg">Back</span></button>
 
-                <div className="w-full text-center mb-8">
+                <div className="w-full text-center">
                     <h1 className="text-2xl md:text-3xl font-bold">Join A Room</h1>
                 </div>
 
@@ -194,34 +213,21 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                     <div className="flex flex-col items-center gap-6 w-full max-w-md">
                         <div className="w-full flex gap-2 bg-gray-800/50 p-1 rounded-lg">
                             <button onClick={() => setShowQRScanner(false)} className={`flex-1 py-2 px-4 rounded-md transition ${!showQRScanner ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>Enter Code</button>
-                            <button onClick={() => setShowQRScanner(true)} className={`flex-1 py-2 px-4 rounded-md transition ${showQRScanner ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>Scan QR</button>
+                            <button onClick={() => setShowQRScanner(true)} className={`hidden md:block flex-1 py-2 px-4 rounded-md transition ${showQRScanner ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>Join via QR</button>
+                            <button onClick={() => setShowQRScanner(true)} className={`md:hidden flex-1 py-2 px-4 rounded-md transition ${showQRScanner ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>scan QR</button>
                         </div>
 
                         {!showQRScanner ? (
                             <>
                                 <div className="w-full">
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                                        Enter Room Code
-                                    </label>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Enter Room Code</label>
                                     <input type="number" placeholder="e.g:01357" value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} className="w-full border border-gray-400 rounded-xl py-3 px-4 text-white bg-gray-900/50 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 text-center text-2xl tracking-widest" maxLength={5}
                                         onKeyPress={(e) => {
                                             if (e.key === 'Enter') {
-                                                handleJoinRoom();
-                                            }
-                                        }}
-                                    />
-                                    <p className="text-xs text-gray-400 mt-2 text-center">
-                                        Press Enter or click the button below to join
-                                    </p>
+                                                handleJoinRoom();}}}/>
+                                    <p className="text-xs text-gray-400 mt-2 text-center">Press Enter or click the button below to join</p>
                                 </div>
-
-                                <button 
-                                    onClick={() => handleJoinRoom()} 
-                                    disabled={loading || !roomCode.trim()} 
-                                    className={`w-full px-6 py-3 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition ${(loading || !roomCode.trim()) ? "opacity-50 cursor-not-allowed" : ""}`}
-                                >
-                                    {loading ? "Joining..." : "Join Room"}
-                                </button>
+                                <button onClick={() => handleJoinRoom()} disabled={loading || !roomCode.trim()} className={`w-full px-6 py-3 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition ${(loading || !roomCode.trim()) ? "opacity-50 cursor-not-allowed" : ""}`}>{loading ? "Joining..." : "Join Room"}</button>
                             </>
                         ) : (
                             <div className="w-full space-y-4">
@@ -231,23 +237,29 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                                     <p className="text-sm text-gray-400 mb-4">
                                         Upload a QR code image or paste the room link
                                     </p>
-                                    
-                                    {/* File Upload */}
-                                    <label className="block w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold cursor-pointer transition">
-                                        Upload QR Image
-                                        <input 
-                                            type="file" 
-                                            accept="image/*" 
-                                            onChange={handleFileUpload}
-                                            className="hidden"
-                                        />
-                                    </label>
+                                    <label className="block w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold cursor-pointer transition">Upload QR Image<input type="file" accept="image/*" onChange={handleFileUpload}className="hidden"/></label>
                                 </div>
 
                                 <div className="text-center">
-                                    <p className="text-xs text-gray-500">
-                                        Or ask the host to share the room code
-                                    </p>
+                                    <p className="text-xs text-gray-500">Or ask the host to share the room code</p>
+                                </div>
+                                <div className="md:hidden border-gray-600 p-6 border text-center rounded-xl bg-gray-800/50">
+                                    { !cameraActive?(
+                                        <div className="text-center" onClick={StartCamera}>
+                                            <Camera className="mx-auto text-blue-400 rounded-lg font-semibold transition" size={80}/>
+                                            <h3 className="text-lg font-semibold mb-2">Scan a QR Code</h3>
+                                            <p className="text-sm text-gray-400 mb-4">Use Camera to join a room</p>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <video
+                                                ref = {videoRef}
+                                                autoPlay
+                                                playsInline
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </div>
+                                    ) }
                                 </div>
                             </div>
                         )}
@@ -267,16 +279,11 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                                 </div>
                             )}
                         </div>
-                        <button 
-                            onClick={() => {
+                        {/* <button onClick={() => {
                                 setJoined(false);
                                 setRoomCode("");
                                 setJoinedRoomData(null);
-                            }}
-                            className="w-full px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition"
-                        >
-                            Join Another Room
-                        </button>
+                            }}className="w-full px-6 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition">Join Another Room</button> */}
                     </div>
                 )}
             </div>

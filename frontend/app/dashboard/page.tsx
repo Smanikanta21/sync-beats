@@ -23,7 +23,42 @@ export default function DashBoard() {
   const [joinroomModal, setJoinRm] = useState<boolean>(false)
   const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
   const [loader, SetLoader] = useState<boolean>(false)
+  
+  useEffect(() => {
+    const dashboardInit = async () => {
+      try {
+        SetLoader(true)
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${url}/auth/dashboard`, {
+          method: "GET",
+          credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (res.status === 401) {
+          toast("Session expired. Please login again.");
+          router.push('/');
+          return;
+  }
+        console.log(`fetched data from ${url}`)
+        const raw = await res.text();
+        let data = null;
+        try { data = raw ? JSON.parse(raw) : null } catch (e) { console.warn(e) }
 
+        if (res.ok && data) {
+          setName(data.message || "");
+          setDevices(Array.isArray(data.devices) ? data.devices : []);
+        } else {
+          router.push('/')
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        SetLoader(false)
+      }
+    };
+
+    dashboardInit();
+  }, [router, url]);
   const handleLogout = async () => {
     try {
       SetLoader(true)
@@ -76,41 +111,6 @@ export default function DashBoard() {
     }
   }, [joinroomModal]);
 
-  useEffect(() => {
-    const dashboardInit = async () => {
-      try {
-        SetLoader(true)
-        const token = localStorage.getItem("token");
-        const res = await fetch(`${url}/auth/dashboard`, {
-          method: "GET",
-          credentials: "include",
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        });
-        if (res.status === 401) {
-          toast("Session expired. Please login again.");
-          router.push('/');
-          return;
-  }
-        console.log(`fetched data from ${url}`)
-        const raw = await res.text();
-        let data = null;
-        try { data = raw ? JSON.parse(raw) : null } catch (e) { console.warn(e) }
-
-        if (res.ok && data) {
-          setName(data.message || "");
-          setDevices(Array.isArray(data.devices) ? data.devices : []);
-        } else {
-          router.push('/')
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        SetLoader(false)
-      }
-    };
-
-    dashboardInit();
-  }, [router, url]);
 
   function formatLastSeen(dateString?: string) {
     if (!dateString) return '-';

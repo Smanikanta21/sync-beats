@@ -132,12 +132,7 @@ export default function JoinRoomPage() {
                     <p className="text-gray-400 mb-6">
                         The room code <span className="text-blue-400 font-mono">{roomcode}</span> {"doesn't"} exist or has expired.
                     </p>
-                    <button 
-                        onClick={() => router.push('/dashboard')}
-                        className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition"
-                    >
-                        Back to Dashboard
-                    </button>
+                    <button onClick={() => router.push('/dashboard')}className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition">Back to Dashboard</button>
                 </div>
             </div>
         );
@@ -184,30 +179,16 @@ export default function JoinRoomPage() {
                     </div>
                 </div>
 
-                <button 
-                    onClick={handleJoinRoom}
-                    disabled={joining}
-                    className={`w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-lg transition flex items-center justify-center gap-2 ${joining ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                    {joining ? (
-                        <>
-                            <Loader2 className="animate-spin" size={20} />
-                            Joining...
-                        </>
-                    ) : (
-                        <>
-                            <Users size={20} />
-                            Join Room
-                        </>
-                    )}
+                <button onClick={handleJoinRoom} disabled={joining} className={`w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-lg transition flex items-center justify-center gap-2 ${joining ? "opacity-50 cursor-not-allowed" : ""}`}>
+                    {joining ? 
+                    (<>
+                    <Loader2 className="animate-spin" size={20} />Joining...
+                    </>)
+                        : 
+                    (<><Users size={20} />Join Room</>)}
                 </button>
 
-                <button 
-                    onClick={() => router.push('/dashboard')}
-                    className="w-full mt-3 px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-semibold transition"
-                >
-                    Cancel
-                </button>
+                <button onClick={() => router.push('/dashboard')}className="w-full mt-3 px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-semibold transition">Cancel</button>
             </div>
         </div>
     );
