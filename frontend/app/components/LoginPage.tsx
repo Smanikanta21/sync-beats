@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from 'next/navigation'
 import Image from 'next/image';
 import { toast } from 'react-toastify';
-import { url } from "inspector";
 
 type PropData = {
     setShowLogin?: (show: boolean) => void;

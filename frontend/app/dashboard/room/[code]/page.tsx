@@ -2,8 +2,7 @@
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { toast } from "react-toastify"
-import { Music, Users, Loader2, Radio, Play, SkipForward, SkipBack, Volume2, ArrowLeft, Settings, UserCircle, LogOut, Pause, Wifi, WifiOff } from "lucide-react"
-import { useSync } from "@/hooks/useSync"
+import { Music, Users, Loader2, Radio, Play, SkipForward, SkipBack, Volume2, ArrowLeft, Settings, UserCircle, LogOut, Pause } from "lucide-react"
 
 export default function RoomPage() {
     const params = useParams();
@@ -22,18 +21,8 @@ export default function RoomPage() {
     } | null>(null)
     const [isHost, setIsHost] = useState(false)
     const [userId, setUserId] = useState<string | null>(null)
-    const [shouldInitSync, setShouldInitSync] = useState(false)
 
     const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
-
-    const syncHook = useSync({
-        roomCode: roomcode,
-        userId: userId || '',
-        isHost: isHost,
-        enabled: shouldInitSync && userId !== null
-    });
-
-    const { syncState, isConnected, clientCount, hostPlay, hostPause, hostSeek } = syncHook;
 
     useEffect(() => {
         const fetchRoomData = async () => {
@@ -63,7 +52,6 @@ export default function RoomPage() {
                     setRoomData(data.room);
                     setUserId(data.userId);
                     setIsHost(data.room.hostId === data.userId);
-                    setShouldInitSync(true);
                 } else {
                     toast.error(data.message || "Room not found");
                     router.push('/dashboard');
@@ -150,34 +138,17 @@ export default function RoomPage() {
                             Host Controls
                         </h2>
                         <div className="flex flex-wrap gap-3">
-                            <button 
-                                onClick={() => hostPlay(0)}
-                                disabled={!isConnected || syncState.isPlaying}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Start Sync
-                            </button>
-                            <button 
-                                onClick={() => hostPause(syncState.currentTime)}
-                                disabled={!isConnected || !syncState.isPlaying}
-                                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Pause All
-                            </button>
                             <button className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition">
                                 End Room
                             </button>
                         </div>
-                        {!isConnected && (
-                            <p className="mt-4 text-sm text-red-400">⚠️ Disconnected from sync server</p>
-                        )}
                     </div>
                 )}
 
                 <div className="bg-gray-900/70 rounded-2xl p-6 md:p-8 border border-gray-700">
                     <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
                         <Radio className="text-purple-400" size={24} />
-                        Synced Playback
+                        Playback
                     </h2>
                     
                     <div className="flex flex-col items-center gap-6">
@@ -186,50 +157,30 @@ export default function RoomPage() {
                         </div>
 
                         <div className="text-center">
-                            <h3 className="text-2xl font-bold mb-1">
-                                {syncState.isPlaying ? 'Now Playing' : 'No track playing'}
-                            </h3>
-                            <p className="text-gray-400">
-                                {isConnected ? (
-                                    <span className="flex items-center justify-center gap-2">
-                                        <Wifi size={16} className="text-green-400" />
-                                        Synced • {clientCount} device{clientCount !== 1 ? 's' : ''}
-                                    </span>
-                                ) : (
-                                    <span className="flex items-center justify-center gap-2">
-                                        <WifiOff size={16} className="text-red-400" />
-                                        Disconnected
-                                    </span>
-                                )}
-                            </p>
+                            <h3 className="text-2xl font-bold mb-1">No track playing</h3>
+                            <p className="text-gray-400">Select a track to start</p>
                         </div>
 
                         <div className="w-full max-w-2xl">
                             <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden mb-2">
-                                <div 
-                                    className="h-full bg-blue-500 rounded-full transition-all" 
-                                    style={{ width: `${(syncState.currentTime / 180) * 100}%` }}
-                                ></div>
+                                <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: '0%' }}></div>
                             </div>
                             <div className="flex justify-between text-xs text-gray-400">
-                                <span>{Math.floor(syncState.currentTime / 60)}:{String(Math.floor(syncState.currentTime % 60)).padStart(2, '0')}</span>
-                                <span>3:00</span>
+                                <span>0:00</span>
+                                <span>0:00</span>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-6">
-                            <button 
-                                className="p-3 rounded-full hover:bg-gray-800 transition"
-                                disabled={!isHost || !isConnected}
-                            >
+                            <button className="p-3 rounded-full hover:bg-gray-800 transition" disabled={!isHost}>
                                 <SkipBack size={24} />
                             </button>
-                            {syncState.isPlaying ? (
-                                <button onClick={() => hostPause(syncState.currentTime)} disabled={!isHost || !isConnected} className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"><Pause size={32} /></button>
-                            ) : (
-                                <button onClick={() => hostPlay(syncState.currentTime)}disabled={!isHost || !isConnected}className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"><Play size={32} /></button>
-                            )}
-                            <button className="p-3 rounded-full hover:bg-gray-800 transition" disabled={!isHost || !isConnected}><SkipForward size={24} /></button>
+                            <button disabled={!isHost} className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                <Play size={32} />
+                            </button>
+                            <button className="p-3 rounded-full hover:bg-gray-800 transition" disabled={!isHost}>
+                                <SkipForward size={24} />
+                            </button>
                         </div>
 
                         <div className="flex items-center gap-3 w-full max-w-xs">
