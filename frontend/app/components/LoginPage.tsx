@@ -17,11 +17,11 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     const [identifier, setIdentifier] = useState<string>("");
     const [password, setPassword] = useState<string>("");
     const [loading, setLoading] = useState<boolean>(false)
+
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const token = params.get('token');
         const user = params.get('user');
-        
         if (token) {
             localStorage.setItem('token', token);
             toast.success(`Welcome ${user}!`);
@@ -29,7 +29,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
             setShowLogin?.(false);
         }
     }, [router, setShowLogin]);
-
+    
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         try {
@@ -67,7 +67,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     }
     return (
         <>
-            <div className="fixed top-6 left-4 hover:cursor-pointer hover:scale-125 ease-in-out duration-150" onClick={() => setShowLogin && setShowLogin(false)}><X /></div>
+            <div className="fixed top-6 left-4 hover:cursor-pointer hover:scale-125 ease-in-out duration-150 bg-" onClick={() => setShowLogin && setShowLogin(false)}><X /></div>
             <div className="flex items-center justify-center h-screen bg-transparent">
                 <div className="bg-black/60 backdrop-blur-lg p-8 rounded-lg shadow-lg w-full max-w-md">
                     <h1 className="text-2xl font-bold text-center text-white mb-6">Login</h1>
@@ -89,7 +89,6 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
                                 <div>
                                     <button type="button" className="border rounded-full p-2 hover:cursor-pointer hover:scale-110 transition-all ease-in-out duration-150" onClick={googleAuthFetcher}><Image src="/images/google.svg" alt="Google" width={32} height={32} /></button>
                                 </div>
-
                             </div>
                             <p className="mt-2">{`Don't`} have an account? <span className="text-blue-400 cursor-pointer hover:underline" onClick={() => { renderLogin() }}>Sign Up</span></p>
                         </div>
