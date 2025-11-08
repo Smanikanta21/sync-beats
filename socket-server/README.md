@@ -19,6 +19,8 @@ BACKEND_URL=https://sync-beats-814m.vercel.app
 NODE_ENV=production
 ```
 
+**Note**: `PORT` is automatically provided by Render - don't set it manually.
+
 ### Local Development:
 ```bash
 # Install dependencies

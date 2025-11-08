@@ -6,7 +6,7 @@
   "scripts": {
     "frontend": "cd frontend && npx next dev --turbopack",
     "backend": "cd backend && npm start",
-    "socket": "cd backend && npm run socket",
+    "socket": "cd socket-server && npm  start",
     "project": "concurrently \"npm run backend\" \"npm run frontend\" \"npm run socket\" --names \"BACKEND,FRONTEND,SOCKETS-ENGINE\" --prefix-colors \"blue,red,green\"",
     "prisma" : "cd backend && npx prisma studio"
   },

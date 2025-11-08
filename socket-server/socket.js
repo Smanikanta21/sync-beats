@@ -3,7 +3,7 @@ const http = require('http')
 const { Server } = require('socket.io') 
 const jwt = require('jsonwebtoken')
 
-const PORT = process.env.REALTIME_PORT || 5002
+const PORT = process.env.PORT || process.env.REALTIME_PORT || 5002
 
 function verifyToken(token){
     if(!token) return null
