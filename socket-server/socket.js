@@ -15,7 +15,19 @@ function verifyToken(token){
     }
 }
 
-const httpServer = http.createServer()
+const httpServer = http.createServer((req, res) => {
+    if (req.url === '/health' || req.url === '/') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ 
+            status: 'ok', 
+            service: 'syncbeats-realtime',
+            timestamp: new Date().toISOString()
+        }));
+    } else {
+        res.writeHead(404);
+        res.end();
+    }
+})
 
 const io = new Server(httpServer,{
     cors:{
