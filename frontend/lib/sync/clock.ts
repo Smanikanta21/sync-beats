@@ -12,8 +12,8 @@ export async function syncClock(
   for (let i = 0; i < samples; i++) {
     const clientSentAt = Date.now();
     
-    const pong = await new Promise<any>((resolve) => {
-      const handler = (payload: any) => {
+    const pong = await new Promise<{ clientSentAt: number; serverSentAt: number }>((resolve) => {
+      const handler = (payload: { clientSentAt: number; serverSentAt: number }) => {
         socket.off('clock:pong', handler);
         resolve(payload);
       };

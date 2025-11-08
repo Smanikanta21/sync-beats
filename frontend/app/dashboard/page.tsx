@@ -22,7 +22,6 @@ export default function DashBoard() {
   const [joinroomModal, setJoinRm] = useState<boolean>(false)
   const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
   const [loader, SetLoader] = useState<boolean>(false)
-  const [nearbyUsers, setNearbyUsers] = useState<Array<{ id: string; name: string; roomName: string; roomCode: string; participants: number }>>([]);
 
   const HandleDeviceRefresher = async () => {
     try{
