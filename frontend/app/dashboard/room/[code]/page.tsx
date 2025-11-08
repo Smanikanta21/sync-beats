@@ -1,36 +1,46 @@
 "use client"
-import { useParams, useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
-import { toast } from "react-toastify"
-import { Music, Users, Loader2, Radio, Play, SkipForward, SkipBack, Volume2, ArrowLeft, Settings, UserCircle, LogOut, Pause } from "lucide-react"
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useRef } from "react";
+import { toast } from "react-toastify";
+import { getSocket, joinRoomSocket, leaveRoomSocket } from "@/lib/sync/sync";
+import { syncClock, toClientTime, type Clock } from "@/lib/sync/clock";
 
 export default function RoomPage() {
     const params = useParams();
     const router = useRouter();
-    const roomcode = params.code as string
-    const [loading, setLoading] = useState(true)
-    const [roomData, setRoomData] = useState<{
-        id: string;
-        name: string;
-        type: string;
-        code: string;
-        hostId: string;
-        participants: Array<{ userId: string; user?: { name: string } }>;
-        devices: Array<{ deviceId: string; devices?: { name: string; status: string } }>;
-        isActive: boolean;
-    } | null>(null)
-    const [isHost, setIsHost] = useState(false)
-    const [userId, setUserId] = useState<string | null>(null)
+    const roomcode = params.code as string;
+    const [mounted, setMounted] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [roomData, setRoomData] = useState<any>(null);
+    const [isHost, setIsHost] = useState(false);
+    const [userId, setUserId] = useState<string | null>(null);
+    
+    // Realtime state
+    const [socketReady, setSocketReady] = useState(false);
+    const [clock, setClock] = useState<Clock | null>(null);
+    const [trackUrl, setTrackUrl] = useState<string | null>(null);
+    const [trackName, setTrackName] = useState<string | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
+    
+    const audioRef = useRef<HTMLAudioElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
 
-    const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
+    
+    useEffect(()=>{
+        setMounted(true)
+    },[])
+    
+    
+    // Fetch room data (existing REST call)
+
 
     useEffect(() => {
+        if(!mounted) return
         const fetchRoomData = async () => {
             try {
-                setLoading(true)
-                
                 const token = localStorage.getItem("token");
-                
                 if (!token) {
                     toast.error("Please login first");
                     router.push('/');
@@ -39,38 +49,206 @@ export default function RoomPage() {
 
                 const res = await fetch(`${url}/api/room/${roomcode}`, {
                     method: "GET",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
+                    headers: { Authorization: `Bearer ${token}` },
                     credentials: "include"
                 });
 
                 const data = await res.json();
-
                 if (res.ok && data.room) {
-                    console.log(data)
                     setRoomData(data.room);
                     setUserId(data.userId);
                     setIsHost(data.room.hostId === data.userId);
                 } else {
-                    toast.error(data.message || "Room not found");
+                    toast.error("Failed to load room");
                     router.push('/dashboard');
                 }
             } catch (err) {
-                console.error("Fetch room error:", err);
-                toast.error("Failed to load room data");
-                router.push('/dashboard');
+                console.error("Room fetch error:", err);
+                toast.error("Error loading room");
             } finally {
-                setLoading(false)
+                setLoading(false);
             }
         };
 
-        if (roomcode) {
-            fetchRoomData();
+        if (roomcode) fetchRoomData();
+    }, [roomcode, router, url,mounted]);
+
+    // Connect to realtime server and sync clock
+    useEffect(() => {
+        if (!roomcode || !userId) return;
+
+        const socket = joinRoomSocket(roomcode);
+
+        const onConnect = async () => {
+            console.log('🎵 Joined room socket:', roomcode);
+            setSocketReady(true);
+            
+            try {
+                const clockSync = await syncClock(socket);
+                setClock(clockSync);
+                console.log('⏰ Clock synced - offset:', clockSync.offset, 'ms, rtt:', clockSync.rtt, 'ms');
+            } catch (e) {
+                console.error('Clock sync failed', e);
+                toast.error('Clock sync failed');
+            }
+        };
+
+        // Listen for room events
+        const onUserJoined = ({ userId, userName }: any) => {
+            toast.info(`${userName || userId} joined the room`);
+        };
+
+        const onUserLeft = ({ userId, userName }: any) => {
+            toast.info(`${userName || userId} left the room`);
+        };
+
+        // Playback events
+        const onSetTrack = ({ url, name }: { url: string; name?: string }) => {
+            console.log('🎵 Track set:', url);
+            setTrackUrl(url);
+            setTrackName(name || null);
+            if (audioRef.current) {
+                audioRef.current.src = url;
+                audioRef.current.load();
+            }
+        };
+
+        const onPlayAt = ({ startAt }: { startAt: number }) => {
+            if (!audioRef.current || !clock) return;
+            
+            const clientTarget = toClientTime(startAt, clock.offset);
+            const delay = clientTarget - Date.now();
+            
+            console.log('▶️  Play scheduled - delay:', delay, 'ms');
+            
+            if (delay <= 0) {
+                // Already passed, play immediately
+                audioRef.current.play().catch(e => console.warn('Play failed:', e));
+                setIsPlaying(true);
+            } else {
+                // Schedule play in the future
+                setTimeout(() => {
+                    audioRef.current?.play().catch(e => console.warn('Play failed:', e));
+                    setIsPlaying(true);
+                }, delay);
+            }
+        };
+
+        const onPause = () => {
+            console.log('⏸️  Pause received');
+            audioRef.current?.pause();
+            setIsPlaying(false);
+        };
+
+        const onSeek = ({ position }: { position: number }) => {
+            console.log('⏩ Seek to:', position, 's');
+            if (audioRef.current) {
+                audioRef.current.currentTime = position;
+            }
+        };
+
+        socket.on('connect', onConnect);
+        socket.on('room:user-joined', onUserJoined);
+        socket.on('room:user-left', onUserLeft);
+        socket.on('playback:set-track', onSetTrack);
+        socket.on('playback:play-at', onPlayAt);
+        socket.on('playback:pause', onPause);
+        socket.on('playback:seek', onSeek);
+
+        return () => {
+            socket.off('connect', onConnect);
+            socket.off('room:user-joined', onUserJoined);
+            socket.off('room:user-left', onUserLeft);
+            socket.off('playback:set-track', onSetTrack);
+            socket.off('playback:play-at', onPlayAt);
+            socket.off('playback:pause', onPause);
+            socket.off('playback:seek', onSeek);
+            leaveRoomSocket(roomcode);
+        };
+    }, [roomcode, userId, clock]);
+
+    // Host controls
+    const handleFileSelect = (file: File) => {
+        if (!file.type.startsWith('audio/')) {
+            toast.error('Please select an audio file');
+            return;
         }
-    }, [roomcode, router, url]);
+
+        // Create object URL for local playback
+        const objectUrl = URL.createObjectURL(file);
+        setTrackUrl(objectUrl);
+        setTrackName(file.name);
+        
+        if (audioRef.current) {
+            audioRef.current.src = objectUrl;
+            audioRef.current.load();
+        }
+
+        // Broadcast to other clients
+        const socket = getSocket();
+        socket.emit('playback:set-track', { 
+            code: roomcode, 
+            url: objectUrl,
+            name: file.name 
+        });
+        toast.success(`Track loaded: ${file.name}`);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        
+        const file = e.dataTransfer.files[0];
+        if (file) {
+            handleFileSelect(file);
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = () => {
+        setIsDragging(false);
+    };
+
+    const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            handleFileSelect(file);
+        }
+    };
+
+    const handlePlaySync = () => {
+        if (!clock) {
+            toast.error('Clock not synced yet!');
+            return;
+        }
+        
+        const socket = getSocket();
+        // Schedule play 1 second in the future (server time)
+        const startAt = Date.now() + clock.offset + 1000;
+        socket.emit('playback:play-at', { code: roomcode, startAt });
+        toast.success('Play scheduled in 1s!');
+    };
+
+    const handlePause = () => {
+        const socket = getSocket();
+        socket.emit('playback:pause', { code: roomcode });
+        toast.info('Paused');
+    };
+
+    const handleSeek = () => {
+        const position = prompt('Seek to position (seconds):');
+        if (!position) return;
+        
+        const socket = getSocket();
+        socket.emit('playback:seek', { code: roomcode, position: parseFloat(position) });
+    };
 
     const handleLeaveRoom = () => {
+        leaveRoomSocket(roomcode);
         toast.info("Left the room");
         router.push('/dashboard');
     };
@@ -78,179 +256,118 @@ export default function RoomPage() {
     if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white flex items-center justify-center">
-                <div className="flex flex-col items-center gap-4">
-                    <Loader2 className="animate-spin text-blue-400" size={48} />
-                    <p className="text-xl">Loading room...</p>
-                </div>
+                <p className="text-xl">Loading room...</p>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white overflow-y-auto">
-            <div className="flex  flex-row justify-between items-center bg-black/60 backdrop-blur-md py-4 px-6 shadow-lg sticky top-0 z-10 border-b border-gray-800">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => router.push('/dashboard')} className="hover:text-blue-400 transition">
-                        <ArrowLeft size={24} />
-                    </button>
-                    <Music className="text-blue-400" size={28} />
-                    <div>
-                        <span className="text-2xl font-extrabold tracking-tight">SyncBeats</span>
-                        {isHost && <span className="ml-2 text-xs bg-blue-600 px-2 py-1 rounded">HOST</span>}
-                    </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    <button onClick={handleLeaveRoom} className="px-4 py-2 rounded-lg border border-red-600 text-red-500 hover:bg-red-600 hover:text-white transition flex items-center gap-2">
-                        <LogOut size={18} />
-                        <span className="hidden md:inline">Leave Room</span>
-                    </button>
-                </div>
-            </div>
-    
-            <div className="w-full px-4 py-10 md:py-14 max-w-7xl mx-auto flex flex-col gap-8">
-                
-                <div className="bg-gray-900/70 rounded-2xl p-6 md:p-8 border border-gray-700">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white p-8">
+            {/* Hidden audio element */}
+            <audio ref={audioRef} preload="auto" />
+
+            <div className="max-w-4xl mx-auto">
+                <h1 className="text-4xl font-bold mb-4">{roomData?.name}</h1>
+                <p className="text-gray-400 mb-2">Room Code: <span className="text-blue-400 font-mono text-xl">{roomcode}</span></p>
+                <p className="text-gray-400 mb-6">
+                    Status: {socketReady ? '🟢 Connected' : '🔴 Disconnected'} | 
+                    Clock: {clock ? `⏰ Synced (±${clock.rtt}ms)` : '⏳ Syncing...'}
+                </p>
+
+                {/* Track info */}
+                <div className="bg-gray-800/60 rounded-xl p-6 mb-6">
+                    <h2 className="text-2xl font-bold mb-4">Now Playing</h2>
+                    {trackUrl ? (
                         <div>
-                            <h1 className="text-3xl md:text-4xl font-bold mb-2">{roomData?.name}</h1>
-                            <div className="flex items-center gap-4 text-gray-400">
-                                <span className="flex items-center gap-1">
-                                    <Radio className={roomData?.isActive ? "text-green-400" : "text-gray-400"} size={16} />
-                                    {roomData?.isActive ? "Active" : "Inactive"}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                    <Users size={16} />
-                                    {roomData?.participants?.length || 0} participants
-                                </span>
-                            </div>
+                            <p className="text-lg font-semibold mb-2">{trackName || 'Unknown Track'}</p>
+                            <p className="text-lg">{isPlaying ? '▶️ Playing' : '⏸️ Paused'}</p>
                         </div>
-                        <div className="bg-gray-800/60 px-6 py-3 rounded-xl border border-gray-600">
-                            <p className="text-xs text-gray-400 mb-1">Room Code</p>
-                            <p className="text-2xl font-mono font-bold text-blue-400">{roomcode}</p>
-                        </div>
-                    </div>
+                    ) : (
+                        <p className="text-gray-500">No track loaded</p>
+                    )}
                 </div>
 
-                {isHost && (
-                    <div className="bg-gray-900/70 rounded-xl p-6 border border-gray-700">
-                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                            <Settings className="text-yellow-400" size={22} />
-                            Host Controls
-                        </h2>
+                {/* Host controls */}
+                {isHost && clock && (
+                    <div className="bg-blue-900/40 rounded-xl p-6 mb-6">
+                        <h3 className="text-xl font-bold mb-4">🎛️ Host Controls</h3>
+                        
+                        {/* Drag and drop area */}
+                        <div
+                            onDrop={handleDrop}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onClick={() => fileInputRef.current?.click()}
+                            className={`border-2 border-dashed rounded-lg p-8 mb-4 text-center cursor-pointer transition-all ${
+                                isDragging 
+                                    ? 'border-blue-400 bg-blue-500/20' 
+                                    : 'border-gray-600 hover:border-blue-500 hover:bg-gray-800/40'
+                            }`}
+                        >
+                            <div className="flex flex-col items-center gap-3">
+                                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                                </svg>
+                                <p className="text-lg font-semibold">
+                                    {isDragging ? 'Drop audio file here' : 'Drag & drop audio file'}
+                                </p>
+                                <p className="text-sm text-gray-400">or click to browse</p>
+                                <p className="text-xs text-gray-500">Supports MP3, WAV, OGG, M4A</p>
+                            </div>
+                        </div>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="audio/*"
+                            onChange={handleFileInput}
+                            className="hidden"
+                        />
+                        
                         <div className="flex flex-wrap gap-3">
-                            <button className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition">
-                                End Room
+                            <button 
+                                onClick={handlePlaySync}
+                                className="px-4 py-2 rounded bg-green-600 hover:bg-green-700"
+                                disabled={!trackUrl}
+                            >
+                                ▶️ Play (Sync)
+                            </button>
+                            <button 
+                                onClick={handlePause}
+                                className="px-4 py-2 rounded bg-gray-600 hover:bg-gray-700"
+                            >
+                                ⏸️ Pause
+                            </button>
+                            <button 
+                                onClick={handleSeek}
+                                className="px-4 py-2 rounded bg-purple-600 hover:bg-purple-700"
+                                disabled={!trackUrl}
+                            >
+                                ⏩ Seek
                             </button>
                         </div>
                     </div>
                 )}
 
-                <div className="bg-gray-900/70 rounded-2xl p-6 md:p-8 border border-gray-700">
-                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                        <Radio className="text-purple-400" size={24} />
-                        Playback
-                    </h2>
-                    
-                    <div className="flex flex-col items-center gap-6">
-                        <div className="w-64 h-64 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center shadow-2xl">
-                            <Music size={80} className="text-white/40" />
-                        </div>
-
-                        <div className="text-center">
-                            <h3 className="text-2xl font-bold mb-1">No track playing</h3>
-                            <p className="text-gray-400">Select a track to start</p>
-                        </div>
-
-                        <div className="w-full max-w-2xl">
-                            <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden mb-2">
-                                <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: '0%' }}></div>
+                {/* Participants */}
+                <div className="bg-gray-800/60 rounded-xl p-6 mb-6">
+                    <h3 className="text-xl font-bold mb-4">👥 Participants ({roomData?.participants?.length || 0})</h3>
+                    <div className="space-y-2">
+                        {roomData?.participants?.map((p: any) => (
+                            <div key={p.userId} className="flex items-center gap-2">
+                                <span className="text-green-400">●</span>
+                                <span>{p.user?.name || p.userId}</span>
+                                {p.userId === roomData.hostId && <span className="text-yellow-400">👑 Host</span>}
                             </div>
-                            <div className="flex justify-between text-xs text-gray-400">
-                                <span>0:00</span>
-                                <span>0:00</span>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-6">
-                            <button className="p-3 rounded-full hover:bg-gray-800 transition" disabled={!isHost}>
-                                <SkipBack size={24} />
-                            </button>
-                            <button disabled={!isHost} className="p-6 rounded-full bg-blue-600 hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
-                                <Play size={32} />
-                            </button>
-                            <button className="p-3 rounded-full hover:bg-gray-800 transition" disabled={!isHost}>
-                                <SkipForward size={24} />
-                            </button>
-                        </div>
-
-                        <div className="flex items-center gap-3 w-full max-w-xs">
-                            <Volume2 size={20} className="text-gray-400" />
-                            <input type="range" min="0" max="100" defaultValue="50" className="w-full" />
-                        </div>
+                        ))}
                     </div>
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div className="flex flex-col bg-gray-900/70 rounded-xl p-6 border border-gray-700">
-                        <div className="flex flex-row justify-between items-center text-center mb-4">
-                            <h2 className="text-xl font-bold flex items-center gap-2">
-                                <Users className="text-green-400" size={22} />
-                                Participants ({roomData?.participants?.length || 0})
-                            </h2>
-                            <button className="text-2xl items-center text-cente p-1">+</button>
-                        </div>
-                        <div className="space-y-3">
-                            {roomData?.participants && roomData.participants.length > 0 ? (
-                                roomData.participants.map((participant, idx) => (
-                                    <div key={idx} className="bg-gray-800/60 p-4 rounded-lg flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <UserCircle size={32} className="text-gray-400" />
-                                            <div>
-                                                <p className="font-semibold">
-                                                    {participant.user?.name || `User ${participant.userId.slice(0, 8)}`}
-                                                </p>
-                                                {participant.userId === roomData.hostId && (
-                                                    <span className="text-xs text-blue-400">Host</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {participant.userId === userId && (
-                                            <span className="text-xs text-green-400">You</span>
-                                        )}
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-gray-400 text-sm">No participants yet</p>
-                            )}
-                        </div>
-                    </div>
 
-
-                    <div className="bg-gray-900/70 rounded-xl p-6 border border-gray-700">
-                        <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                            <Radio className="text-purple-400" size={22} />
-                            Connected Devices ({roomData?.devices?.length || 0})
-                        </h2>
-                        <div className="space-y-3">
-                            {roomData?.devices && roomData.devices.length > 0 ? (
-                                roomData.devices.map((device, idx) => (
-                                    <div key={idx} className="bg-gray-800/60 p-4 rounded-lg flex items-center justify-between">
-                                        <div>
-                                            <p className="font-semibold">
-                                                {device.devices?.name || `Device ${device.deviceId.slice(0, 8)}`}
-                                            </p>
-                                            <p className="text-xs text-gray-400">
-                                                {device.devices?.status || 'unknown'}
-                                            </p>
-                                        </div>
-                                        <div className={`w-3 h-3 rounded-full ${device.devices?.status === 'online' ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-gray-400 text-sm">No devices connected</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
+                <button 
+                    onClick={handleLeaveRoom}
+                    className="px-6 py-3 rounded bg-red-600 hover:bg-red-700"
+                >
+                    🚪 Leave Room
+                </button>
             </div>
         </div>
     );

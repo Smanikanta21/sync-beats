@@ -90,7 +90,7 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
                                 Creating...
                             </button>
                         ) : resok ? (
-                            <button className="px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition" onClick={() => { router.push(`/dashboard/room/${roomCode}`) }}>
+                            <button className="px-5 py-2 cursor-pointer rounded-lg bg-blue-600 hover:bg-blue-700 font-semibold transition" onClick={() => { window.open(`/dashboard/room/${roomCode}`, '_blank') }}>
                                 Start Syncing...
                             </button>
                         ) : (
@@ -151,7 +151,7 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
                 setJoinedRoomData(data.room);
                 toast.success("Joined room successfully!");
                 setTimeout(() => {
-                    router.push(`/dashboard/room/${data.room.code}`);
+                    window.open(`/dashboard/room/${data.room.code}`, '_blank');
                 }, 1000);
             } else {
                 toast.error(data.message || "Failed to join room. Please check the room code.");

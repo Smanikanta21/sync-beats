@@ -22,8 +22,12 @@ router.get('/verifyroom/:code', authMiddleWare, verifyRoom);
 
 router.get('/room/:code', authMiddleWare, getRoomDetails);
 
+// router.get('/public-rooms', authMiddleWare, getNearbyRooms);
+
 router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
 router.get('/auth/callback/google', passport.authenticate('google', { failureRedirect: '/' }), googleAuthCallback);
 
-module.exports = router;
+
+
+module.exports = router;3

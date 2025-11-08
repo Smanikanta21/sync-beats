@@ -3,19 +3,21 @@ const cookieParser = require('cookie-parser')
 const session = require('express-session')
 const cors = require('cors')
 const passport = require('passport')
+const path = require('path')
 const app = express()
 const authroutes = require('./routes/routes');
 const router = require('../src/routes/routes')
 
 app.use(cors({
-  origin: [`${process.env.FRONTEND_DEV_URL}`,`${process.env.FRONTEND_URL}`,`${process.env.BACKEND_URL}`],
+  origin: [`${process.env.FRONTEND_DEV_URL}`,`${process.env.FRONTEND_URL}`,`${process.env.BACKEND_URL}`,`${process.env.FRONTEND_N_DEV_URL}`],
   methods: ['GET','POST','DELETE','PATCH','PUT'],
   credentials: true,
   allowedHeaders: ['Content-Type','Authorization']
 }))
 
-app.use(express.json())
+app.use(express.json({ limit: '100mb' }))
 app.use(cookieParser())
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
