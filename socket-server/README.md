@@ -8,6 +8,7 @@ This is the standalone Socket.IO server for SyncBeats realtime audio synchroniza
 - **Root Directory**: `socket-server`
 - **Build Command**: `npm install && npx prisma generate`
 - **Start Command**: `npm start`
+- **Auto-Deploy**: Yes (recommended)
 
 ### Environment Variables:
 ```

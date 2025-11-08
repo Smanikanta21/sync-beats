@@ -36,9 +36,11 @@ This guide explains how to deploy **ONLY the Socket.IO realtime server** to Rend
   ```
   npm install && npx prisma generate
   ```
+  ⚠️ **Important**: Make sure this is entered correctly - not just `npm`
+  
 - **Start Command**: 
   ```
-  npm run start:socket
+  npm start
   ```
 
 **Instance Type:**
