@@ -11,7 +11,11 @@ export default function RoomPage() {
     const roomcode = params.code as string;
     const [mounted, setMounted] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [roomData, setRoomData] = useState<{ name: string; host: { id: string } } | null>(null);
+    const [roomData, setRoomData] = useState<{
+        name: string;
+        hostId: string;
+        participants?: Array<{ userId: string; user?: { name?: string } }>;
+    } | null>(null);
     const [isHost, setIsHost] = useState(false);
     const [userId, setUserId] = useState<string | null>(null);
     
@@ -352,7 +356,7 @@ export default function RoomPage() {
                 <div className="bg-gray-800/60 rounded-xl p-6 mb-6">
                     <h3 className="text-xl font-bold mb-4">👥 Participants ({roomData?.participants?.length || 0})</h3>
                     <div className="space-y-2">
-                        {roomData?.participants?.map((p: { userId: string; user?: { name: string } }) => (
+                        {roomData?.participants?.map((p) => (
                             <div key={p.userId} className="flex items-center gap-2">
                                 <span className="text-green-400">●</span>
                                 <span>{p.user?.name || p.userId}</span>

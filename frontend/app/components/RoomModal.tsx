@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import jsQR from 'jsqr';
 
 export function CreateRoom({ onBack }: { onBack: () => void }) {
-
     const [roomName, setRoomName] = useState<string>("");
     const [roomType, setRoomType] = useState<string>("");
     const [qrData, setQrData] = useState<string | null>(null);
@@ -104,6 +103,7 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
 }
 
 export function JoinRoom({ onBack }: { onBack: () => void }) {
+    const router = useRouter()
     const [roomCode, setRoomCode] = useState<string>("");
     const [loading, setLoading] = useState(false);
     const [joined, setJoined] = useState(false);
