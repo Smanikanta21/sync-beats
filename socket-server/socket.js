@@ -6,11 +6,18 @@ const jwt = require('jsonwebtoken')
 const PORT = process.env.PORT || process.env.REALTIME_PORT || 5002
 
 function verifyToken(token){
-    if(!token) return null
+    if(!token) {
+        console.log('❌ No token provided')
+        return null
+    }
+    if(!process.env.JWT) {
+        console.error('❌ JWT secret not configured!')
+        return null
+    }
     try{
         return jwt.verify(token,process.env.JWT)
     }catch(err){
-        console.error('Socket Auth Error:',err)
+        console.error('Socket Auth Error:',err.message)
         return null
     }
 }
