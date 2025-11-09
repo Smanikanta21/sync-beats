@@ -174,7 +174,17 @@ export class WebRtcFileStream {
 
   private async ensurePeerConnection(peerId: string): Promise<RTCPeerConnection> {
     const existing = this.peerConnections.get(peerId)
-    if (existing) return existing
+    if (existing) {
+      if (
+        existing.signalingState !== 'closed' &&
+        existing.connectionState !== 'closed' &&
+        existing.connectionState !== 'failed'
+      ) {
+        return existing
+      }
+
+      this.closePeerConnection(peerId)
+    }
 
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
 
