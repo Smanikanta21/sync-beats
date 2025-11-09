@@ -47,7 +47,8 @@ const io = new Server(httpServer,{
         methods:['GET','POST','DELETE','PATCH','PUT'],
         credentials:true,
         allowedHeaders:['Content-Type','Authorization']
-    }
+    },
+    maxHttpBufferSize: 1e8
 })
 
 io.use((socket,next)=>{
@@ -70,6 +71,17 @@ io.on('connection',(socket)=>{
         socket.join(code)
         socket.data.code = code
         console.log(`📍 ${socket.data.user.name} joined room: ${code}`)
+
+        const socketsInRoom = Array.from(io.sockets.adapter.rooms.get(code) || [])
+            .map((id)=>io.sockets.sockets.get(id))
+            .filter(Boolean)
+            .map((s)=>({
+                socketId: s.id,
+                userId: s.data.user?.id,
+                userName: s.data.user?.name || 'Guest'
+            }))
+
+        socket.emit('room:members',{users:socketsInRoom})
         socket.to(code).emit('room:user-joined',{
             userId: socket.data.user.id,
             userName: socket.data.user.name,
@@ -98,10 +110,39 @@ io.on('connection',(socket)=>{
         })
     })
 
-    socket.on('playback:set-track',({code,url})=>{
-        if(!code || !url) return
-        console.log(`🎵 Track set in ${code}: ${url}`)
-        io.to(code).emit('playback:set-track',{url})
+    socket.on('webrtc:offer',({to,offer,metadata})=>{
+        if(!to || !offer) return
+        console.log(`🔗 WebRTC offer from ${socket.id} to ${to}`)
+        io.to(to).emit('webrtc:offer',{
+            from:socket.id,
+            offer,
+            metadata
+        })
+    })
+
+    socket.on('webrtc:answer',({to,answer})=>{
+        if(!to || !answer) return
+        console.log(`🔗 WebRTC answer from ${socket.id} to ${to}`)
+        io.to(to).emit('webrtc:answer',{
+            from:socket.id,
+            answer
+        })
+    })
+
+    socket.on('webrtc:ice-candidate',({to,candidate})=>{
+        if(!to || !candidate) return
+        console.log(`🧊 ICE candidate from ${socket.id} to ${to}`)
+        io.to(to).emit('webrtc:ice-candidate',{
+            from:socket.id,
+            candidate
+        })
+    })
+
+
+    socket.on('playback:set-track',({code,url,name,metadata})=>{
+        if(!code) return
+        console.log(`🎵 Track set in ${code}: ${name || url || 'metadata only'}`)
+        io.to(code).emit('playback:set-track',{url,name,metadata})
     })
 
     socket.on('playback:play-at',({code,startAt})=>{
