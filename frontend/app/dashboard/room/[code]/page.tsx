@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "react-toastify"
 import { getSocket, joinRoomSocket, leaveRoomSocket } from "@/lib/sync/sync"
 import { syncClock, toClientTime, type Clock } from "@/lib/sync/clock"
-import { WebRtcFileStream, type FileTransfer } from "@/lib/sync/webrtc"
 
 type ConnectedUser = {
   socketId: string
@@ -40,9 +39,6 @@ export default function RoomPage() {
   const roomcode = params.code as string
 
   const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [downloadProgress, setDownloadProgress] = useState(0)
-  const [isTransferring, setIsTransferring] = useState(false)
   const [socketId, setSocketId] = useState<string | undefined>(undefined)
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -55,11 +51,14 @@ export default function RoomPage() {
   const [trackUrl, setTrackUrl] = useState<string | null>(null)
   const [trackName, setTrackName] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [isDragging, setIsDragging] = useState(false)
+  const [trackInput, setTrackInput] = useState("")
+
+  // File transfer state (used by the transfer progress UI)
+  const [isTransferring, setIsTransferring] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<number>(0)
+  const [downloadProgress, setDownloadProgress] = useState<number>(0)
 
   const audioRef = useRef<HTMLAudioElement>(null)
-  const webrtcRef = useRef<WebRtcFileStream | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const clockRef = useRef<Clock | null>(null)
   const blobUrlRef = useRef<string | null>(null)
 
@@ -68,6 +67,18 @@ export default function RoomPage() {
   useEffect(() => {
     clockRef.current = clock
   }, [clock])
+
+  useEffect(() => {
+    if (!audioRef.current) return
+
+    if (trackUrl) {
+      audioRef.current.src = trackUrl
+      audioRef.current.load()
+    } else {
+      audioRef.current.removeAttribute("src")
+      audioRef.current.load()
+    }
+  }, [trackUrl])
 
   const setTrackSource = useCallback((nextUrl: string | null) => {
     if (blobUrlRef.current && blobUrlRef.current !== nextUrl) {
@@ -89,10 +100,6 @@ export default function RoomPage() {
       if (blobUrlRef.current) {
         URL.revokeObjectURL(blobUrlRef.current)
         blobUrlRef.current = null
-      }
-      if (webrtcRef.current) {
-        webrtcRef.current.cleanup()
-        webrtcRef.current = null
       }
     }
   }, [])
@@ -143,47 +150,9 @@ export default function RoomPage() {
 
     const socket = joinRoomSocket(roomcode)
 
-    const ensureWebRtc = () => {
-      if (webrtcRef.current) return
-
-      const instance = new WebRtcFileStream(socket)
-      instance.onFileSendProgress = (_, progress) => {
-        setUploadProgress(progress)
-      }
-      instance.onFileReceiveStart = (_, metadata) => {
-        setIsTransferring(true)
-        setDownloadProgress(0)
-        setTrackName(metadata.fileName)
-        toast.info(`Receiving "${metadata.fileName}"`)
-      }
-      instance.onFileReceiveProgress = (_, progress) => {
-        setDownloadProgress(progress)
-      }
-      instance.onFileReceived = (_, url, metadata) => {
-        setDownloadProgress(100)
-        setTrackName(metadata.fileName)
-        setTrackSource(url)
-        setIsPlaying(false)
-        setTimeout(() => setIsTransferring(false), 250)
-        toast.success(`Received: ${metadata.fileName}`)
-      }
-      instance.onFileTransferError = (_, error) => {
-        console.error("WebRTC transfer error:", error)
-        setIsTransferring(false)
-        setUploadProgress(0)
-        setDownloadProgress(0)
-        toast.error(`File transfer failed: ${error.message}`)
-      }
-
-      webrtcRef.current = instance
-    }
-
-    ensureWebRtc()
-
     const onConnect = async () => {
       setSocketReady(true)
       setSocketId(socket.id)
-      ensureWebRtc()
 
       try {
         const clockSync = await syncClock(socket)
@@ -211,28 +180,29 @@ export default function RoomPage() {
     const onUserLeft = ({ socketId: departingId, userId: departingUserId, userName }: ConnectedUser) => {
       toast.info(`${userName || departingUserId} left the room`)
       setConnectedUsers((prev) => prev.filter((user) => user.socketId !== departingId))
-      if (departingId === socketId) {
-        setIsTransferring(false)
-      }
     }
 
-    const onSetTrack = ({ url, name, metadata }: { url?: string; name?: string; metadata?: FileTransfer }) => {
-      const displayName = name || metadata?.fileName || null
-      if (displayName) {
-        setTrackName(displayName)
+    const onSetTrack = ({ from, url, name }: { from?: string; url?: string; name?: string }) => {
+      const isSelf = from ? from === socket.id : false
+
+      if (!url) {
+        if (!isSelf) {
+          setTrackSource(null)
+          setTrackName(null)
+          setIsPlaying(false)
+          toast.info("Host cleared the track")
+        }
+        return
       }
 
-      if (url) {
-        setTrackSource(url)
-      } else {
-        setTrackSource(null)
-      }
-
-      if (!url && metadata) {
-        toast.info(`Track ready: ${metadata.fileName}. Waiting for stream...`)
-      }
-
+      const label = name || url
+      setTrackName(label)
+      setTrackSource(url)
       setIsPlaying(false)
+
+      if (!isSelf) {
+        toast.success(`Track loaded: ${label}`)
+      }
     }
 
     const onPlayAt = ({ startAt }: { startAt: number }) => {
@@ -300,98 +270,37 @@ export default function RoomPage() {
       socket.off("playback:pause", onPause)
       socket.off("playback:seek", onSeek)
 
-      if (webrtcRef.current) {
-        webrtcRef.current.cleanup()
-        webrtcRef.current = null
-      }
-
       leaveRoomSocket(roomcode)
       setConnectedUsers([])
     }
   }, [roomcode, userId, setTrackSource, trackUrl, socketId])
 
-  const handleFileSelect = async (file: File) => {
-    if (!file.type.startsWith("audio/")) {
-      toast.error("Please select an audio file")
+  const handleTrackLoad = () => {
+    const url = trackInput.trim()
+    if (!url) {
+      toast.error("Enter an audio URL")
       return
     }
 
-    if (!webrtcRef.current) {
-      toast.error("WebRTC not initialized yet")
-      return
-    }
-
-    const localUrl = URL.createObjectURL(file)
-    setTrackSource(localUrl)
-    setTrackName(file.name)
+    const inferredName = url.split("/").pop() || url
+    setTrackInput(url)
+    setTrackSource(url)
+    setTrackName(inferredName)
     setIsPlaying(false)
 
     if (audioRef.current) {
-      audioRef.current.src = localUrl
+      audioRef.current.src = url
       audioRef.current.load()
-    }
-
-    const activeSocketId = socketId || getSocket().id
-    const recipients = connectedUsers
-      .filter((user) => user.socketId && user.socketId !== activeSocketId)
-      .map((user) => user.socketId)
-
-    if (recipients.length > 0) {
-      setIsTransferring(true)
-      setUploadProgress(0)
-      try {
-        await webrtcRef.current.sendFile(file, recipients)
-        setUploadProgress(100)
-        setTimeout(() => setIsTransferring(false), 250)
-        toast.success(`Track sent to ${recipients.length} participant${recipients.length > 1 ? "s" : ""}`)
-      } catch (err) {
-        console.error("File transfer error:", err)
-        setIsTransferring(false)
-        toast.error("Failed to send file")
-      }
-    } else {
-      toast.info("Track ready locally. Waiting for others to join.")
-    }
-
-    const metadata: FileTransfer = {
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size,
-      totalChunks: Math.ceil(file.size / 16_384)
     }
 
     const socket = getSocket()
     socket.emit("playback:set-track", {
       code: roomcode,
-      name: file.name,
-      metadata
+      url,
+      name: inferredName
     })
-  }
 
-  const handleDrop = (event: React.DragEvent) => {
-    event.preventDefault()
-    setIsDragging(false)
-
-    const file = event.dataTransfer.files[0]
-    if (file) {
-      void handleFileSelect(file)
-    }
-  }
-
-  const handleDragOver = (event: React.DragEvent) => {
-    event.preventDefault()
-    setIsDragging(true)
-  }
-
-  const handleDragLeave = () => {
-    setIsDragging(false)
-  }
-
-  const handleFileInput = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      void handleFileSelect(file)
-    }
+    toast.success("Track shared with room")
   }
 
   const handlePlaySync = () => {
@@ -402,11 +311,6 @@ export default function RoomPage() {
 
     if (!trackUrl) {
       toast.error("Load a track before playing")
-      return
-    }
-
-    if (isTransferring) {
-      toast.info("Please wait for the file transfer to finish")
       return
     }
 
@@ -437,11 +341,6 @@ export default function RoomPage() {
   }
 
   const handleLeaveRoom = () => {
-    if (webrtcRef.current) {
-      webrtcRef.current.cleanup()
-      webrtcRef.current = null
-    }
-
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current)
       blobUrlRef.current = null
@@ -542,37 +441,47 @@ export default function RoomPage() {
           <div className="bg-blue-900/40 rounded-xl p-6 mb-6">
             <h3 className="text-xl font-bold mb-4">🎛️ Host Controls</h3>
 
-            <div
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-lg p-8 mb-4 text-center cursor-pointer transition-all ${
-                isDragging ? "border-blue-400 bg-blue-500/20" : "border-gray-600 hover:border-blue-500 hover:bg-gray-800/40"
-              }`}
-            >
-              <div className="flex flex-col items-center gap-3">
-                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                </svg>
-                <p className="text-lg font-semibold">{isDragging ? "Drop audio file here" : "Drag & drop audio file"}</p>
-                <p className="text-sm text-gray-400">or click to browse</p>
-                <p className="text-xs text-gray-500">Files stream peer-to-peer via WebRTC</p>
+            <div className="flex flex-col gap-4 md:flex-row md:items-center mb-4">
+              <input
+                value={trackInput}
+                onChange={(event) => setTrackInput(event.target.value)}
+                placeholder="https://example.com/audio.mp3"
+                className="flex-1 rounded-md border border-gray-600 bg-gray-900/60 px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={handleTrackLoad}
+                  className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
+                  disabled={!trackInput.trim()}
+                >
+                  🎵 Share Track URL
+                </button>
+                <button
+                  onClick={() => {
+                    setTrackInput("")
+                    setTrackSource(null)
+                    setTrackName(null)
+                    setIsPlaying(false)
+                    const socket = getSocket()
+                    socket.emit("playback:set-track", { code: roomcode, clear: true })
+                    toast.info("Track cleared")
+                  }}
+                  className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600"
+                >
+                  ♻️ Clear
+                </button>
               </div>
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="audio/*"
-              onChange={handleFileInput}
-              className="hidden"
-            />
+
+            <p className="text-sm text-gray-300 mb-4">
+              Provide a direct audio URL accessible to all listeners. The track will load on every device via HTTP.
+            </p>
 
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={handlePlaySync}
                 className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
-                disabled={!trackUrl || isTransferring}
+                disabled={!trackUrl}
               >
                 ▶️ Play (Sync)
               </button>
@@ -585,7 +494,7 @@ export default function RoomPage() {
               <button
                 onClick={handleSeek}
                 className="px-4 py-2 rounded bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
-                disabled={!trackUrl || isTransferring}
+                disabled={!trackUrl}
               >
                 ⏩ Seek
               </button>

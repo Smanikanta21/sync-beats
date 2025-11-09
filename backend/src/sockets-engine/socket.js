@@ -28,7 +28,8 @@ const io = new Server(httpServer,{
         methods:['GET','POST','DELETE','PATCH','PUT'],
         credentials:true,
         allowedHeaders:['Content-Type','Authorization']
-    }
+    },
+    maxHttpBufferSize: 1e8
 })
 
 io.use((socket,next)=>{
@@ -79,10 +80,23 @@ io.on('connection',(socket)=>{
         })
     })
 
-    socket.on('playback:set-track',({code,url})=>{
-        if(!code || !url) return
-        console.log(`🎵 Track set in ${code}: ${url}`)
-        io.to(code).emit('playback:set-track',{url})
+    socket.on('playback:set-track',({code,url,name,clear})=>{
+        if(!code) return
+
+        if(clear){
+            console.log(`🎵 Track cleared in ${code}`)
+            io.to(code).emit('playback:set-track',{ from: socket.id })
+            return
+        }
+
+        const payload = { from: socket.id }
+        if(url) payload.url = url
+        if(name) payload.name = name
+
+        if(!payload.url && !payload.name) return
+
+        console.log(`🎵 Track set in ${code}: ${name || url || 'updated'}`)
+        io.to(code).emit('playback:set-track',payload)
     })
 
     socket.on('playback:play-at',({code,startAt})=>{

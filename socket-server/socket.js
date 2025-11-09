@@ -110,39 +110,23 @@ io.on('connection',(socket)=>{
         })
     })
 
-    socket.on('webrtc:offer',({to,offer,metadata})=>{
-        if(!to || !offer) return
-        console.log(`🔗 WebRTC offer from ${socket.id} to ${to}`)
-        io.to(to).emit('webrtc:offer',{
-            from:socket.id,
-            offer,
-            metadata
-        })
-    })
-
-    socket.on('webrtc:answer',({to,answer})=>{
-        if(!to || !answer) return
-        console.log(`🔗 WebRTC answer from ${socket.id} to ${to}`)
-        io.to(to).emit('webrtc:answer',{
-            from:socket.id,
-            answer
-        })
-    })
-
-    socket.on('webrtc:ice-candidate',({to,candidate})=>{
-        if(!to || !candidate) return
-        console.log(`🧊 ICE candidate from ${socket.id} to ${to}`)
-        io.to(to).emit('webrtc:ice-candidate',{
-            from:socket.id,
-            candidate
-        })
-    })
-
-
-    socket.on('playback:set-track',({code,url,name,metadata})=>{
+    socket.on('playback:set-track',({code,url,name,clear})=>{
         if(!code) return
-        console.log(`🎵 Track set in ${code}: ${name || url || 'metadata only'}`)
-        io.to(code).emit('playback:set-track',{url,name,metadata})
+
+        if(clear){
+            console.log(`🎵 Track cleared in ${code}`)
+            io.to(code).emit('playback:set-track',{ from: socket.id })
+            return
+        }
+
+        const payload = { from: socket.id }
+        if(url) payload.url = url
+        if(name) payload.name = name
+
+        if(!payload.url && !payload.name) return
+
+        console.log(`🎵 Track set in ${code}: ${name || url || 'updated'}`)
+        io.to(code).emit('playback:set-track',payload)
     })
 
     socket.on('playback:play-at',({code,startAt})=>{
