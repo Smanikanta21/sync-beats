@@ -52,6 +52,7 @@ export default function RoomPage() {
   const [trackName, setTrackName] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [trackInput, setTrackInput] = useState("")
+  const [audioReady, setAudioReady] = useState(false)
 
   // File transfer state (used by the transfer progress UI)
   const [isTransferring, setIsTransferring] = useState(false)
@@ -219,11 +220,11 @@ export default function RoomPage() {
       const playAudio = () => {
         audioRef.current
           ?.play()
-          .then(() => setIsPlaying(true))
-          .catch((err) => {
-            console.warn("Play failed:", err)
-            toast.error("Playback failed - tap play manually")
+          .then(() => {
+            audioRef.current?.pause();
+            setAudioReady(true);
           })
+          .catch(() => toast.error("Tap again to enable audio"));
       }
 
       if (delay <= 0) {
