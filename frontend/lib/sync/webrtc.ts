@@ -26,6 +26,7 @@ export class WebRtcFileStream {
   public onFileReceiveStart?: (peerId: string, metadata: FileTransfer) => void
   public onFileReceiveProgress?: (peerId: string, progress: number) => void
   public onFileReceived?: (peerId: string, url: string, metadata: FileTransfer) => void
+  public onFileTransferError?: (peerId: string, error: Error) => void
 
   constructor(private readonly socket: Socket) {
     this.registerSignalHandlers()
@@ -139,43 +140,66 @@ export class WebRtcFileStream {
     }
 
     dataChannel.binaryType = 'arraybuffer'
+  dataChannel.bufferedAmountLowThreshold = CHUNK_SIZE * 5
     this.dataChannels.set(peerId, dataChannel)
 
     dataChannel.onopen = async () => {
-      this.onFileSendProgress?.(peerId, 0)
-      dataChannel.send(JSON.stringify({ type: 'metadata', data: metadata }))
+      try {
+        this.onFileSendProgress?.(peerId, 0)
+        dataChannel.send(JSON.stringify({ type: 'metadata', data: metadata }))
 
-      const arrayBuffer = await file.arrayBuffer()
-      let offset = 0
-      let chunkIndex = 0
+        const arrayBuffer = await file.arrayBuffer()
+        let offset = 0
+        let chunkIndex = 0
 
-      while (offset < arrayBuffer.byteLength) {
-        const chunk = arrayBuffer.slice(offset, offset + CHUNK_SIZE)
+        while (offset < arrayBuffer.byteLength) {
+          const chunk = arrayBuffer.slice(offset, offset + CHUNK_SIZE)
 
-        if (dataChannel.bufferedAmount > CHUNK_SIZE * 10) {
-          await new Promise((resolve) => setTimeout(resolve, 10))
+          while (dataChannel.bufferedAmount > CHUNK_SIZE * 10) {
+            await new Promise((resolve) => {
+              const handler = () => {
+                dataChannel.removeEventListener('bufferedamountlow', handler)
+                resolve(undefined)
+              }
+              dataChannel.addEventListener('bufferedamountlow', handler, { once: true })
+              setTimeout(() => {
+                dataChannel.removeEventListener('bufferedamountlow', handler)
+                resolve(undefined)
+              }, 25)
+            })
+          }
+
+          dataChannel.send(JSON.stringify({
+            type: 'chunk',
+            index: chunkIndex,
+            total: metadata.totalChunks
+          }))
+          dataChannel.send(chunk)
+
+          offset += CHUNK_SIZE
+          chunkIndex += 1
+
+          const progress = Math.min(100, Math.round((chunkIndex / metadata.totalChunks) * 100))
+          this.onFileSendProgress?.(peerId, progress)
         }
 
-        dataChannel.send(JSON.stringify({
-          type: 'chunk',
-          index: chunkIndex,
-          total: metadata.totalChunks
-        }))
-        dataChannel.send(chunk)
-
-        offset += CHUNK_SIZE
-        chunkIndex += 1
-
-        const progress = Math.min(100, Math.round((chunkIndex / metadata.totalChunks) * 100))
-        this.onFileSendProgress?.(peerId, progress)
+        dataChannel.send(JSON.stringify({ type: 'complete' }))
+        this.onFileSendProgress?.(peerId, 100)
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error('File send failed')
+        this.onFileTransferError?.(peerId, err)
+      } finally {
+        try { dataChannel.close() } catch { /* ignore */ }
       }
-
-      dataChannel.send(JSON.stringify({ type: 'complete' }))
-      this.onFileSendProgress?.(peerId, 100)
     }
 
     dataChannel.onerror = (err) => {
       console.error(`Data channel error with ${peerId}`, err)
+      this.onFileTransferError?.(peerId, err instanceof Error ? err : new Error('Data channel error'))
+    }
+
+    dataChannel.onclose = () => {
+      this.dataChannels.delete(peerId)
     }
 
     const offer = await pc.createOffer()
@@ -211,6 +235,8 @@ export class WebRtcFileStream {
 
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        const error = new Error(`Peer connection ${pc.connectionState}`)
+        this.onFileTransferError?.(peerId, error)
         this.closePeerConnection(peerId)
       }
     }
@@ -234,6 +260,10 @@ export class WebRtcFileStream {
   }
 
   private handleIncomingChannel(peerId: string, channel: RTCDataChannel): void {
+    channel.onopen = () => {
+      channel.bufferedAmountLowThreshold = CHUNK_SIZE * 5
+    }
+
     channel.onmessage = (event) => {
       const payload = event.data
 
@@ -249,9 +279,11 @@ export class WebRtcFileStream {
               receivedChunks: 0
             })
             this.onFileReceiveStart?.(peerId, meta)
+            this.onFileReceiveProgress?.(peerId, 0)
           } else if (message.type === 'complete') {
             const record = this.receivingFiles.get(peerId)
             if (record) {
+              this.onFileReceiveProgress?.(peerId, 100)
               this.reconstructFile(peerId, record)
             }
           }
@@ -262,23 +294,56 @@ export class WebRtcFileStream {
       }
 
       if (payload instanceof ArrayBuffer) {
-        const record = this.receivingFiles.get(peerId)
-        if (!record) return
+        this.handleBinaryChunk(peerId, payload)
+        return
+      }
 
-        record.chunks.push(payload)
-        record.receivedChunks += 1
+      if (ArrayBuffer.isView(payload)) {
+        const view = payload as ArrayBufferView
+        const src = new Uint8Array(view.buffer, view.byteOffset, view.byteLength)
+        const copy = new Uint8Array(src.length)
+        copy.set(src)
+        this.handleBinaryChunk(peerId, copy.buffer)
+        return
+      }
 
-        const progress = Math.min(
-          100,
-          Math.round((record.receivedChunks / record.metadata.totalChunks) * 100)
-        )
-        this.onFileReceiveProgress?.(peerId, progress)
+      if (payload instanceof Blob) {
+        void payload.arrayBuffer().then((buffer) => {
+          this.handleBinaryChunk(peerId, buffer)
+        }).catch((error) => {
+          console.error('Failed to read blob chunk', error)
+          this.onFileTransferError?.(peerId, error instanceof Error ? error : new Error('Failed to read chunk'))
+        })
       }
     }
 
     channel.onerror = (err) => {
       console.error(`Data channel error from ${peerId}`, err)
+      this.onFileTransferError?.(peerId, err instanceof Error ? err : new Error('Data channel error'))
     }
+
+    channel.onclose = () => {
+      const record = this.receivingFiles.get(peerId)
+      if (record && record.receivedChunks < record.metadata.totalChunks) {
+        const error = new Error('Transfer ended before completion')
+        this.onFileTransferError?.(peerId, error)
+      }
+      this.dataChannels.delete(peerId)
+    }
+  }
+
+  private handleBinaryChunk(peerId: string, buffer: ArrayBuffer): void {
+    const record = this.receivingFiles.get(peerId)
+    if (!record) return
+
+    record.chunks.push(buffer)
+    record.receivedChunks += 1
+
+    const progress = Math.min(
+      100,
+      Math.round((record.receivedChunks / record.metadata.totalChunks) * 100)
+    )
+    this.onFileReceiveProgress?.(peerId, progress)
   }
 
   private reconstructFile(peerId: string, fileData: {

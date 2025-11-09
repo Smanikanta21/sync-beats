@@ -167,6 +167,13 @@ export default function RoomPage() {
         setTimeout(() => setIsTransferring(false), 250)
         toast.success(`Received: ${metadata.fileName}`)
       }
+      instance.onFileTransferError = (_, error) => {
+        console.error("WebRTC transfer error:", error)
+        setIsTransferring(false)
+        setUploadProgress(0)
+        setDownloadProgress(0)
+        toast.error(`File transfer failed: ${error.message}`)
+      }
 
       webrtcRef.current = instance
     }
