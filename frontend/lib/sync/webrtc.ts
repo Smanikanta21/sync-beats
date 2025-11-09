@@ -120,8 +120,24 @@ export class WebRtcFileStream {
   }
 
   private async sendFileToPeer(file: File, metadata: FileTransfer, peerId: string): Promise<void> {
-    const pc = await this.ensurePeerConnection(peerId)
-    const dataChannel = pc.createDataChannel('file-transfer', { ordered: true })
+    let pc = await this.ensurePeerConnection(peerId)
+
+    if (!this.isPeerConnectionUsable(pc)) {
+      this.closePeerConnection(peerId)
+      pc = await this.ensurePeerConnection(peerId)
+    }
+
+    let dataChannel: RTCDataChannel
+
+    try {
+      dataChannel = pc.createDataChannel('file-transfer', { ordered: true })
+    } catch (err) {
+      console.warn('Failed to create data channel, retrying with fresh RTCPeerConnection', err)
+      this.closePeerConnection(peerId)
+      pc = await this.ensurePeerConnection(peerId)
+      dataChannel = pc.createDataChannel('file-transfer', { ordered: true })
+    }
+
     dataChannel.binaryType = 'arraybuffer'
     this.dataChannels.set(peerId, dataChannel)
 
@@ -175,11 +191,7 @@ export class WebRtcFileStream {
   private async ensurePeerConnection(peerId: string): Promise<RTCPeerConnection> {
     const existing = this.peerConnections.get(peerId)
     if (existing) {
-      if (
-        existing.signalingState !== 'closed' &&
-        existing.connectionState !== 'closed' &&
-        existing.connectionState !== 'failed'
-      ) {
+      if (this.isPeerConnectionUsable(existing)) {
         return existing
       }
 
@@ -211,6 +223,14 @@ export class WebRtcFileStream {
 
     this.peerConnections.set(peerId, pc)
     return pc
+  }
+
+  private isPeerConnectionUsable(pc: RTCPeerConnection): boolean {
+    const isClosedState = pc.signalingState === 'closed'
+    const hasFailedConnection = pc.connectionState === 'failed' || pc.connectionState === 'closed'
+    const iceFailed = pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed'
+
+    return !(isClosedState || hasFailedConnection || iceFailed)
   }
 
   private handleIncomingChannel(peerId: string, channel: RTCDataChannel): void {
