@@ -3,7 +3,6 @@ import { QrCode, ArrowLeft, Camera } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
 import Image from 'next/image';
 import { toast } from 'react-toastify';
-import { useRouter } from "next/navigation";
 import jsQR from 'jsqr';
 
 export function CreateRoom({ onBack }: { onBack: () => void }) {
@@ -103,7 +102,6 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
 }
 
 export function JoinRoom({ onBack }: { onBack: () => void }) {
-    const router = useRouter()
     const [roomCode, setRoomCode] = useState<string>("");
     const [loading, setLoading] = useState(false);
     const [joined, setJoined] = useState(false);

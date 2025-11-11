@@ -4,15 +4,31 @@ import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState, useRef } from "react"
 import { toast } from "react-toastify"
 
-type RoomParticipant = {
-  userId: string
-  user?: { name?: string }
-}
-
 type RoomResponse = {
   name: string
+  code: string
   hostId: string
-  participants?: RoomParticipant[]
+  participants: Array<{
+    userId: string
+    user?: { name?: string }
+  }>
+}
+
+type PongData = {
+  serverTime: number
+  t0: number
+}
+
+type TimePongMessage = {
+  id: string
+  serverTime: number
+  t0: number
+}
+
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext
+  }
 }
 
 export default function RoomPage() {
@@ -94,7 +110,7 @@ export default function RoomPage() {
       console.log("✅ WS connected")
       ws.send(JSON.stringify({ type: "join", roomId: roomcode }))
       // Initialize Web Audio
-      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext!)()
     }
 
     ws.onmessage = async (ev) => {
@@ -128,12 +144,12 @@ export default function RoomPage() {
     return () => {
       ws.close()
     }
-  }, [userId, roomcode, wsUrl])
+  }, [userId, roomcode, wsUrl]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clock sync functions
   const pendingPings = useRef(new Map())
 
-  const sendPing = () => {
+  const sendPing = (): Promise<PongData> => {
     return new Promise((resolve, reject) => {
       const id = Math.random().toString(36).slice(2, 9)
       const t0 = Date.now()
@@ -155,7 +171,7 @@ export default function RoomPage() {
 
     for (let i = 0; i < samples; i++) {
       try {
-        const pong = await sendPing() as any
+        const pong = await sendPing()
         const t3 = Date.now()
         const serverTime = pong.serverTime
         const rtt = t3 - pong.t0
@@ -174,10 +190,10 @@ export default function RoomPage() {
     return { offsetMs: best.offset, mapPair }
   }
 
-  const handlePong = (msg: any) => {
+  const handlePong = (msg: TimePongMessage) => {
     const pendingPing = pendingPings.current.get(msg.id)
     if (!pendingPing) return
-    pendingPing.resolve(msg)
+    pendingPing.resolve({ serverTime: msg.serverTime, t0: msg.t0 })
     pendingPings.current.delete(msg.id)
   }
 
