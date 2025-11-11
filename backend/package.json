@@ -29,7 +29,8 @@
     "passport-google-oauth20": "^2.0.0",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.1",
-    "ua-parser-js": "^2.0.5"
+    "ua-parser-js": "^2.0.5",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "prisma": "^6.17.1"

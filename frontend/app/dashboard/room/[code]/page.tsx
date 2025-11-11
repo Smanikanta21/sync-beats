@@ -1,16 +1,8 @@
 "use client"
 
 import { useParams, useRouter } from "next/navigation"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { toast } from "react-toastify"
-import { getSocket, joinRoomSocket, leaveRoomSocket } from "@/lib/sync/sync"
-import { syncClock, toClientTime, type Clock } from "@/lib/sync/clock"
-
-type ConnectedUser = {
-  socketId: string
-  userId: string
-  userName?: string
-}
 
 type RoomParticipant = {
   userId: string
@@ -23,88 +15,32 @@ type RoomResponse = {
   participants?: RoomParticipant[]
 }
 
-const dedupeUsers = (users: ConnectedUser[]): ConnectedUser[] => {
-  const map = new Map<string, ConnectedUser>()
-  users.forEach((user) => {
-    if (user.socketId) {
-      map.set(user.socketId, user)
-    }
-  })
-  return Array.from(map.values())
-}
-
 export default function RoomPage() {
   const params = useParams()
   const router = useRouter()
   const roomcode = params.code as string
 
-  const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([])
-  const [socketId, setSocketId] = useState<string | undefined>(undefined)
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [roomData, setRoomData] = useState<RoomResponse | null>(null)
   const [isHost, setIsHost] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
-
-  const [socketReady, setSocketReady] = useState(false)
-  const [clock, setClock] = useState<Clock | null>(null)
   const [trackUrl, setTrackUrl] = useState<string | null>(null)
   const [trackName, setTrackName] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [trackInput, setTrackInput] = useState("")
-  const [audioReady, setAudioReady] = useState(false)
 
-  // File transfer state (used by the transfer progress UI)
-  const [isTransferring, setIsTransferring] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState<number>(0)
-  const [downloadProgress, setDownloadProgress] = useState<number>(0)
-
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const clockRef = useRef<Clock | null>(null)
-  const blobUrlRef = useRef<string | null>(null)
-
+  const wsRef = useRef<WebSocket | null>(null)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const globalMappingRef = useRef<{ offsetMs: number; mapPair: { clientNowMs: number; audioNowSec: number } } | null>(null)
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null)
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
-
-  useEffect(() => {
-    clockRef.current = clock
-  }, [clock])
-
-  useEffect(() => {
-    if (!audioRef.current) return
-
-    if (trackUrl) {
-      audioRef.current.src = trackUrl
-      audioRef.current.load()
-    } else {
-      audioRef.current.removeAttribute("src")
-      audioRef.current.load()
-    }
-  }, [trackUrl])
-
-  const setTrackSource = useCallback((nextUrl: string | null) => {
-    if (blobUrlRef.current && blobUrlRef.current !== nextUrl) {
-      URL.revokeObjectURL(blobUrlRef.current)
-      blobUrlRef.current = null
-    }
-
-    setTrackUrl(nextUrl)
-
-    if (nextUrl && nextUrl.startsWith("blob:")) {
-      blobUrlRef.current = nextUrl
-    }
-  }, [])
+  const wsUrl = process.env.NEXT_PUBLIC_REALTIME_URL?.replace('http', 'ws') || "ws://localhost:5002"
 
   useEffect(() => {
     setMounted(true)
-
-    return () => {
-      if (blobUrlRef.current) {
-        URL.revokeObjectURL(blobUrlRef.current)
-        blobUrlRef.current = null
-      }
-    }
   }, [])
 
+  // Fetch room data
   useEffect(() => {
     if (!mounted) return
 
@@ -146,209 +82,176 @@ export default function RoomPage() {
     }
   }, [mounted, roomcode, router, apiUrl])
 
+  // WebSocket connection
   useEffect(() => {
-    if (!roomcode || !userId) return
+    if (!userId || !roomcode) return
 
-    const socket = joinRoomSocket(roomcode)
+    const token = localStorage.getItem("token")
+    const ws = new WebSocket(`${wsUrl}?token=${token}`)
+    wsRef.current = ws
 
-    const onConnect = async () => {
-      setSocketReady(true)
-      setSocketId(socket.id)
-
-      try {
-        const clockSync = await syncClock(socket)
-        setClock(clockSync)
-        console.log("⏰ Clock synced - offset:", clockSync.offset, "ms, rtt:", clockSync.rtt, "ms")
-      } catch (err) {
-        console.error("Clock sync failed", err)
-        toast.error("Clock sync failed")
-      }
+    ws.onopen = () => {
+      console.log("✅ WS connected")
+      ws.send(JSON.stringify({ type: "join", roomId: roomcode }))
+      // Initialize Web Audio
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
     }
 
-    const onDisconnect = () => {
-      setSocketReady(false)
-    }
-
-    const onRoomMembers = ({ users }: { users: ConnectedUser[] }) => {
-      setConnectedUsers(dedupeUsers(users))
-    }
-
-    const onUserJoined = (payload: ConnectedUser) => {
-      toast.info(`${payload.userName || payload.userId} joined the room`)
-      setConnectedUsers((prev) => dedupeUsers([...prev, payload]))
-    }
-
-    const onUserLeft = ({ socketId: departingId, userId: departingUserId, userName }: ConnectedUser) => {
-      toast.info(`${userName || departingUserId} left the room`)
-      setConnectedUsers((prev) => prev.filter((user) => user.socketId !== departingId))
-    }
-
-    const onSetTrack = ({ from, url, name }: { from?: string; url?: string; name?: string }) => {
-      const isSelf = from ? from === socket.id : false
-
-      if (!url) {
-        if (!isSelf) {
-          setTrackSource(null)
-          setTrackName(null)
+    ws.onmessage = async (ev) => {
+      const msg = JSON.parse(ev.data)
+      switch (msg.type) {
+        case "joined":
+          console.log(`Joined room=${msg.roomId}`)
+          break
+        case "time_pong":
+          handlePong(msg)
+          break
+        case "PLAY":
+          console.log(`PLAY cmd received: startServerMs=${msg.startServerMs}`)
+          await handlePlay(msg.audioUrl, msg.startServerMs)
+          break
+        case "PAUSE":
+          console.log("PAUSE received")
+          if (currentSourceRef.current) {
+            currentSourceRef.current.stop()
+            currentSourceRef.current = null
+          }
           setIsPlaying(false)
-          toast.info("Host cleared the track")
-        }
-        return
-      }
-
-      const label = name || url
-      setTrackName(label)
-      setTrackSource(url)
-      setIsPlaying(false)
-
-      if (!isSelf) {
-        toast.success(`Track loaded: ${label}`)
+          break
       }
     }
 
-    const onPlayAt = ({ startAt }: { startAt: number }) => {
-      const currentClock = clockRef.current
-      if (!audioRef.current || !currentClock || !trackUrl) {
-        toast.error("Track not ready for playback")
-        return
-      }
-
-      const clientTarget = toClientTime(startAt, currentClock.offset)
-      const delay = clientTarget - Date.now()
-      console.log("▶️  Play scheduled - delay:", delay, "ms")
-
-      const playAudio = () => {
-        audioRef.current
-          ?.play()
-          .then(() => {
-            audioRef.current?.pause();
-            setAudioReady(true);
-          })
-          .catch(() => toast.error("Tap again to enable audio"));
-      }
-
-      if (delay <= 0) {
-        playAudio()
-      } else {
-        setTimeout(playAudio, delay)
-      }
+    ws.onclose = () => {
+      console.log("WS closed")
     }
-
-    const onPause = () => {
-      audioRef.current?.pause()
-      setIsPlaying(false)
-    }
-
-    const onSeek = ({ position }: { position: number }) => {
-      if (audioRef.current) {
-        audioRef.current.currentTime = position
-      }
-    }
-
-    if (socket.connected) {
-      void onConnect()
-    } else {
-      socket.on("connect", onConnect)
-    }
-
-    socket.on("disconnect", onDisconnect)
-    socket.on("room:members", onRoomMembers)
-    socket.on("room:user-joined", onUserJoined)
-    socket.on("room:user-left", onUserLeft)
-    socket.on("playback:set-track", onSetTrack)
-    socket.on("playback:play-at", onPlayAt)
-    socket.on("playback:pause", onPause)
-    socket.on("playback:seek", onSeek)
 
     return () => {
-      socket.off("connect", onConnect)
-      socket.off("disconnect", onDisconnect)
-      socket.off("room:members", onRoomMembers)
-      socket.off("room:user-joined", onUserJoined)
-      socket.off("room:user-left", onUserLeft)
-      socket.off("playback:set-track", onSetTrack)
-      socket.off("playback:play-at", onPlayAt)
-      socket.off("playback:pause", onPause)
-      socket.off("playback:seek", onSeek)
-
-      leaveRoomSocket(roomcode)
-      setConnectedUsers([])
+      ws.close()
     }
-  }, [roomcode, userId, setTrackSource, trackUrl, socketId])
+  }, [userId, roomcode, wsUrl])
 
-  const handleTrackLoad = () => {
-    const url = trackInput.trim()
-    if (!url) {
-      toast.error("Enter an audio URL")
-      return
-    }
+  // Clock sync functions
+  const pendingPings = useRef(new Map())
 
-    const inferredName = url.split("/").pop() || url
-    setTrackInput(url)
-    setTrackSource(url)
-    setTrackName(inferredName)
-    setIsPlaying(false)
-
-    if (audioRef.current) {
-      audioRef.current.src = url
-      audioRef.current.load()
-    }
-
-    const socket = getSocket()
-    socket.emit("playback:set-track", {
-      code: roomcode,
-      url,
-      name: inferredName
+  const sendPing = () => {
+    return new Promise((resolve, reject) => {
+      const id = Math.random().toString(36).slice(2, 9)
+      const t0 = Date.now()
+      pendingPings.current.set(id, { t0, resolve })
+      wsRef.current?.send(JSON.stringify({ type: "time_ping", id, t0 }))
+      setTimeout(() => {
+        if (pendingPings.current.has(id)) {
+          pendingPings.current.delete(id)
+          reject("Ping timeout")
+        }
+      }, 1500)
     })
-
-    toast.success("Track shared with room")
   }
 
-  const handlePlaySync = () => {
-    if (!clockRef.current) {
-      toast.error("Clock not synced yet")
-      return
+  const estimateOffset = async (samples = 6) => {
+    const results: Array<{ offset: number; rtt: number }> = []
+    const audioCtx = audioCtxRef.current
+    if (!audioCtx) return null
+
+    for (let i = 0; i < samples; i++) {
+      try {
+        const pong = await sendPing() as any
+        const t3 = Date.now()
+        const serverTime = pong.serverTime
+        const rtt = t3 - pong.t0
+        const offset = serverTime - (pong.t0 + rtt / 2)
+        results.push({ offset, rtt })
+      } catch (e) {
+        console.error("Ping failed", e)
+      }
+      await new Promise(r => setTimeout(r, 100))
     }
 
-    if (!trackUrl) {
-      toast.error("Load a track before playing")
-      return
+    results.sort((a, b) => a.rtt - b.rtt)
+    const best = results[0]
+    const mapPair = { clientNowMs: Date.now(), audioNowSec: audioCtx.currentTime }
+    console.log(`⏱️ Offset=${best.offset.toFixed(2)}ms RTT=${best.rtt.toFixed(2)}ms`)
+    return { offsetMs: best.offset, mapPair }
+  }
+
+  const handlePong = (msg: any) => {
+    const pendingPing = pendingPings.current.get(msg.id)
+    if (!pendingPing) return
+    pendingPing.resolve(msg)
+    pendingPings.current.delete(msg.id)
+  }
+
+  const serverMsToAudioCtxTime = (serverMs: number, mapping: { offsetMs: number; mapPair: { clientNowMs: number; audioNowSec: number } }) => {
+    const clientEquivalentMs = serverMs - mapping.offsetMs
+    const deltaMs = clientEquivalentMs - mapping.mapPair.clientNowMs
+    return mapping.mapPair.audioNowSec + deltaMs / 1000
+  }
+
+  // Web Audio playback
+  const handlePlay = async (audioUrl: string, startServerMs: number) => {
+    const audioCtx = audioCtxRef.current
+    if (!audioCtx) return
+
+    if (audioCtx.state === 'suspended') await audioCtx.resume()
+
+    // Stop any current playback
+    if (currentSourceRef.current) {
+      currentSourceRef.current.stop()
+      currentSourceRef.current = null
     }
 
-    const socket = getSocket()
-    const startAt = Date.now() + clockRef.current.offset + 1000
-    socket.emit("playback:play-at", { code: roomcode, startAt })
-    toast.success("Play scheduled in 1s")
+    const mapping = await estimateOffset()
+    if (!mapping) return
+    globalMappingRef.current = mapping
+
+    const startAudioCtxTime = serverMsToAudioCtxTime(startServerMs, mapping)
+    const now = audioCtx.currentTime
+    const safeStart = Math.max(startAudioCtxTime, now + 0.2)
+    console.log(`🎧 Scheduling audio at ${safeStart.toFixed(3)} (current ${now.toFixed(3)})`)
+
+    try {
+      const fullUrl = audioUrl.startsWith('http') ? audioUrl : window.location.origin + audioUrl
+      const res = await fetch(fullUrl)
+      const buf = await res.arrayBuffer()
+      const audioBuffer = await audioCtx.decodeAudioData(buf)
+
+      const src = audioCtx.createBufferSource()
+      src.buffer = audioBuffer
+      src.connect(audioCtx.destination)
+      src.start(safeStart)
+      currentSourceRef.current = src
+      src.onended = () => {
+        console.log("Audio ended.")
+        setIsPlaying(false)
+        currentSourceRef.current = null
+      }
+      setIsPlaying(true)
+      setTrackUrl(audioUrl)
+      setTrackName(audioUrl.split('/').pop() || audioUrl)
+    } catch (e) {
+      console.error('Playback failed:', e)
+      toast.error('Playback failed')
+    }
   }
 
   const handlePause = () => {
-    const socket = getSocket()
-    socket.emit("playback:pause", { code: roomcode })
-    toast.info("Paused")
+    wsRef.current?.send(JSON.stringify({ type: "PAUSE" }))
+    toast.info("Pause sent")
   }
 
-  const handleSeek = () => {
-    const position = prompt("Seek to position (seconds):")
-    if (!position) return
-
-    const value = Number.parseFloat(position)
-    if (Number.isNaN(value)) {
-      toast.error("Enter a valid number")
-      return
-    }
-
-    const socket = getSocket()
-    socket.emit("playback:seek", { code: roomcode, position: value })
+  const handlePlaySync = () => {
+    if (!trackUrl) return
+    const startServerMs = Date.now() + 2000 // Schedule play in 2 seconds
+    wsRef.current?.send(JSON.stringify({ type: "PLAY", audioUrl: trackUrl, startServerMs }))
+    toast.info("Play command sent")
   }
 
   const handleLeaveRoom = () => {
-    if (blobUrlRef.current) {
-      URL.revokeObjectURL(blobUrlRef.current)
-      blobUrlRef.current = null
+    if (currentSourceRef.current) {
+      currentSourceRef.current.stop()
+      currentSourceRef.current = null
     }
-
-    leaveRoomSocket(roomcode)
-    setConnectedUsers([])
+    wsRef.current?.send(JSON.stringify({ type: "leave" }))
     toast.info("Left the room")
     router.push("/dashboard")
   }
@@ -361,48 +264,16 @@ export default function RoomPage() {
     )
   }
 
-  const visibleUsers = connectedUsers.filter((user) => user.socketId !== socketId)
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white p-8">
-      <audio ref={audioRef} preload="auto" />
-
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold mb-4">{roomData?.name}</h1>
         <p className="text-gray-400 mb-2">
           Room Code: <span className="text-blue-400 font-mono text-xl">{roomcode}</span>
         </p>
         <p className="text-gray-400 mb-6">
-          Status: {socketReady ? "🟢 Connected" : "🔴 Disconnected"} | Clock: {clock ? `⏰ Synced (±${clock.rtt}ms)` : "⏳ Syncing..."}
+          Status: Connected
         </p>
-
-        {isTransferring && (
-          <div className="bg-blue-900/30 border border-blue-500/40 rounded-xl p-4 mb-6">
-            <p className="font-semibold mb-2">File transfer in progress…</p>
-            {uploadProgress > 0 && uploadProgress < 100 && (
-              <div className="mb-3">
-                <p className="text-sm text-gray-300 mb-1">Uploading: {uploadProgress}%</p>
-                <div className="w-full bg-gray-700 h-2 rounded-full">
-                  <div
-                    className="bg-blue-400 h-2 rounded-full transition-all"
-                    style={{ width: `${uploadProgress}%` }}
-                  />
-                </div>
-              </div>
-            )}
-            {downloadProgress > 0 && downloadProgress < 100 && (
-              <div>
-                <p className="text-sm text-gray-300 mb-1">Downloading: {downloadProgress}%</p>
-                <div className="w-full bg-gray-700 h-2 rounded-full">
-                  <div
-                    className="bg-green-400 h-2 rounded-full transition-all"
-                    style={{ width: `${downloadProgress}%` }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         <div className="bg-gray-800/60 rounded-xl p-6 mb-6">
           <h2 className="text-2xl font-bold mb-4">Now Playing</h2>
@@ -416,89 +287,35 @@ export default function RoomPage() {
           )}
         </div>
 
-        <div className="bg-gray-800/60 rounded-xl p-6 mb-6">
-          <h3 className="text-xl font-bold mb-4">🔌 Connected Now ({visibleUsers.length + 1})</h3>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-green-400">●</span>
-              <span>You</span>
-              {isHost && <span className="text-yellow-400">👑 Host</span>}
-            </div>
-            {visibleUsers.length > 0 ? (
-              visibleUsers.map((user) => (
-                <div key={user.socketId} className="flex items-center gap-2">
-                  <span className="text-green-400">●</span>
-                  <span>{user.userName || user.userId}</span>
-                  {user.userId === roomData?.hostId && <span className="text-yellow-400">👑 Host</span>}
-                </div>
-              ))
-            ) : (
-              <p className="text-gray-500">No other participants connected yet</p>
-            )}
-          </div>
-        </div>
-
-        {isHost && clock && (
+        {isHost && (
           <div className="bg-blue-900/40 rounded-xl p-6 mb-6">
             <h3 className="text-xl font-bold mb-4">🎛️ Host Controls</h3>
-
-            <div className="flex flex-col gap-4 md:flex-row md:items-center mb-4">
-              <input
-                value={trackInput}
-                onChange={(event) => setTrackInput(event.target.value)}
-                placeholder="https://example.com/audio.mp3"
-                className="flex-1 rounded-md border border-gray-600 bg-gray-900/60 px-4 py-2 text-white focus:border-blue-500 focus:outline-none"
-              />
+            <div className="flex flex-col gap-4">
+              <button
+                onClick={() => {
+                  setTrackUrl("/sample.mp3")
+                  setTrackName("Sample Track")
+                  toast.success("Sample track loaded")
+                }}
+                className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700"
+              >
+                🎵 Load Sample Track
+              </button>
               <div className="flex gap-3">
                 <button
-                  onClick={handleTrackLoad}
-                  className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
-                  disabled={!trackInput.trim()}
+                  onClick={handlePlaySync}
+                  className="px-4 py-2 rounded bg-green-600 hover:bg-green-700"
+                  disabled={!trackUrl}
                 >
-                  🎵 Share Track URL
+                  ▶️ Play (Sync)
                 </button>
                 <button
-                  onClick={() => {
-                    setTrackInput("")
-                    setTrackSource(null)
-                    setTrackName(null)
-                    setIsPlaying(false)
-                    const socket = getSocket()
-                    socket.emit("playback:set-track", { code: roomcode, clear: true })
-                    toast.info("Track cleared")
-                  }}
-                  className="px-4 py-2 rounded bg-gray-700 hover:bg-gray-600"
+                  onClick={handlePause}
+                  className="px-4 py-2 rounded bg-gray-600 hover:bg-gray-700"
                 >
-                  ♻️ Clear
+                  ⏸️ Pause
                 </button>
               </div>
-            </div>
-
-            <p className="text-sm text-gray-300 mb-4">
-              Provide a direct audio URL accessible to all listeners. The track will load on every device via HTTP.
-            </p>
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={handlePlaySync}
-                className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
-                disabled={!trackUrl}
-              >
-                ▶️ Play (Sync)
-              </button>
-              <button
-                onClick={handlePause}
-                className="px-4 py-2 rounded bg-gray-600 hover:bg-gray-700"
-              >
-                ⏸️ Pause
-              </button>
-              <button
-                onClick={handleSeek}
-                className="px-4 py-2 rounded bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
-                disabled={!trackUrl}
-              >
-                ⏩ Seek
-              </button>
             </div>
           </div>
         )}

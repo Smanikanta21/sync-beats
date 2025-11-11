@@ -1,136 +1,168 @@
 require('dotenv').config()
+const express = require('express')
 const http = require('http')
-const { Server } = require('socket.io') 
+const { WebSocketServer } = require('ws')
 const jwt = require('jsonwebtoken')
+
+const app = express()
+const server = http.createServer(app)
+const wss = new WebSocketServer({ server })
 
 const PORT = process.env.REALTIME_PORT || 5002
 
-function verifyToken(token){
-    if(!token) return null
-    try{
-        return jwt.verify(token,process.env.JWT)
-    }catch(err){
-        console.error('Socket Auth Error:',err)
-        return null
-    }
+function verifyToken(token) {
+  if (!token) return null
+  try {
+    return jwt.verify(token, process.env.JWT)
+  } catch (err) {
+    console.error('Socket Auth Error:', err)
+    return null
+  }
 }
 
-const httpServer = http.createServer()
+const rooms = new Map()
 
-const io = new Server(httpServer,{
-    cors:{
-        origin:[
-            process.env.FRONTEND_DEV_URL,
-            process.env.FRONTEND_URL,
-            process.env.BACKEND_URL,
-            process.env.FRONTEND_N_DEV_URL
-        ].filter(Boolean),
-        methods:['GET','POST','DELETE','PATCH','PUT'],
-        credentials:true,
-        allowedHeaders:['Content-Type','Authorization']
-    },
-    maxHttpBufferSize: 1e8
-})
+function nowMs() {
+  return Date.now()
+}
 
-io.use((socket,next)=>{
-    const token = socket.handshake.auth?.token || null
-    const user = verifyToken(token)
-    if(!user){
-        console.log('❌ Socket auth failed - no valid token')
-        return next(new Error('Authentication error'))
+wss.on('connection', (ws, req) => {
+  // Authenticate on connection
+  const token = req.headers.authorization?.replace('Bearer ', '') || req.url.split('token=')[1]
+  const user = verifyToken(token)
+  if (!user) {
+    ws.close(1008, 'Authentication error')
+    return
+  }
+
+  ws.user = user
+  ws.id = Math.random().toString(36).slice(2, 9)
+  ws.roomId = null
+
+  console.log('🔌 Client connected:', ws.id, '| User:', user.name)
+
+  ws.on('message', (raw) => {
+    let msg
+    try {
+      msg = JSON.parse(raw)
+    } catch (e) {
+      console.log('Bad JSON', raw)
+      return
     }
-    socket.data.user = user
-    console.log('✅ Socket authenticated:', user.id, user.name)
-    next()
-})
 
-io.on('connection',(socket)=>{
-    console.log('🔌 Client connected:', socket.id, '| User:', socket.data.user?.name)
+    switch (msg.type) {
+      case 'join': {
+        const { roomId } = msg
+        if (!rooms.has(roomId))
+          rooms.set(roomId, { clients: new Set(), leader: null, session: null })
+        const room = rooms.get(roomId)
 
-    socket.on('room:join',({code})=>{
-        if(!code) return
-        socket.join(code)
-        socket.data.code = code
-        console.log(`📍 ${socket.data.user.name} joined room: ${code}`)
-        socket.to(code).emit('room:user-joined',{
-            userId: socket.data.user.id,
-            userName: socket.data.user.name,
-            socketId: socket.id
-        })
-    })
+        room.clients.add(ws)
+        ws.roomId = roomId
 
-    socket.on('room:leave',({code})=>{
-        const room = code || socket.data.code
-        if(!room) return
-        socket.leave(room)
-        console.log(`🚪 ${socket.data.user.name} left room: ${room}`)
-        socket.to(room).emit('room:user-left',{
-            userId: socket.data.user.id,
-            userName: socket.data.user.name,
-            socketId: socket.id
-        })
-    })
+        if (!room.leader) room.leader = ws
 
-    socket.on('clock:ping',(clientSentAt)=>{
-        const now = Date.now()
-        socket.emit('clock:pong',{
-            clientSentAt,
-            serverReceivedAt:now,
-            serverSentAt:Date.now()
-        })
-    })
+        console.log(`[JOIN] ${ws.user.name} joined ${roomId}`)
+        ws.send(
+          JSON.stringify({
+            type: 'joined',
+            roomId,
+            leaderId: room.leader.id,
+            session: room.session,
+          })
+        )
+        break
+      }
 
-    socket.on('playback:set-track',({code,url,name,clear})=>{
-        if(!code) return
+      case 'leave': {
+        const room = rooms.get(ws.roomId)
+        if (room) {
+          room.clients.delete(ws)
+          if (room.leader === ws)
+            room.leader = room.clients.values().next().value || null
+        }
+        console.log(`[LEAVE] ${ws.user.name} left ${ws.roomId}`)
+        ws.roomId = null
+        break
+      }
 
-        if(clear){
-            console.log(`🎵 Track cleared in ${code}`)
-            io.to(code).emit('playback:set-track',{ from: socket.id })
-            return
+      case 'time_ping': {
+        ws.send(
+          JSON.stringify({
+            type: 'time_pong',
+            id: msg.id,
+            t0: msg.t0,
+            serverTime: nowMs(),
+          })
+        )
+        break
+      }
+
+      case 'PLAY': {
+        const { audioUrl, startDelayMs = 2000 } = msg
+        const room = rooms.get(ws.roomId)
+        if (!room) return
+
+        if (room.leader !== ws) {
+          ws.send(JSON.stringify({ type: 'error', message: 'not leader' }))
+          return
         }
 
-        const payload = { from: socket.id }
-        if(url) payload.url = url
-        if(name) payload.name = name
+        const startServerMs = nowMs() + startDelayMs
+        room.session = { audioUrl, startedAtServerMs: startServerMs }
 
-        if(!payload.url && !payload.name) return
+        console.log(
+          `[PLAY] Room ${ws.roomId} | startServerMs=${startServerMs} | delay=${startDelayMs}`
+        )
 
-        console.log(`🎵 Track set in ${code}: ${name || url || 'updated'}`)
-        io.to(code).emit('playback:set-track',payload)
-    })
-
-    socket.on('playback:play-at',({code,startAt})=>{
-        if(!code || !startAt) return
-        console.log(`▶️  Play scheduled in ${code} at serverTime: ${startAt}`)
-        io.to(code).emit('playback:play-at',{startAt})
-    })
-
-    socket.on('playback:pause',({code,at})=>{
-        if(!code) return
-        console.log(`⏸️  Pause in ${code}`)
-        io.to(code).emit('playback:pause',{at: at || Date.now()})
-    })
-
-    socket.on('playback:seek',({code,position,at})=>{
-        if(!code || typeof position !== 'number') return
-        console.log(`⏩ Seek in ${code} to position: ${position}s`)
-        io.to(code).emit('playback:seek',{position, at: at || Date.now()})
-    })
-
-    socket.on('disconnect',()=>{
-        const code = socket.data?.code
-        const userId = socket.data?.user?.id
-        const userName = socket.data?.user?.name
-        
-        console.log('🔌 Client disconnected:', socket.id, '| User:', userName)
-        
-        if(code && userId){
-            socket.to(code).emit('room:user-left',{userId, userName, socketId:socket.id})
+        for (let c of room.clients) {
+          c.send(
+            JSON.stringify({
+              type: 'PLAY',
+              audioUrl,
+              startServerMs,
+            })
+          )
         }
-    })
+        break
+      }
+
+      case "PAUSE": {
+        const room = rooms.get(ws.roomId)
+        if (!room) return
+
+        if (room.leader !== ws) {
+          ws.send(JSON.stringify({ type: "error", message: "not leader" }))
+          return
+        }
+
+        console.log(`[PAUSE] Room ${ws.roomId}`)
+
+        for (let c of room.clients) {
+          c.send(JSON.stringify({ type: "PAUSE" }))
+        }
+        break
+      }
+    }
+  })
+
+  ws.on('close', () => {
+    if (ws.roomId) {
+      const room = rooms.get(ws.roomId)
+      if (room) {
+        room.clients.delete(ws)
+        if (room.leader === ws)
+          room.leader = room.clients.values().next().value || null
+      }
+      console.log(`[CLOSE] ${ws.user.name} disconnected`)
+    }
+  })
 })
 
-httpServer.listen(PORT,()=>{
-    console.log(`🚀 Realtime server running on http://localhost:${PORT}`)
-    console.log(`📡 WebSocket signaling ready`)
+app.use('/', (req, res) => {
+  res.send('Sync Beats Socket Engine is running.')
 })
+
+server.listen(PORT, () =>
+  console.log(`🚀 Realtime server running on http://localhost:${PORT}`)
+)

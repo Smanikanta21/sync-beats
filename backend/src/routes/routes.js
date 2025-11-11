@@ -30,4 +30,4 @@ router.get('/auth/callback/google', passport.authenticate('google', { failureRed
 
 
 
-module.exports = router;3
+module.exports = router;

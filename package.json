@@ -7,8 +7,7 @@
     "frontend": "cd frontend && npx next dev --turbopack",
     "backend": "cd backend && npm start",
     "socket": "cd socket-server && npm  start",
-    "project": "concurrently \"npm run backend\" \"npm run frontend\" \"npm run socket\" --names \"BACKEND,FRONTEND,SOCKETS-ENGINE\" --prefix-colors \"blue,red,green\"",
-    "prisma" : "cd backend && npx prisma studio"
+    "prisma": "cd backend && npx prisma studio"
   },
   "repository": {
     "type": "git",
@@ -23,6 +22,7 @@
   "homepage": "https://github.com/Smanikanta21/sync-beats#readme",
   "dependencies": {
     "datetime": "^0.0.3",
+    "express": "^5.1.0",
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
