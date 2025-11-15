@@ -24,6 +24,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
         const user = params.get('user');
         if (token) {
             localStorage.setItem('token', token);
+            
             toast.success(`Welcome ${user}!`);
             router.push('/dashboard');
             setShowLogin?.(false);
@@ -44,7 +45,8 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
             console.log(data)
 
             if (res.ok) {
-                localStorage.setItem('token',data.token)
+                localStorage.setItem('token', data.token)
+                
                 toast.success("logged in Successfull")
                 router.push('/dashboard')
             } else {

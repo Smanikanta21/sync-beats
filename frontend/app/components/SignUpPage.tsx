@@ -29,6 +29,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
     
     if (token) {
       localStorage.setItem('token', token);
+      
       toast.success(`Welcome ${user}!`);
       router.push('/dashboard');
       setShowSignup(false);
