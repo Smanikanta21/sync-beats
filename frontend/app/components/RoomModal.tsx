@@ -25,7 +25,10 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
                     "content-type": "application/json",
                     Authorization: token ? `Bearer ${token}` : "",
                 },
-                body: JSON.stringify({ name: roomName, type: roomType }),
+                body: JSON.stringify({ 
+                    name: roomName, 
+                    type: roomType
+                }),
                 credentials: "include"
             })
             const data = await res.json()
@@ -34,9 +37,6 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
                 setQrData(data.qrDataURL);
                 setRoomCode(data.room.code);
                 toast.success("Room created successfully!");
-                // setTimeout(() => {
-                //     router.push(`/dashboard/room/${data.room.code}`);
-                // }, 1000);
             } else {
                 toast.error(data.message || "Failed to create room.");
             }

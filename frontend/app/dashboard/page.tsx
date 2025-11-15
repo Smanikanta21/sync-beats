@@ -7,6 +7,12 @@ import { CreateRoom, JoinRoom } from '../components/RoomModal'
 import { toast } from 'react-toastify';
 import { Skeleton } from "@/components/ui/skeleton"
 
+interface NavigatorWithWiFi extends Navigator {
+  wifi?: {
+    getNetworks: () => Promise<Array<{ ssid: string }>>;
+  };
+}
+
 export default function DashBoard() {
   const router = useRouter();
   type Device = {
@@ -22,7 +28,7 @@ export default function DashBoard() {
   const [joinroomModal, setJoinRm] = useState<boolean>(false)
   const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
   const [loader, SetLoader] = useState<boolean>(false)
-  const [nearbyUsers] = useState<Array<{ id: string; name: string; roomName: string; roomCode: string; participants: number }>>([]);
+  const [recentRooms, setRecentRooms] = useState<Array<{ code: string; name: string; joinedAt: string }>>([]);
 
   const HandleDeviceRefresher = async () => {
     try{
@@ -71,6 +77,20 @@ useEffect(() => {
       if (res.ok && data) {
         setName(data.message || "");
         setDevices(Array.isArray(data.devices) ? data.devices : []);
+        try {
+          const roomRes = await fetch(`${url}/api/recent-rooms`, {
+            method: "GET",
+            credentials: "include",
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          });
+          if (roomRes.ok) {
+            const roomData = await roomRes.json();
+            setRecentRooms(Array.isArray(roomData.rooms) ? roomData.rooms : []);
+          }
+        } catch (err) {
+          console.warn("Failed to fetch recent rooms:", err);
+        }
+
       } else {
         router.push('/')
       }
@@ -353,34 +373,21 @@ return (
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-gray-900/70 rounded-xl p-6 border border-gray-700 flex flex-col gap-4">
           <h2 className="text-xl font-semibold">Recent Activity</h2>
-          <p className="text-sm text-gray-400">Playback and sync events will appear here once implemented.</p>
-          <ul className="text-xs list-disc list-inside text-gray-500 space-y-1">
-            <li>Session start / end</li>
-            <li>Track change</li>
-            <li>Device join / leave</li>
-            <li>Latency warnings</li>
-          </ul>
-        </div>
-        <div className="bg-gray-900/70 rounded-xl p-6 border border-gray-700 flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Nearby Users</h2>
-            <button className="text-xs px-3 py-1 rounded-md bg-gray-800 hover:bg-gray-700">Refresh</button>
-          </div>
-          {nearbyUsers.length === 0 ? (
-            <p className="text-sm text-gray-400">No public rooms available right now.</p>
+          {recentRooms.length === 0 ? (
+            <p className="text-sm text-gray-400">No recent rooms. Join or create a session to get started.</p>
           ) : (
-            <ul className="space-y-2">
-              {nearbyUsers.map((user) => (
-                <li key={user.roomCode} className="bg-gray-800/60 p-3 rounded-lg flex items-center justify-between">
+            <ul className="space-y-3">
+              {recentRooms.slice(0, 5).map((room) => (
+                <li key={room.code} className="bg-gray-800/60 p-4 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="font-semibold text-sm">{user.name}</p>
-                    <p className="text-xs text-gray-400">{user.roomName}</p>
+                    <p className="font-semibold text-sm">{room.name}</p>
+                    <p className="text-xs text-gray-400">{room.code}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400 flex items-center gap-1">
-                      <Users size={14} /> {user.participants}
-                    </span>
-                    <button onClick={() => setJoinRm(true)} className="text-xs px-3 py-1 rounded-md bg-blue-600 hover:bg-blue-700 transition">Join</button>
+                  <div className="mt-2 sm:mt-0 flex items-center gap-3">
+                    <span className="text-xs text-gray-400">{formatLastSeen(room.joinedAt)}</span>
+                    <Link href={`/dashboard/room/${room.code}`} className="text-xs px-3 py-1 rounded-md bg-blue-600 hover:bg-blue-700 transition">
+                      Rejoin
+                    </Link>
                   </div>
                 </li>
               ))}

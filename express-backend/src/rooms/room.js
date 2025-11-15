@@ -4,38 +4,38 @@ const qrcode = require('qrcode')
 
 async function createRoom(req, res) {
     const user_id = req.user?.id
-    const { name, type } = req.body;
+    const { name, type, isPublic, wifiSSID } = req.body;
     const frontend_url = process.env.FRONTEND_URL
-    
+
     console.log('Creating room - user_id:', user_id);
-    
+
     if (!user_id) return res.status(401).json({ message: "Unauthorized" });
     if (!name) return res.status(400).json({ message: "Room Name Can't be empty" })
     if (!type) return res.status(400).json("Room type not selected")
 
     try {
 
-        const userExists = await prisma.Users.findUnique({ 
-            where: { id: user_id } 
+        const userExists = await prisma.Users.findUnique({
+            where: { id: user_id }
         });
-        
+
         console.log('User exists check:', !!userExists, 'user_id:', user_id);
-        
+
         if (!userExists) {
-            return res.status(404).json({ 
-                message: "User not found in database. Please login again." 
+            return res.status(404).json({
+                message: "User not found in database. Please login again."
             });
         }
 
-        const online_devices = await prisma.device.findMany({ 
-            where: { DeviceUserId: user_id, status: "online" } 
+        const online_devices = await prisma.device.findMany({
+            where: { DeviceUserId: user_id, status: "online" }
         });
-        
+
         console.log('Online devices count:', online_devices.length);
 
         if (type === 'single' && online_devices.length < 2) {
-            return res.status(400).json({ 
-                message: "Single User room needs atleast two online devices" 
+            return res.status(400).json({
+                message: "Single User room needs atleast two online devices"
             });
         }
 
@@ -43,6 +43,8 @@ async function createRoom(req, res) {
             data: {
                 name,
                 type,
+                isPublic: isPublic || false,
+                wifiSSID: wifiSSID || null,
                 hostId: user_id,
                 participants: { create: { userId: user_id } },
                 devices: { create: online_devices.map(d => ({ deviceId: d.id })) }
@@ -82,8 +84,8 @@ async function joinRoom(req, res) {
 
         if (!room) return res.status(404).json({ message: "Room Not Found" });
         if (room.type === 'single' && room.hostId !== user_id) {
-            return res.status(403).json({ 
-                message: "This is a private room. Only the host can access it." 
+            return res.status(403).json({
+                message: "This is a private room. Only the host can access it."
             });
         }
 
@@ -98,7 +100,7 @@ async function joinRoom(req, res) {
         }
         if (room.type === 'multi') {
             const userDevices = await prisma.device.findMany({
-                where: { 
+                where: {
                     DeviceUserId: user_id,
                     status: 'online'
                 }
@@ -119,7 +121,7 @@ async function joinRoom(req, res) {
 
         const updatedRoom = await prisma.room.findUnique({
             where: { code },
-            include: { 
+            include: {
                 participants: {
                     include: {
                         user: {
@@ -154,18 +156,18 @@ async function verifyRoom(req, res) {
     try {
         const room = await prisma.room.findUnique({
             where: { code },
-            include: { 
+            include: {
                 participants: {
                     include: {
                         user: {
                             select: {
                                 id: true,
-                                name: true 
+                                name: true
                             }
                         }
                     }
                 },
-                devices: true 
+                devices: true
             }
         });
 
@@ -173,8 +175,8 @@ async function verifyRoom(req, res) {
             return res.status(404).json({ message: "Room not found", room: null });
         }
 
-        return res.status(200).json({ 
-            message: "Room verified", 
+        return res.status(200).json({
+            message: "Room verified",
             room: {
                 id: room.id,
                 name: room.name,
@@ -201,7 +203,7 @@ async function getRoomDetails(req, res) {
     try {
         const room = await prisma.room.findUnique({
             where: { code },
-            include: { 
+            include: {
                 participants: {
                     include: {
                         user: {
@@ -228,8 +230,8 @@ async function getRoomDetails(req, res) {
             return res.status(403).json({ message: "You are not a participant of this room" });
         }
 
-        return res.status(200).json({ 
-            message: "Room details fetched successfully", 
+        return res.status(200).json({
+            message: "Room details fetched successfully",
             room
         });
     } catch (err) {
@@ -238,4 +240,98 @@ async function getRoomDetails(req, res) {
     }
 }
 
-module.exports = { createRoom, joinRoom, verifyRoom, getRoomDetails }
+async function getRecentRooms(req, res) {
+    const user_id = req.user?.id;
+
+    if (!user_id) return res.status(401).json({ message: "Unauthorised" });
+
+    try {
+        const recentRooms = await prisma.roomUsers.findMany({
+            where: { userId: user_id },
+            include: {
+                room: {
+                    select: { id: true, code: true, name: true }
+                }
+            },
+            orderBy: { joinedAt: 'desc' },
+            take: 10
+        });
+
+        const rooms = recentRooms.map(record => ({
+            code: record.room.code,
+            name: record.room.name,
+            joinedAt: record.joinedAt.toISOString()
+        }));
+
+        return res.status(200).json({
+            message: "Recent rooms fetched successfully",
+            rooms
+        });
+    } catch (err) {
+        console.log(`GetRecentRooms Err: ${err}`);
+        return res.status(500).json({ message: "Failed to fetch recent rooms" });
+    }
+}
+
+async function getNearbyRooms(req, res) {
+    const user_id = req.user?.id;
+    const { wifiSSID } = req.body;
+
+    if (!user_id) return res.status(401).json({ message: "Unauthorised" });
+
+    try {
+        let userDevices = await prisma.device.findMany({
+            where: { DeviceUserId: user_id }
+        });
+
+        const ssidToSearch = wifiSSID || userDevices.find(d => d.wifiSSID)?.[0]?.wifiSSID;
+
+        if (!ssidToSearch) {
+            return res.status(200).json({
+                message: "No WiFi network found",
+                rooms: []
+            });
+        }
+
+        const nearbyRooms = await prisma.room.findMany({
+            where: {
+                isPublic: true,
+                wifiSSID: ssidToSearch,
+                hostId: { not: user_id }
+            },
+            include: {
+                host: {
+                    select: { id: true, name: true }
+                },
+                participants: {
+                    select: { userId: true }
+                }
+            },
+            orderBy: { updatedAt: 'desc' },
+            take: 10
+        });
+
+        const rooms = nearbyRooms.map(room => ({
+            code: room.code,
+            name: room.name,
+            hostName: room.host.name,
+            hostId: room.host.id,
+            participantCount: room.participants.length,
+            wifiSSID: room.wifiSSID,
+            createdAt: room.createdAt
+        }));
+
+        return res.status(200).json({
+            message: "Nearby public rooms fetched successfully",
+            rooms,
+            wifiNetwork: ssidToSearch
+        });
+    } catch (err) {
+        console.log(`GetNearbyRooms Err: ${err}`);
+        return res.status(500).json({ message: "Failed to fetch nearby rooms" });
+    }
+}
+
+
+
+module.exports = { createRoom, joinRoom, verifyRoom, getRoomDetails, getRecentRooms, getNearbyRooms }

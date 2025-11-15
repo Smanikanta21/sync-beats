@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "frontend": "cd frontend && npx next dev --turbopack",
-    "backend": "cd backend && npm start",
-    "prisma": "cd backend && npx prisma studio"
+    "backend": "cd express-backend && npm run dev",
+    "prisma": "cd express-backend && npx prisma studio"
   },
   "repository": {
     "type": "git",
