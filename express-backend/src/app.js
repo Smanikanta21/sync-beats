@@ -47,4 +47,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Server Error' })
 })
 
-module.exports = app;
+app.listen(process.env.PORT, () => {
+  console.log(`Server is running on port "http://localhost:${process.env.PORT}"`)
+})
