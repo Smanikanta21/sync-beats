@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState, useRef } from "react"
 import { toast } from "react-toastify"
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Users, LogOut, Music, Clock, Crown, User,Search, Plus, Trash2, ArrowUp, ArrowDown, Shuffle, Repeat, X, ListMusic, Settings, Copy, Globe, Lock, Info, Radio, Wifi} from "lucide-react"
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Users, LogOut, Music, Clock, Crown, User, Search, Plus, Trash2, ArrowUp, ArrowDown, Shuffle, Repeat, X, ListMusic, Settings, Copy, Globe, Lock, Info, Radio, Wifi } from "lucide-react"
 
 type RoomResponse = {
   name: string
@@ -14,8 +14,9 @@ type RoomResponse = {
   wifiSSID?: string
   createdAt?: string
   participants: Array<{
-    userId: string
-    user?: { name?: string }}>
+    userId: string;
+    user?: { name?: string }
+  }>
 }
 
 type Track = {
@@ -24,7 +25,8 @@ type Track = {
   artist: string
   album?: string
   duration: number
-  coverUrl?: string
+  coverUrl?: string,
+  audioUrl?: string
   playedAt?: string
   addedBy?: string
 }
@@ -32,6 +34,26 @@ type Track = {
 type QueueItem = Track & {
   queueId: string
   addedAt: string
+}
+
+
+
+function scheduleSyncPlay(audio: HTMLAudioElement, audioUrl: string, startServerMs: number, offset: number) {
+  audio.src = audioUrl;
+
+  const now = Date.now() + offset;
+  const delay = startServerMs - now;
+
+  if (delay > 0) {
+    console.log("⏳ Scheduling playback in", delay, "ms");
+    setTimeout(() => {
+      audio.play();
+    }, delay);
+  } else {
+    const late = -delay;
+    audio.currentTime = late / 1000;
+    audio.play();
+  }
 }
 
 export default function RoomPage() {
@@ -42,7 +64,11 @@ export default function RoomPage() {
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [roomData, setRoomData] = useState<RoomResponse | null>(null)
-  
+
+  const wsRef = useRef<WebSocket | null>(null)
+  const wsIdRef = useRef<string | null>(null)
+  const [serverOffsetMs, setServerOffsetMs] = useState(0)
+  const [isHost, setIsHost] = useState(false)
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null)
@@ -53,19 +79,19 @@ export default function RoomPage() {
   const [queue, setQueue] = useState<QueueItem[]>([])
   const [shuffleMode, setShuffleMode] = useState(false)
   const [repeatMode, setRepeatMode] = useState<'off' | 'all' | 'one'>('off')
-  
+
   // Search and add songs
   const [showSearchModal, setShowSearchModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<Track[]>([])
   const [isSearching, setIsSearching] = useState(false)
-  
+
   // Room settings
   const [copied, setCopied] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [showQRModal, setShowQRModal] = useState(false)
   const [qrCode, setQrCode] = useState<string | null>(null)
-  
+
   const audioRef = useRef<HTMLAudioElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -80,16 +106,18 @@ export default function RoomPage() {
       artist: "The Weeknd",
       album: "After Hours",
       duration: 200,
-      coverUrl: "https://via.placeholder.com/300x300/1a1a1a/ffffff?text=Blinding+Lights",
+      audioUrl: "/audio/Blinding Lights.mp3",
+      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='24' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EBlinding Lights%3C/text%3E%3C/svg%3E",
       playedAt: new Date(Date.now() - 300000).toISOString()
     },
     {
       id: "2",
-      title: "Watermelon Sugar",
-      artist: "Harry Styles",
-      album: "Fine Line",
+      title: "sunflower",
+      artist: "Post Malone & Swae Lee",
+      album: "",
       duration: 174,
-      coverUrl: "https://via.placeholder.com/300x300/1a1a1a/ffffff?text=Watermelon+Sugar",
+      audioUrl: "/audio/sunflower.mp3",
+      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='24' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3Esunflower%3C/text%3E%3C/svg%3E",
       playedAt: new Date(Date.now() - 600000).toISOString()
     },
     {
@@ -98,8 +126,18 @@ export default function RoomPage() {
       artist: "Dua Lipa",
       album: "Future Nostalgia",
       duration: 203,
-      coverUrl: "https://via.placeholder.com/300x300/1a1a1a/ffffff?text=Levitating",
+      audioUrl: "/audio/Levitating.mp3",
+      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='24' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3ELevitating%3C/text%3E%3C/svg%3E",
       playedAt: new Date(Date.now() - 900000).toISOString()
+    },
+    {
+      id: "4",
+      title: "Double Take",
+      artist: "Dhruv",
+      album: "Single",
+      duration: 215,
+      audioUrl: "/audio/Double Take.mp3",
+      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='24' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EDouble Take%3C/text%3E%3C/svg%3E"
     }
   ]
 
@@ -111,7 +149,8 @@ export default function RoomPage() {
       artist: "Harry Styles",
       album: "Harry's House",
       duration: 167,
-      coverUrl: "https://via.placeholder.com/300x300/1a1a1a/ffffff?text=As+It+Was"
+      audioUrl: "/audio/As It Was.mp3",
+      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='20' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EAs It Was%3C/text%3E%3C/svg%3E"
     },
     {
       id: "5",
@@ -119,7 +158,8 @@ export default function RoomPage() {
       artist: "The Kid LAROI & Justin Bieber",
       album: "F*CK LOVE 3",
       duration: 141,
-      coverUrl: "https://via.placeholder.com/300x300/1a1a1a/ffffff?text=Stay"
+      audioUrl: "/audio/Stay.mp3",
+      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='24' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EStay%3C/text%3E%3C/svg%3E"
     },
     {
       id: "6",
@@ -127,7 +167,8 @@ export default function RoomPage() {
       artist: "Glass Animals",
       album: "Dreamland",
       duration: 238,
-      coverUrl: "https://via.placeholder.com/300x300/1a1a1a/ffffff?text=Heat+Waves"
+      audioUrl: "/audio/Heat Waves.mp3",
+      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='20' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EHeat Waves%3C/text%3E%3C/svg%3E"
     },
     {
       id: "7",
@@ -135,7 +176,8 @@ export default function RoomPage() {
       artist: "Olivia Rodrigo",
       album: "SOUR",
       duration: 178,
-      coverUrl: "https://via.placeholder.com/300x300/1a1a1a/ffffff?text=Good+4+U"
+      audioUrl: "/audio/Good 4 U.mp3",
+      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='20' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EGood 4 U%3C/text%3E%3C/svg%3E"
     },
     {
       id: "8",
@@ -143,25 +185,212 @@ export default function RoomPage() {
       artist: "Justin Bieber ft. Daniel Caesar & Giveon",
       album: "Justice",
       duration: 198,
-      coverUrl: "https://via.placeholder.com/300x300/1a1a1a/ffffff?text=Peaches"
+      audioUrl: "/audio/Peaches.mp3",
+      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='24' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EPeaches%3C/text%3E%3C/svg%3E"
     }
   ]
 
+
+  useEffect(() => {
+    if (!wsRef.current) return
+
+    const interval = setInterval(() => {
+      wsRef.current?.send(JSON.stringify({
+        type: "time_ping",
+        id: Math.random().toString(36),
+        t0: Date.now(),
+      }))
+    }, 2000)
+
+    return () => clearInterval(interval)
+  }, [])
+
+
+
+
+  useEffect(() => {
+    if (!mounted || !roomData) return;
+
+    const socketPort = process.env.NEXT_PUBLIC_SOCKET_PORT || 6001;
+    const ws = new WebSocket(`ws://10.7.26.138:${socketPort}`);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log("🟢 WebSocket connected");
+      let userId = null;
+      const token = localStorage.getItem("token");
+
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split(".")[1]));
+
+          // REAL FIX — match your backend JWT
+          userId =
+            payload.id ||             // your JWT uses this
+            payload.userId ||         // fallback
+            payload.user?.id ||       // older format
+            payload.sub || null;      // OAuth style
+
+          console.log("Decoded userId:", userId);
+          console.log("Room hostId:", roomData.hostId);
+          console.log("MATCH =", userId === roomData.hostId);
+        } catch (err) {
+          console.error("JWT decode failed:", err);
+        }
+      }
+
+      console.log("🔥 Sending JOIN with hostId =", roomData.hostId);
+
+      ws.send(JSON.stringify({
+        type: "join",
+        roomCode: roomcode,
+        userId,
+        hostId: roomData.hostId   // <---- NOW CORRECT
+      }));
+    };
+
+    ws.onmessage = (ev) => {
+      const msg = JSON.parse(ev.data);
+      console.log("📨 WebSocket message received:", msg);
+
+      if (msg.type === "joined") {
+        console.log("✅ Joined live room", msg);
+        wsIdRef.current = msg.yourId;
+        setIsHost(msg.isHost);
+        toast.success(`Connected to room (Host: ${msg.isHost})`);
+      }
+
+      if (msg.type === "user_joined") {
+        console.log("👥 Other user joined:", msg);
+        toast.info(`User joined. Total: ${msg.totalClients}`);
+      }
+
+      if (msg.type === "time_pong") {
+        const t1 = Date.now();
+        const rtt = t1 - msg.t0;
+        const offset = msg.serverTime - (msg.t0 + rtt / 2);
+        setServerOffsetMs(offset);
+        console.log("⏰ Clock sync offset:", offset);
+      }
+
+      if (msg.type === "PLAY") {
+        console.log("PLAY received:", msg);
+
+        const track = findTrackByAudioUrl(msg.audioUrl);
+        if (!track) {
+          console.error("Track not found for url:", msg.audioUrl);
+        } else {
+          console.log("Matched track:", track.title);
+          setCurrentTrack(track);
+        }
+
+        handleSyncPlay(msg);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error("🔴 WebSocket error:", error);
+      toast.error("Connection error");
+    };
+
+    ws.onclose = () => {
+      console.log("🔌 WebSocket disconnected");
+      toast.warning("Disconnected from room");
+    };
+
+    return () => {
+      console.log("🛑 Closing WebSocket connection");
+      ws.close();
+    };
+  }, [mounted, roomData]);   // <-- ADDED roomData
+
+
+const findTrackByAudioUrl = (url: string): Track | null => {
+  console.log("Finding track:", url);
+  const all = [...mockTracks, ...mockSearchResults, ...queue];
+  return all.find(t => t.audioUrl?.trim() === url.trim()) || null;
+};
+
+  const scheduleSyncPlay = (audioElement: HTMLAudioElement, audioUrl: string, startServerMs: number, serverOffsetMs: number) => {
+    audioElement.src = audioUrl;
+
+    const now = Date.now() + serverOffsetMs;
+    const delay = startServerMs - now;
+
+    console.log("📊 scheduleSyncPlay", { startServerMs, now, delay, serverOffsetMs });
+
+    if (delay > 0) {
+      // Schedule play in the future
+      setTimeout(() => {
+        console.log("▶️ Playing after delay");
+        audioElement.play().catch(err => console.error("Play error:", err));
+      }, delay);
+    } else {
+      // We're late - start from the calculated position
+      const lateBy = -delay;
+      audioElement.currentTime = lateBy / 1000;
+      console.log("⏩ Starting late by", lateBy, "ms, jumping to", audioElement.currentTime, "s");
+      audioElement.play().catch(err => console.error("Play error:", err));
+    }
+  };
+
+  const handleSyncPlay = (msg) => {
+    const { audioUrl, startServerMs } = msg;
+    if (!audioRef.current) {
+      console.error("❌ handleSyncPlay: audioRef not available");
+      return;
+    }
+
+    console.log("🎵 handleSyncPlay received:", msg);
+    scheduleSyncPlay(audioRef.current, audioUrl, startServerMs, serverOffsetMs);
+    setIsPlaying(true);
+    console.log("✅ setIsPlaying called: true");
+  };
+
+  const startPlaySync = () => {
+    if (!isHost) return toast.error("Only host can play");
+
+    if (!currentTrack || !audioRef.current) {
+      return toast.error("Select a song first");
+    }
+
+    const startDelayMs = 400;
+    const startServerMs = Date.now() + startDelayMs;
+
+    console.log("Host starting PLAY", {
+      audioUrl: currentTrack.audioUrl,
+      startServerMs,
+    });
+
+    // Host plays with sync scheduling
+    scheduleSyncPlay(
+      audioRef.current,
+      currentTrack.audioUrl!,
+      startServerMs,
+      serverOffsetMs
+    );
+
+    wsRef.current?.send(
+      JSON.stringify({
+        type: "PLAY",
+        audioUrl: currentTrack.audioUrl,
+        startDelayMs,
+        duration: currentTrack.duration,
+      })
+    );
+
+    setIsPlaying(true);
+  };
+
   useEffect(() => {
     setMounted(true)
-    // Initialize with mock data
+
+    // Load tracks for UI but DO NOT select first track
     if (mockTracks.length > 0) {
-      setCurrentTrack(mockTracks[0])
-      setRecentTracks(mockTracks.slice(1))
-      // Initialize queue with some tracks
-      const initialQueue: QueueItem[] = mockTracks.slice(1).map((track, idx) => ({
-        ...track,
-        queueId: `queue-${idx}`,
-        addedAt: new Date().toISOString(),
-        addedBy: "You"
-      }))
-      setQueue(initialQueue)
+      setRecentTracks([mockTracks[0]])   // show them in Recents
     }
+
+    // Queue stays empty until user adds songs
   }, [])
 
   useEffect(() => {
@@ -207,45 +436,6 @@ export default function RoomPage() {
   }, [mounted, roomcode, router, apiUrl])
 
   // Music player controls
-  const togglePlayPause = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause()
-      } else {
-        audioRef.current.play()
-      }
-      setIsPlaying(!isPlaying)
-    } else {
-      // Mock play/pause for demo
-      if (isPlaying) {
-        // Pause
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current)
-          intervalRef.current = null
-        }
-        setIsPlaying(false)
-      } else {
-        // Play
-        if (currentTrack) {
-          setIsPlaying(true)
-          intervalRef.current = setInterval(() => {
-            setCurrentTime((prev) => {
-              if (prev >= currentTrack.duration) {
-                if (intervalRef.current) {
-                  clearInterval(intervalRef.current)
-                  intervalRef.current = null
-                }
-                setIsPlaying(false)
-                return 0
-              }
-              return prev + 1
-            })
-          }, 1000)
-        }
-      }
-    }
-  }
-
   // Cleanup interval on unmount or track change
   useEffect(() => {
     return () => {
@@ -258,12 +448,12 @@ export default function RoomPage() {
 
   const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!currentTrack || !progressRef.current) return
-    
+
     const rect = progressRef.current.getBoundingClientRect()
     const x = e.clientX - rect.left
     const percentage = x / rect.width
     const newTime = percentage * currentTrack.duration
-    
+
     setCurrentTime(newTime)
     if (audioRef.current) {
       audioRef.current.currentTime = newTime
@@ -304,15 +494,15 @@ export default function RoomPage() {
   const handleNext = () => {
     // Auto-play from queue if available
     if (queue.length > 0) {
-      const nextTrack = shuffleMode 
+      const nextTrack = shuffleMode
         ? queue[Math.floor(Math.random() * queue.length)]
         : queue[0]
-      
+
       // Move current track to recently played
       if (currentTrack) {
         setRecentTracks(prev => [currentTrack, ...prev.slice(0, 9)])
       }
-      
+
       // Remove from queue and set as current
       setQueue(prev => prev.filter(t => t.queueId !== nextTrack.queueId))
       setCurrentTrack(nextTrack)
@@ -357,12 +547,12 @@ export default function RoomPage() {
       setSearchResults([])
       return
     }
-    
+
     setIsSearching(true)
     // Simulate API call - replace with actual API
     setTimeout(() => {
       const filtered = mockSearchResults.filter(
-        track => 
+        track =>
           track.title.toLowerCase().includes(query.toLowerCase()) ||
           track.artist.toLowerCase().includes(query.toLowerCase())
       )
@@ -394,12 +584,12 @@ export default function RoomPage() {
     setQueue(prev => {
       const index = prev.findIndex(item => item.queueId === queueId)
       if (index === -1) return prev
-      
+
       const newQueue = [...prev]
       const targetIndex = direction === 'up' ? index - 1 : index + 1
-      
+
       if (targetIndex < 0 || targetIndex >= newQueue.length) return prev
-      
+
       const temp = newQueue[index]
       newQueue[index] = newQueue[targetIndex]
       newQueue[targetIndex] = temp
@@ -456,7 +646,6 @@ export default function RoomPage() {
     link.click()
   }
 
-  const isHost = roomData?.hostId === currentUserId || false
 
   const handleLeaveRoom = () => {
     toast.info("Left the room")
@@ -471,13 +660,13 @@ export default function RoomPage() {
       try {
         const token = localStorage.getItem("token")
         if (!token) return
-        
+
         const res = await fetch(`${apiUrl}/auth/dashboard`, {
           method: "GET",
           headers: { Authorization: `Bearer ${token}` },
           credentials: "include"
         })
-        
+
         if (res.ok) {
           const data = await res.json()
           // The dashboard endpoint might return userId - adjust based on actual response
@@ -493,7 +682,7 @@ export default function RoomPage() {
         }
       }
     }
-    
+
     if (mounted && roomData) {
       void fetchCurrentUser()
     }
@@ -541,8 +730,8 @@ export default function RoomPage() {
               <div className="flex-shrink-0">
                 <div className="w-full md:w-64 h-64 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl overflow-hidden border border-gray-700/50">
                   {currentTrack?.coverUrl ? (
-                    <img 
-                      src={currentTrack.coverUrl} 
+                    <img
+                      src={currentTrack.coverUrl}
                       alt={currentTrack.title}
                       className="w-full h-full object-cover"
                     />
@@ -560,7 +749,7 @@ export default function RoomPage() {
                   <h2 className="text-2xl font-bold mb-1">
                     {currentTrack?.title || "No track playing"}
                   </h2>
-        <p className="text-gray-400 mb-2">
+                  <p className="text-gray-400 mb-2">
                     {currentTrack?.artist || "—"}
                   </p>
                   {currentTrack?.album && (
@@ -570,16 +759,16 @@ export default function RoomPage() {
 
                 {/* Progress Bar */}
                 <div className="mt-6">
-                  <div 
+                  <div
                     ref={progressRef}
                     className="w-full h-2 bg-gray-700 rounded-full cursor-pointer relative group"
                     onClick={handleSeek}
                   >
-                    <div 
+                    <div
                       className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all"
                       style={{ width: `${progressPercentage}%` }}
                     />
-                    <div 
+                    <div
                       className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                       style={{ left: `calc(${progressPercentage}% - 8px)` }}
                     />
@@ -595,11 +784,10 @@ export default function RoomPage() {
                   <div className="flex items-center justify-center gap-4">
                     <button
                       onClick={() => setShuffleMode(!shuffleMode)}
-                      className={`p-2 rounded-full transition-colors ${
-                        shuffleMode 
-                          ? "bg-blue-500/20 text-blue-400" 
-                          : "hover:bg-gray-700/50 text-gray-400"
-                      }`}
+                      className={`p-2 rounded-full transition-colors ${shuffleMode
+                        ? "bg-blue-500/20 text-blue-400"
+                        : "hover:bg-gray-700/50 text-gray-400"
+                        }`}
                       title="Shuffle"
                     >
                       <Shuffle size={20} className={shuffleMode ? "opacity-100" : "opacity-70"} />
@@ -612,7 +800,7 @@ export default function RoomPage() {
                       <SkipBack size={24} className={queue.length === 0 && recentTracks.length === 0 ? "text-gray-600" : ""} />
                     </button>
                     <button
-                      onClick={togglePlayPause}
+                      onClick={startPlaySync}
                       className="p-4 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-full transition-all shadow-lg shadow-blue-500/25"
                     >
                       {isPlaying ? <Pause size={32} /> : <Play size={32} className="ml-1" />}
@@ -630,11 +818,10 @@ export default function RoomPage() {
                         const currentIndex = modes.indexOf(repeatMode)
                         setRepeatMode(modes[(currentIndex + 1) % modes.length])
                       }}
-                      className={`p-2 rounded-full transition-colors relative ${
-                        repeatMode !== 'off'
-                          ? "bg-blue-500/20 text-blue-400" 
-                          : "hover:bg-gray-700/50 text-gray-400"
-                      }`}
+                      className={`p-2 rounded-full transition-colors relative ${repeatMode !== 'off'
+                        ? "bg-blue-500/20 text-blue-400"
+                        : "hover:bg-gray-700/50 text-gray-400"
+                        }`}
                       title={`Repeat: ${repeatMode === 'off' ? 'Off' : repeatMode === 'all' ? 'All' : 'One'}`}
                     >
                       <Repeat size={20} className={repeatMode !== 'off' ? "opacity-100" : "opacity-70"} />
@@ -855,8 +1042,8 @@ export default function RoomPage() {
                   </div>
                 </div>
               )) || (
-                <p className="text-gray-500 text-center py-4">No participants</p>
-              )}
+                  <p className="text-gray-500 text-center py-4">No participants</p>
+                )}
             </div>
           </div>
 
@@ -928,8 +1115,8 @@ export default function RoomPage() {
                   {roomData?.isPublic ? 'Public Room' : 'Private Room'}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {roomData?.isPublic 
-                    ? 'Anyone can join this room' 
+                  {roomData?.isPublic
+                    ? 'Anyone can join this room'
                     : 'Only users with the code can join'}
                 </p>
               </div>
@@ -1018,7 +1205,7 @@ export default function RoomPage() {
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="p-6 flex-1 overflow-y-auto">
               <div className="relative mb-6">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
@@ -1065,14 +1252,14 @@ export default function RoomPage() {
                       <div className="text-sm text-gray-500 mr-2">
                         {formatTime(track.duration)}
                       </div>
-        <button
+                      <button
                         onClick={() => addToQueue(track)}
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2 text-sm"
-        >
+                      >
                         <Plus size={16} />
                         Add
-        </button>
-      </div>
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}
@@ -1106,7 +1293,7 @@ export default function RoomPage() {
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="flex flex-col items-center gap-6">
               {/* QR Code Image */}
               <div className="bg-white p-4 rounded-xl">
@@ -1116,14 +1303,14 @@ export default function RoomPage() {
                   className="w-64 h-64"
                 />
               </div>
-              
+
               {/* Room Info */}
               <div className="w-full text-center">
                 <p className="text-gray-400 text-sm mb-2">Room Code</p>
                 <p className="text-2xl font-mono font-bold text-blue-400 mb-4">{roomcode}</p>
                 <p className="text-gray-400 text-sm">Share this QR code or room code to invite others</p>
               </div>
-              
+
               {/* Action Buttons */}
               <div className="w-full flex gap-3">
                 <button
