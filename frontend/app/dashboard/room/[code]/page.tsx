@@ -36,26 +36,6 @@ type QueueItem = Track & {
   addedAt: string
 }
 
-
-
-function scheduleSyncPlay(audio: HTMLAudioElement, audioUrl: string, startServerMs: number, offset: number) {
-  audio.src = audioUrl;
-
-  const now = Date.now() + offset;
-  const delay = startServerMs - now;
-
-  if (delay > 0) {
-    console.log("⏳ Scheduling playback in", delay, "ms");
-    setTimeout(() => {
-      audio.play();
-    }, delay);
-  } else {
-    const late = -delay;
-    audio.currentTime = late / 1000;
-    audio.play();
-  }
-}
-
 export default function RoomPage() {
   const params = useParams()
   const router = useRouter()
@@ -302,14 +282,13 @@ export default function RoomPage() {
       console.log("🛑 Closing WebSocket connection");
       ws.close();
     };
-  }, [mounted, roomData]);   // <-- ADDED roomData
+  }, [mounted, roomData, roomcode]);
 
-
-const findTrackByAudioUrl = (url: string): Track | null => {
-  console.log("Finding track:", url);
-  const all = [...mockTracks, ...mockSearchResults, ...queue];
-  return all.find(t => t.audioUrl?.trim() === url.trim()) || null;
-};
+  const findTrackByAudioUrl = (url: string): Track | null => {
+    console.log("Finding track:", url);
+    const all = [...mockTracks, ...mockSearchResults, ...queue];
+    return all.find(t => t.audioUrl?.trim() === url.trim()) || null;
+  };
 
   const scheduleSyncPlay = (audioElement: HTMLAudioElement, audioUrl: string, startServerMs: number, serverOffsetMs: number) => {
     audioElement.src = audioUrl;
@@ -1266,7 +1245,7 @@ const findTrackByAudioUrl = (url: string): Track | null => {
 
               {!isSearching && searchQuery && searchResults.length === 0 && (
                 <div className="text-center py-8 text-gray-400">
-                  No results found for "{searchQuery}"
+                  No results found for &quot;{searchQuery}&quot;
                 </div>
               )}
 
