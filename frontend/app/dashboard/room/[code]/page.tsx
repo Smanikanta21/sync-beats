@@ -334,7 +334,7 @@ const findTrackByAudioUrl = (url: string): Track | null => {
     }
   };
 
-  const handleSyncPlay = (msg) => {
+  const handleSyncPlay = (msg: { audioUrl: string; startServerMs: number }) => {
     const { audioUrl, startServerMs } = msg;
     if (!audioRef.current) {
       console.error("❌ handleSyncPlay: audioRef not available");
