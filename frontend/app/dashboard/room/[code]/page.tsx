@@ -188,8 +188,7 @@ export default function RoomPage() {
     if (!mounted || !roomData) return;
 
     const socketHost = process.env.NEXT_PUBLIC_SOCKET_HOST || 'localhost';
-    let wsUrl;
-      wsUrl = `ws://${socketHost}`;
+    const wsUrl = `ws://${socketHost}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
