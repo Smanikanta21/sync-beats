@@ -191,8 +191,10 @@ export default function RoomPage() {
   useEffect(() => {
     if (!mounted || !roomData) return;
 
-    const socketPort = process.env.NEXT_PUBLIC_SOCKET_PORT || 6001;
-    const ws = new WebSocket(`ws://10.7.26.138:${socketPort}`);
+    const socketHost = process.env.NEXT_PUBLIC_SOCKET_HOST || 'localhost';
+    const socketPort = process.env.NEXT_PUBLIC_SOCKET_PORT
+    const protocol = socketHost.includes('onrender') ? 'wss' : 'ws';
+    const ws = new WebSocket(`${protocol}://${socketHost}:${socketPort}`);
     wsRef.current = ws;
 
     ws.onopen = () => {

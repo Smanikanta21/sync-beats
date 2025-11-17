@@ -1,0 +1,6 @@
+frontend/
+fastapi-backend/
+express-backend/
+.git
+.env.local
+node_modules/
