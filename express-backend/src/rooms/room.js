@@ -284,11 +284,10 @@ async function getNearbyRooms(req, res) {
             where: { DeviceUserId: user_id }
         });
 
-        const ssidToSearch = wifiSSID || userDevices.find(d => d.wifiSSID)?.[0]?.wifiSSID;
-
-        if (!ssidToSearch) {
+        // wifiSSID only comes from request body, not from device
+        if (!wifiSSID) {
             return res.status(200).json({
-                message: "No WiFi network found",
+                message: "No WiFi network specified",
                 rooms: []
             });
         }
@@ -296,7 +295,7 @@ async function getNearbyRooms(req, res) {
         const nearbyRooms = await prisma.room.findMany({
             where: {
                 isPublic: true,
-                wifiSSID: ssidToSearch,
+                wifiSSID: wifiSSID,
                 hostId: { not: user_id }
             },
             include: {
@@ -324,7 +323,7 @@ async function getNearbyRooms(req, res) {
         return res.status(200).json({
             message: "Nearby public rooms fetched successfully",
             rooms,
-            wifiNetwork: ssidToSearch
+            wifiNetwork: wifiSSID
         });
     } catch (err) {
         console.log(`GetNearbyRooms Err: ${err}`);
