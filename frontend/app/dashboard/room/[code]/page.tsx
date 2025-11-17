@@ -188,7 +188,9 @@ export default function RoomPage() {
     if (!mounted || !roomData) return;
 
     const host = process.env.NEXT_PUBLIC_SOCKET_HOST;
-    const ws = new WebSocket(`wss://${host}`);
+    const isProduction = host?.includes("onrender.com");
+    const protocol = isProduction ? "wss" : "ws";
+    const ws = new WebSocket(`${protocol}://${host}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
