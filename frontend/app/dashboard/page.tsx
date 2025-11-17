@@ -7,11 +7,6 @@ import { CreateRoom, JoinRoom } from '../components/RoomModal'
 import { toast } from 'react-toastify';
 import { Skeleton } from "@/components/ui/skeleton"
 
-interface NavigatorWithWiFi extends Navigator {
-  wifi?: {
-    getNetworks: () => Promise<Array<{ ssid: string }>>;
-  };
-}
 
 export default function DashBoard() {
   const router = useRouter();

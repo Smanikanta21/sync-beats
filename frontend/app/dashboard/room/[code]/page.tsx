@@ -187,9 +187,8 @@ export default function RoomPage() {
   useEffect(() => {
     if (!mounted || !roomData) return;
 
-    const socketHost = process.env.NEXT_PUBLIC_SOCKET_HOST || 'localhost';
-    const wsUrl = `ws://${socketHost}`;
-    const ws = new WebSocket(wsUrl);
+    const host = process.env.NEXT_PUBLIC_SOCKET_HOST;
+    const ws = new WebSocket(`wss://${host}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -1218,7 +1217,7 @@ export default function RoomPage() {
             <div className="flex flex-col items-center gap-6">
               {/* QR Code Image */}
               <div className="bg-white p-4 rounded-xl">
-                <img src={qrCode} alt="Room QR Code" className="w-64 h-64"/>
+                <img src={qrCode} alt="Room QR Code" className="w-64 h-64" />
               </div>
 
               {/* Room Info */}
