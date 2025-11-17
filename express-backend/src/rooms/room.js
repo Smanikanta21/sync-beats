@@ -284,7 +284,6 @@ async function getNearbyRooms(req, res) {
             where: { DeviceUserId: user_id }
         });
 
-        // wifiSSID only comes from request body, not from device
         if (!wifiSSID) {
             return res.status(200).json({
                 message: "No WiFi network specified",

@@ -187,10 +187,14 @@ export default function RoomPage() {
   useEffect(() => {
     if (!mounted || !roomData) return;
 
-    const host = process.env.NEXT_PUBLIC_SOCKET_HOST;
-    const isProduction = host?.includes("onrender.com");
-    const protocol = isProduction ? "wss" : "ws";
-    const ws = new WebSocket(`${protocol}://${host}`);
+    // const host = process.env.NEXT_PUBLIC_SOCKET_HOST;
+    // const port = process.env.NEXT_PUBLIC_SOCKET_PORT;
+    // const isProduction = host?.includes("onrender.com");
+    // const protocol = isProduction ? "wss" : "ws";
+    // const url = isProduction 
+    //   ? `${protocol}://${host}` 
+    //   : `${protocol}://${host}${port ? `:${port}` : ""}`;
+    const ws = new WebSocket("wss://sync-beats-qoe8.onrender.com");
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -231,7 +235,7 @@ export default function RoomPage() {
       console.log("📨 WebSocket message received:", msg);
 
       if (msg.type === "joined") {
-        console.log("✅ Joined live room", msg);
+        console.log("  Joined live room", msg);
         wsIdRef.current = msg.yourId;
         setIsHost(msg.isHost);
         toast.success(`Connected to room (Host: ${msg.isHost})`);
@@ -311,14 +315,14 @@ export default function RoomPage() {
   const handleSyncPlay = (msg: { audioUrl: string; startServerMs: number }) => {
     const { audioUrl, startServerMs } = msg;
     if (!audioRef.current) {
-      console.error("❌ handleSyncPlay: audioRef not available");
+      console.error("handleSyncPlay: audioRef not available");
       return;
     }
 
     console.log("🎵 handleSyncPlay received:", msg);
     scheduleSyncPlay(audioRef.current, audioUrl, startServerMs, serverOffsetMs);
     setIsPlaying(true);
-    console.log("✅ setIsPlaying called: true");
+    console.log("  setIsPlaying called: true");
   };
 
   const startPlaySync = () => {
@@ -500,7 +504,6 @@ export default function RoomPage() {
     }
   }, [currentTime, currentTrack, isPlaying, repeatMode])
 
-  // Search functionality
   const handleSearch = async (query: string) => {
     if (!query.trim()) {
       setSearchResults([])
@@ -1097,7 +1100,6 @@ export default function RoomPage() {
                 </div>
               )}
 
-              {/* Playback Settings */}
               <div className="pt-2 border-t border-gray-700">
                 <h4 className="text-sm font-semibold text-gray-400 mb-3">Playback</h4>
                 <div className="space-y-3">
@@ -1217,19 +1219,16 @@ export default function RoomPage() {
             </div>
 
             <div className="flex flex-col items-center gap-6">
-              {/* QR Code Image */}
               <div className="bg-white p-4 rounded-xl">
                 <img src={qrCode} alt="Room QR Code" className="w-64 h-64" />
               </div>
 
-              {/* Room Info */}
               <div className="w-full text-center">
                 <p className="text-gray-400 text-sm mb-2">Room Code</p>
                 <p className="text-2xl font-mono font-bold text-blue-400 mb-4">{roomcode}</p>
                 <p className="text-gray-400 text-sm">Share this QR code or room code to invite others</p>
               </div>
 
-              {/* Action Buttons */}
               <div className="w-full flex gap-3">
                 <button onClick={downloadQRCode} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium">⬇️ Download</button>
                 <button onClick={() => setShowQRModal(false)} className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors font-medium">Close</button>
