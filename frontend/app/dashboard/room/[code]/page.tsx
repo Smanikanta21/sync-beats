@@ -60,13 +60,11 @@ export default function RoomPage() {
   const [shuffleMode, setShuffleMode] = useState(false)
   const [repeatMode, setRepeatMode] = useState<'off' | 'all' | 'one'>('off')
 
-  // Search and add songs
   const [showSearchModal, setShowSearchModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<Track[]>([])
   const [isSearching, setIsSearching] = useState(false)
 
-  // Room settings
   const [copied, setCopied] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [showQRModal, setShowQRModal] = useState(false)
@@ -78,7 +76,6 @@ export default function RoomPage() {
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL
 
-  // Mock tracks for demo - replace with API call later
   const mockTracks: Track[] = [
     {
       id: "1",
@@ -121,7 +118,6 @@ export default function RoomPage() {
     }
   ]
 
-  // Mock search results - replace with API call later
   const mockSearchResults: Track[] = [
     {
       id: "4",
@@ -191,10 +187,10 @@ export default function RoomPage() {
   useEffect(() => {
     if (!mounted || !roomData) return;
 
-    const socketHost = process.env.NEXT_PUBLIC_SOCKET_HOST || 'localhost';
-    const socketPort = process.env.NEXT_PUBLIC_SOCKET_PORT
-    const protocol = socketHost.includes('onrender') ? 'wss' : 'ws';
-    const ws = new WebSocket(`${protocol}://${socketHost}:${socketPort}`);
+    const host = process.env.NEXT_PUBLIC_SOCKET_HOST;
+    const isProduction = host?.includes("onrender.com");
+    const protocol = isProduction ? "wss" : "ws";
+    const ws = new WebSocket(`${protocol}://${host}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -206,12 +202,11 @@ export default function RoomPage() {
         try {
           const payload = JSON.parse(atob(token.split(".")[1]));
 
-          // REAL FIX — match your backend JWT
           userId =
-            payload.id ||             // your JWT uses this
-            payload.userId ||         // fallback
-            payload.user?.id ||       // older format
-            payload.sub || null;      // OAuth style
+            payload.id ||
+            payload.userId ||
+            payload.user?.id ||
+            payload.sub || null;
 
           console.log("Decoded userId:", userId);
           console.log("Room hostId:", roomData.hostId);
@@ -227,7 +222,7 @@ export default function RoomPage() {
         type: "join",
         roomCode: roomcode,
         userId,
-        hostId: roomData.hostId   // <---- NOW CORRECT
+        hostId: roomData.hostId
       }));
     };
 
@@ -301,13 +296,11 @@ export default function RoomPage() {
     console.log("📊 scheduleSyncPlay", { startServerMs, now, delay, serverOffsetMs });
 
     if (delay > 0) {
-      // Schedule play in the future
       setTimeout(() => {
         console.log("▶️ Playing after delay");
         audioElement.play().catch(err => console.error("Play error:", err));
       }, delay);
     } else {
-      // We're late - start from the calculated position
       const lateBy = -delay;
       audioElement.currentTime = lateBy / 1000;
       console.log("⏩ Starting late by", lateBy, "ms, jumping to", audioElement.currentTime, "s");
@@ -343,7 +336,6 @@ export default function RoomPage() {
       startServerMs,
     });
 
-    // Host plays with sync scheduling
     scheduleSyncPlay(
       audioRef.current,
       currentTrack.audioUrl!,
@@ -366,12 +358,9 @@ export default function RoomPage() {
   useEffect(() => {
     setMounted(true)
 
-    // Load tracks for UI but DO NOT select first track
     if (mockTracks.length > 0) {
-      setRecentTracks([mockTracks[0]])   // show them in Recents
+      setRecentTracks([mockTracks[0]])
     }
-
-    // Queue stays empty until user adds songs
   }, [])
 
   useEffect(() => {
@@ -397,8 +386,6 @@ export default function RoomPage() {
         if (res.ok && data.room) {
           setRoomData(data.room as RoomResponse)
           console.log("Fetched room data:", data.room)
-          // Get current user ID from token (you might want to decode JWT properly)
-          // For now, we'll check if user is host from room data
         } else {
           toast.error("Failed to load room")
           router.push("/dashboard")
@@ -416,8 +403,6 @@ export default function RoomPage() {
     }
   }, [mounted, roomcode, router, apiUrl])
 
-  // Music player controls
-  // Cleanup interval on unmount or track change
   useEffect(() => {
     return () => {
       if (intervalRef.current) {
@@ -473,18 +458,15 @@ export default function RoomPage() {
   }
 
   const handleNext = () => {
-    // Auto-play from queue if available
     if (queue.length > 0) {
       const nextTrack = shuffleMode
         ? queue[Math.floor(Math.random() * queue.length)]
         : queue[0]
 
-      // Move current track to recently played
       if (currentTrack) {
         setRecentTracks(prev => [currentTrack, ...prev.slice(0, 9)])
       }
 
-      // Remove from queue and set as current
       setQueue(prev => prev.filter(t => t.queueId !== nextTrack.queueId))
       setCurrentTrack(nextTrack)
       setCurrentTime(0)
@@ -492,14 +474,12 @@ export default function RoomPage() {
         setIsPlaying(true)
       }
     } else if (repeatMode === 'all' && recentTracks.length > 0) {
-      // If repeat all and no queue, cycle through recent tracks
       const nextTrack = recentTracks[0]
       setRecentTracks(prev => [...prev.slice(1), currentTrack!])
       setCurrentTrack(nextTrack)
       setCurrentTime(0)
       setIsPlaying(true)
     } else if (recentTracks.length > 0) {
-      // Fallback to old behavior
       const newRecent = [...recentTracks]
       if (currentTrack) {
         newRecent.unshift(currentTrack)
@@ -510,7 +490,6 @@ export default function RoomPage() {
     }
   }
 
-  // Auto-play next track when current finishes
   useEffect(() => {
     if (currentTrack && currentTime >= currentTrack.duration && isPlaying) {
       if (repeatMode === 'one') {
@@ -519,7 +498,6 @@ export default function RoomPage() {
         handleNext()
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTime, currentTrack, isPlaying, repeatMode])
 
   // Search functionality
@@ -530,7 +508,6 @@ export default function RoomPage() {
     }
 
     setIsSearching(true)
-    // Simulate API call - replace with actual API
     setTimeout(() => {
       const filtered = mockSearchResults.filter(
         track =>
@@ -547,7 +524,7 @@ export default function RoomPage() {
       ...track,
       queueId: `queue-${Date.now()}-${Math.random()}`,
       addedAt: new Date().toISOString(),
-      addedBy: "You" // Replace with actual user name
+      addedBy: "You"
     }
     setQueue(prev => [...prev, queueItem])
     toast.success(`Added "${track.title}" to queue`)
@@ -633,10 +610,7 @@ export default function RoomPage() {
     router.push("/dashboard")
   }
 
-  // Get current user ID (simplified - in production decode JWT or get from API)
   useEffect(() => {
-    // Note: In production, you should decode the JWT token or get current user ID from API
-    // For demo purposes, we'll fetch user info from dashboard endpoint
     const fetchCurrentUser = async () => {
       try {
         const token = localStorage.getItem("token")
@@ -650,14 +624,12 @@ export default function RoomPage() {
 
         if (res.ok) {
           const data = await res.json()
-          // The dashboard endpoint might return userId - adjust based on actual response
           if (data.userId) {
             setCurrentUserId(data.userId)
           }
         }
       } catch (err) {
         console.error("Failed to fetch current user:", err)
-        // Fallback: use first participant's userId if available
         if (roomData?.participants?.[0]?.userId) {
           setCurrentUserId(roomData.participants[0].userId)
         }
@@ -681,7 +653,6 @@ export default function RoomPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
-      {/* Header */}
       <div className="p-6 border-b border-gray-800">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
@@ -702,12 +673,9 @@ export default function RoomPage() {
       </div>
 
       <div className="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content - Music Player */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Music Player */}
           <div className="bg-gray-800/60 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
             <div className="flex flex-col md:flex-row gap-6">
-              {/* Album Art */}
               <div className="flex-shrink-0">
                 <div className="w-full md:w-64 h-64 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl overflow-hidden border border-gray-700/50">
                   {currentTrack?.coverUrl ? (
@@ -724,7 +692,6 @@ export default function RoomPage() {
                 </div>
               </div>
 
-              {/* Track Info & Controls */}
               <div className="flex-1 flex flex-col justify-between">
                 <div>
                   <h2 className="text-2xl font-bold mb-1">
@@ -738,7 +705,6 @@ export default function RoomPage() {
                   )}
                 </div>
 
-                {/* Progress Bar */}
                 <div className="mt-6">
                   <div
                     ref={progressRef}
@@ -760,7 +726,6 @@ export default function RoomPage() {
                   </div>
                 </div>
 
-                {/* Player Controls */}
                 <div className="mt-6 flex flex-col items-center gap-4">
                   <div className="flex items-center justify-center gap-4">
                     <button
@@ -820,7 +785,6 @@ export default function RoomPage() {
                   </button>
                 </div>
 
-                {/* Volume Control */}
                 <div className="mt-6 flex items-center gap-3">
                   <button
                     onClick={toggleMute}
@@ -848,7 +812,6 @@ export default function RoomPage() {
             </div>
           </div>
 
-          {/* Queue */}
           <div className="bg-gray-800/60 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -938,7 +901,6 @@ export default function RoomPage() {
             </div>
           </div>
 
-          {/* Recently Played */}
           <div className="bg-gray-800/60 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
             <div className="flex items-center gap-2 mb-4">
               <Clock size={20} className="text-blue-400" />
@@ -990,7 +952,6 @@ export default function RoomPage() {
           </div>
         </div>
 
-        {/* Sidebar - Participants */}
         <div className="space-y-6">
           <div className="bg-gray-800/60 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
             <div className="flex items-center gap-2 mb-4">
@@ -1028,14 +989,12 @@ export default function RoomPage() {
             </div>
           </div>
 
-          {/* Room Settings */}
           <div className="bg-gray-800/60 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
             <div className="flex items-center gap-2 mb-4">
               <Settings size={20} className="text-blue-400" />
               <h3 className="text-xl font-bold">Room Settings</h3>
             </div>
             <div className="space-y-4">
-              {/* Room Code */}
               <div className="p-3 bg-gray-700/30 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -1061,7 +1020,6 @@ export default function RoomPage() {
                 <p className="text-xl font-mono font-bold text-blue-400">{roomcode}</p>
               </div>
 
-              {/* Room Type */}
               <div className="p-3 bg-gray-700/30 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
                   <Radio size={16} className="text-gray-400" />
@@ -1072,7 +1030,6 @@ export default function RoomPage() {
                 </p>
               </div>
 
-              {/* Room Visibility */}
               <div className="p-3 bg-gray-700/30 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -1102,7 +1059,6 @@ export default function RoomPage() {
                 </p>
               </div>
 
-              {/* WiFi Network */}
               {roomData?.wifiSSID && (
                 <div className="p-3 bg-gray-700/30 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
@@ -1113,7 +1069,6 @@ export default function RoomPage() {
                 </div>
               )}
 
-              {/* Room Created */}
               {roomData?.createdAt && (
                 <div className="p-3 bg-gray-700/30 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
@@ -1130,7 +1085,6 @@ export default function RoomPage() {
                 </div>
               )}
 
-              {/* Host Badge */}
               {isHost && (
                 <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                   <div className="flex items-center gap-2">
@@ -1166,10 +1120,8 @@ export default function RoomPage() {
         </div>
       </div>
 
-      {/* Hidden audio element for future API integration */}
       <audio ref={audioRef} />
 
-      {/* Search Modal */}
       {showSearchModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-gray-800 rounded-2xl border border-gray-700 w-full max-w-2xl max-h-[80vh] flex flex-col">
@@ -1210,10 +1162,7 @@ export default function RoomPage() {
               {!isSearching && searchResults.length > 0 && (
                 <div className="space-y-2">
                   {searchResults.map((track) => (
-                    <div
-                      key={track.id}
-                      className="flex items-center gap-4 p-3 bg-gray-700/30 hover:bg-gray-700/50 rounded-lg transition-colors group"
-                    >
+                    <div key={track.id} className="flex items-center gap-4 p-3 bg-gray-700/30 hover:bg-gray-700/50 rounded-lg transition-colors group">
                       <div className="w-12 h-12 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg overflow-hidden flex-shrink-0">
                         {track.coverUrl ? (
                           <img src={track.coverUrl} alt={track.title} className="w-full h-full object-cover" />
@@ -1233,11 +1182,7 @@ export default function RoomPage() {
                       <div className="text-sm text-gray-500 mr-2">
                         {formatTime(track.duration)}
                       </div>
-                      <button
-                        onClick={() => addToQueue(track)}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2 text-sm"
-                      >
-                        <Plus size={16} />
+                      <button onClick={() => addToQueue(track)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2 text-sm"><Plus size={16} />
                         Add
                       </button>
                     </div>
@@ -1261,16 +1206,12 @@ export default function RoomPage() {
         </div>
       )}
 
-      {/* QR Code Modal */}
       {showQRModal && qrCode && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-8 max-w-sm w-full">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold">Room QR Code</h2>
-              <button
-                onClick={() => setShowQRModal(false)}
-                className="p-2 hover:bg-gray-700/50 rounded-full transition-colors"
-              >
+              <button onClick={() => setShowQRModal(false)} className="p-2 hover:bg-gray-700/50 rounded-full transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -1278,11 +1219,7 @@ export default function RoomPage() {
             <div className="flex flex-col items-center gap-6">
               {/* QR Code Image */}
               <div className="bg-white p-4 rounded-xl">
-                <img
-                  src={qrCode}
-                  alt="Room QR Code"
-                  className="w-64 h-64"
-                />
+                <img src={qrCode} alt="Room QR Code" className="w-64 h-64" />
               </div>
 
               {/* Room Info */}
@@ -1294,18 +1231,8 @@ export default function RoomPage() {
 
               {/* Action Buttons */}
               <div className="w-full flex gap-3">
-                <button
-                  onClick={downloadQRCode}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium"
-                >
-                  ⬇️ Download
-                </button>
-                <button
-                  onClick={() => setShowQRModal(false)}
-                  className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors font-medium"
-                >
-                  Close
-                </button>
+                <button onClick={downloadQRCode} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors font-medium">⬇️ Download</button>
+                <button onClick={() => setShowQRModal(false)} className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors font-medium">Close</button>
               </div>
             </div>
           </div>

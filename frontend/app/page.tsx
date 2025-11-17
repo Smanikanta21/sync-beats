@@ -6,27 +6,14 @@ import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignUpPage';
 
 export default function LandingPage() {
-  const router = useRouter();
+  const router = useRouter()
 
-  useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const token = params.get('token');
-      // const user = params.get('user'); // Uncomment if needed in the future
-      if (token) {
-        localStorage.setItem('token', token);
-        router.push('/dashboard');
-        try {
-          const cleanUrl = window.location.origin + window.location.pathname;
-          window.history.replaceState({}, document.title, cleanUrl);
-        } catch (e) {
-          console.log(e)
-        }
-      }
-    } catch (e) {
-      console.log(e)
+  useEffect(()=>{
+    const token = localStorage.getItem('token')
+    if(token){
+      router.push('/dashboard')
     }
-  }, [router]);
+  },[router])
 
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [showLogin, setShowLogin] = useState<boolean>(false);
