@@ -4,7 +4,6 @@ const { WebSocketServer } = require("ws");
 module.exports = function createSyncEngine(server) {
   const wss = new WebSocketServer({ server });
 
-  // liveRooms: roomCode → { clients:Set, hostUserId, currentTrack, startedAt, duration }
   const liveRooms = new Map();
 
   function broadcast(room, data) {
@@ -30,9 +29,8 @@ module.exports = function createSyncEngine(server) {
       });
     }
 
-    const room = liveRooms.get(roomCode); // <-- MUST COME FIRST
+    const room = liveRooms.get(roomCode);
 
-    // State Restore for new client
     if (room.currentTrack && room.startedAt) {
       ws.send(JSON.stringify({
         type: "PLAY",
@@ -61,7 +59,7 @@ module.exports = function createSyncEngine(server) {
       totalClients: room.clients.size
     });
 
-    console.log(`✅ User joined room ${roomCode}. Total: ${room.clients.size}, Host: ${room.hostUserId}, IsHost: ${userId === room.hostUserId}`);
+    console.log(`  User joined room ${roomCode}. Total: ${room.clients.size}, Host: ${room.hostUserId}, IsHost: ${userId === room.hostUserId}`);
   }
 
   function sendPong(ws, msg) {
@@ -82,7 +80,6 @@ module.exports = function createSyncEngine(server) {
       let msg = {};
       try { msg = JSON.parse(data); } catch { return; }
 
-      // JOIN
       if (msg.type === "join") {
         ws._room = msg.roomCode;
         ws._userId = msg.userId;
@@ -91,16 +88,14 @@ module.exports = function createSyncEngine(server) {
         joinLiveRoom(ws, msg.roomCode, msg.userId, msg.hostId);
       }
 
-      // CLOCK SYNC
       if (msg.type === "time_ping") {
         sendPong(ws, msg);
       }
 
-      // PLAY
       if (msg.type === "PLAY") {
         const room = liveRooms.get(ws._room);
         if (!room) {
-          console.error("❌ PLAY: Room not found for", ws._room);
+          console.error("  PLAY: Room not found for", ws._room);
           return;
         }
 
@@ -110,22 +105,19 @@ module.exports = function createSyncEngine(server) {
           isAuthorized: ws._userId === room.hostUserId
         });
 
-        // Only host can trigger PLAY
         if (room.hostUserId !== ws._userId) {
-          console.error("❌ PLAY: Unauthorized - only host can play. User:", ws._userId, "Host:", room.hostUserId);
+          console.error("  PLAY: Unauthorized - only host can play. User:", ws._userId, "Host:", room.hostUserId);
           return;
         }
 
         const startServerMs = Date.now() + msg.startDelayMs;
 
-        // Save state
         room.currentTrack = msg.audioUrl;
         room.startedAt = startServerMs;
         room.duration = msg.duration;
 
-        console.log("✅ PLAY: Broadcasting to all clients in room", ws._room, "- Total:", room.clients.size);
+        console.log("  PLAY: Broadcasting to all clients in room", ws._room, "- Total:", room.clients.size);
 
-        // Broadcast PLAY to all (including host)
         broadcast(room, {
           type: "PLAY",
           audioUrl: msg.audioUrl,
@@ -133,9 +125,27 @@ module.exports = function createSyncEngine(server) {
           duration: msg.duration
         });
       }
+
+
+      if (msg.type === "PAUSE") {
+        const room = liveRooms.get(ws._room);
+        if (!room) return;
+
+        if (room.hostUserId !== ws._userId) {
+          console.error("  PAUSE: Unauthorized - only host can pause. User:", ws._userId, "Host:", room.hostUserId);
+          return;
+        }
+
+        room.currentTrack = null;
+        room.startedAt = null;
+        room.duration = null;
+
+        broadcast(room, {
+          type: "PAUSE"
+        });
+      }
     });
 
-    // CLEANUP
     ws.on("close", () => {
       const room = liveRooms.get(ws._room);
       if (!room) return;
