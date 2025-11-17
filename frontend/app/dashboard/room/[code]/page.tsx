@@ -193,8 +193,17 @@ export default function RoomPage() {
 
     const socketHost = process.env.NEXT_PUBLIC_SOCKET_HOST || 'localhost';
     const socketPort = process.env.NEXT_PUBLIC_SOCKET_PORT
-    const protocol = socketHost.includes('onrender') ? 'wss' : 'ws';
-    const ws = new WebSocket(`${protocol}://${socketHost}:${socketPort}`);
+    let wsUrl;
+
+    if (socketHost.includes("onrender.com")) {
+      // Production on Render – NO PORT
+      wsUrl = `wss://${socketHost}`;
+    } else {
+      // Local development
+      wsUrl = `ws://${socketHost}:${socketPort}`;
+    }
+
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -206,12 +215,11 @@ export default function RoomPage() {
         try {
           const payload = JSON.parse(atob(token.split(".")[1]));
 
-          // REAL FIX — match your backend JWT
           userId =
-            payload.id ||             // your JWT uses this
-            payload.userId ||         // fallback
-            payload.user?.id ||       // older format
-            payload.sub || null;      // OAuth style
+            payload.id ||
+            payload.userId ||
+            payload.user?.id ||
+            payload.sub || null;
 
           console.log("Decoded userId:", userId);
           console.log("Room hostId:", roomData.hostId);
