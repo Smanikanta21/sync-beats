@@ -187,10 +187,14 @@ export default function RoomPage() {
   useEffect(() => {
     if (!mounted || !roomData) return;
 
-    const host = process.env.NEXT_PUBLIC_SOCKET_HOST;
-    const isProduction = host?.includes("onrender.com");
-    const protocol = isProduction ? "wss" : "ws";
-    const ws = new WebSocket(`${protocol}://${host}`);
+    // const host = process.env.NEXT_PUBLIC_SOCKET_HOST;
+    // const port = process.env.NEXT_PUBLIC_SOCKET_PORT;
+    // const isProduction = host?.includes("onrender.com");
+    // const protocol = isProduction ? "wss" : "ws";
+    // const url = isProduction 
+    //   ? `${protocol}://${host}` 
+    //   : `${protocol}://${host}${port ? `:${port}` : ""}`;
+    const ws = new WebSocket("wss://sync-beats-qoe8.onrender.com");
     wsRef.current = ws;
 
     ws.onopen = () => {
