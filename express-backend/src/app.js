@@ -47,10 +47,9 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Server Error' })
 })
 
-// For local development
 if (process.env.NODE_ENV !== 'production') {
-  app.listen(process.env.PORT || 5000, () => {
-    console.log(`Server is running on port ${process.env.PORT || 5000}`)
+  app.listen(process.env.PORT, () => {
+    console.log(`Server is running on port ${process.env.PORT}`)
   })
 }
 
