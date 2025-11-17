@@ -188,15 +188,8 @@ export default function RoomPage() {
     if (!mounted || !roomData) return;
 
     const socketHost = process.env.NEXT_PUBLIC_SOCKET_HOST || 'localhost';
-    const socketPort = process.env.NEXT_PUBLIC_SOCKET_PORT
     let wsUrl;
-
-    if (socketHost.includes("onrender.com")) {
-      wsUrl = `wss://${socketHost}`;
-    } else {
-      wsUrl = `ws://${socketHost}:${socketPort}`;
-    }
-
+      wsUrl = `ws://${socketHost}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
