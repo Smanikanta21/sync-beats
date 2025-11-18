@@ -49,12 +49,22 @@ function generateRefreshToken(user) {
 }
 
 async function saveRefreshToken(userId, refreshToken) {
-    const hashedToken = await bcrypt.hash(refreshToken, 10);
-    await prisma.refreshToken.upsert({
-        where: { userId },
-        update: { token: hashedToken, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
-        create: { userId, token: hashedToken, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) }
-    });
+    try {
+        const hashedToken = await bcrypt.hash(refreshToken, 10);
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        
+        const result = await prisma.refreshToken.upsert({
+            where: { userId },
+            update: { token: hashedToken, expiresAt },
+            create: { userId, token: hashedToken, expiresAt }
+        });
+        
+        console.log("Refresh token saved for user:", userId);
+        return result;
+    } catch (err) {
+        console.error("Error saving refresh token:", err.message);
+        throw err;
+    }
 }
 
 async function verifyRefreshToken(userId, refreshToken) {
@@ -274,8 +284,12 @@ async function googleAuthCallback(req, res) {
             return res.status(401).json({ message: "Authentication failed" });
         }
 
+        console.log("🔐 Google OAuth user:", user.email);
+
         const accessToken = generateAccessToken(user);
         const refreshToken = generateRefreshToken(user);
+        
+        console.log("📝 Generated tokens - Saving refresh token to DB...");
         await saveRefreshToken(user.id, refreshToken);
 
         const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Google OAuth Device");
@@ -318,10 +332,11 @@ async function googleAuthCallback(req, res) {
                 maxAge: 7 * 24 * 60 * 60 * 1000
             });
 
+        console.log("✅ Google auth successful - Redirecting to dashboard");
         return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/dashboard?auth=success`);
 
     } catch (err) {
-        console.error("Google Auth Callback Error:", err);
+        console.error("❌ Google Auth Callback Error:", err);
         return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/?error=google_auth_failed`);
     }
 }
