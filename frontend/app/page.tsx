@@ -8,12 +8,12 @@ import SignupPage from './components/SignUpPage';
 export default function LandingPage() {
   const router = useRouter()
 
-  useEffect(()=>{
-    const token = localStorage.getItem('token')
-    if(token){
-      router.push('/dashboard')
-    }
-  },[router])
+  // useEffect(()=>{
+  //   const token = localStorage.getItem('token')
+  //   if(token){
+  //     router.push('/dashboard')
+  //   }
+  // },[router])
 
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [showLogin, setShowLogin] = useState<boolean>(false);

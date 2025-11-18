@@ -5,9 +5,13 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const axios = require('axios');
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT;
+const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'refresh-secret-key';
+const ACCESS_TOKEN_EXPIRY = '15m';
+const REFRESH_TOKEN_EXPIRY = '7d';
 
 function getDeviceName(name, userAgent) {
     const parser = new UAParser(userAgent)
@@ -26,6 +30,43 @@ function getDeviceName(name, userAgent) {
     else if (os.name === 'Linux') device_type = 'Linux PC';
 
     return `${name}'s ${device_type}`
+}
+
+function generateAccessToken(user) {
+    return jwt.sign(
+        { id: user.id, email: user.email, name: user.name, type: 'access' },
+        JWT_SECRET,
+        { expiresIn: ACCESS_TOKEN_EXPIRY }
+    );
+}
+
+function generateRefreshToken(user) {
+    return jwt.sign(
+        { id: user.id, email: user.email, type: 'refresh' },
+        REFRESH_TOKEN_SECRET,
+        { expiresIn: REFRESH_TOKEN_EXPIRY }
+    );
+}
+
+async function saveRefreshToken(userId, refreshToken) {
+    const hashedToken = await bcrypt.hash(refreshToken, 10);
+    await prisma.refreshToken.upsert({
+        where: { userId },
+        update: { token: hashedToken, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+        create: { userId, token: hashedToken, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) }
+    });
+}
+
+async function verifyRefreshToken(userId, refreshToken) {
+    try {
+        const stored = await prisma.refreshToken.findUnique({ where: { userId } });
+        if (!stored || stored.expiresAt < new Date()) return null;
+        
+        const isValid = await bcrypt.compare(refreshToken, stored.token);
+        return isValid ? jwt.verify(refreshToken, REFRESH_TOKEN_SECRET) : null;
+    } catch (err) {
+        return null;
+    }
 }
 
 async function signup(req, res, next) {
@@ -76,10 +117,9 @@ async function login(req, res, next) {
         const ok = await bcrypt.compare(password, user.password);
         if (!ok) return res.status(400).json({ message: "Invalid password" });
 
-        const token = jwt.sign(
-            { id: user.id, email: user.email, name: user.name },
-            JWT_SECRET,
-        );
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
+        await saveRefreshToken(user.id, refreshToken);
 
         const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Unknown Device");
         const existingDevice = await prisma.device.findFirst({
@@ -106,8 +146,9 @@ async function login(req, res, next) {
         }
 
         res
-            .cookie("token", token, { httpOnly: true })
-            .json({ message: "Login success", token, deviceName });
+            .cookie("accessToken", accessToken, { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 15 * 60 * 1000 })
+            .cookie("refreshToken", refreshToken, { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000 })
+            .json({ message: "Login success", accessToken, refreshToken, deviceName });
     } catch (err) {
         console.log(err)
         next(err);
@@ -116,33 +157,62 @@ async function login(req, res, next) {
 
 async function logout(req, res, next) {
     try {
-        res.clearCookie("token", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-        });
+        const userId = req.user?.id;
         
-        if (req.session) {
-            req.session.destroy((err) => {
-                if (err) {
-                    console.log("Session destruction error:", err);
-                }
-            });
+        if (userId) {
+            await prisma.refreshToken.delete({ 
+                where: { userId } 
+            }).catch(() => null);
         }
         
-        res.json({ 
-            message: "Logout success",
-            note: "All cookies cleared. Client should also clear localStorage tokens."
-        });
+        res
+            .clearCookie("accessToken", { httpOnly: true, secure: true, sameSite: 'strict' })
+            .clearCookie("refreshToken", { httpOnly: true, secure: true, sameSite: 'strict' })
+            .json({ message: "Logout success" });
     } catch (err) {
         next(err);
+    }
+}
+
+async function refreshAccessToken(req, res, next) {
+    try {
+        const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+        
+        if (!refreshToken) {
+            return res.status(401).json({ message: "Refresh token missing" });
+        }
+
+        const decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
+        const isValid = await verifyRefreshToken(decoded.id, refreshToken);
+        
+        if (!isValid) {
+            return res.status(401).json({ message: "Invalid or expired refresh token" });
+        }
+
+        const user = await prisma.users.findUnique({ where: { id: decoded.id } });
+        if (!user) {
+            return res.status(401).json({ message: "User not found" });
+        }
+
+        const newAccessToken = generateAccessToken(user);
+        const newRefreshToken = generateRefreshToken(user);
+        await saveRefreshToken(user.id, newRefreshToken);
+
+        res
+            .cookie("accessToken", newAccessToken, { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 15 * 60 * 1000 })
+            .cookie("refreshToken", newRefreshToken, { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000 })
+            .json({ message: "Token refreshed", accessToken: newAccessToken, refreshToken: newRefreshToken });
+    } catch (err) {
+        return res.status(401).json({ message: "Token refresh failed" });
     }
 }
 
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.GOOGLE_REDIRECT_URL
+    callbackURL: process.env.GOOGLE_REDIRECT_URL,
+    accessType: 'offline',
+    prompt: 'consent'
 },
     async (accessToken, refreshToken, profile, done) => {
         try {
@@ -159,7 +229,17 @@ passport.use(new GoogleStrategy({
                         name,
                         email,
                         username: email.split('@')[0] + Math.random().toString(36).substring(7),
-                        password: ''
+                        password: '',
+                        googleId: profile.id,
+                        googleRefreshToken: refreshToken || null
+                    }
+                });
+            } else {
+                await prisma.Users.update({
+                    where: { id: user.id },
+                    data: {
+                        googleId: profile.id,
+                        googleRefreshToken: refreshToken || user.googleRefreshToken
                     }
                 });
             }
@@ -194,10 +274,9 @@ async function googleAuthCallback(req, res) {
             return res.status(401).json({ message: "Authentication failed" });
         }
 
-        const token = jwt.sign(
-            { id: user.id, email: user.email, name: user.name },
-            JWT_SECRET,
-        );
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
+        await saveRefreshToken(user.id, refreshToken);
 
         const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Google OAuth Device");
 
@@ -224,19 +303,27 @@ async function googleAuthCallback(req, res) {
                 }
             });
         }
-        res.cookie("token", token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
 
-        return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/dashboard`);
+        res
+            .cookie("accessToken", accessToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
+                maxAge: 15 * 60 * 1000
+            })
+            .cookie("refreshToken", refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
+                maxAge: 7 * 24 * 60 * 60 * 1000
+            });
+
+        return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/dashboard?auth=success`);
 
     } catch (err) {
-        console.log("Google Auth Callback Error:", err);
+        console.error("Google Auth Callback Error:", err);
         return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/?error=google_auth_failed`);
     }
 }
 
-module.exports = { signup, login, logout, getDeviceName, googleAuthCallback };
+module.exports = { signup, login, logout, refreshAccessToken, getDeviceName, googleAuthCallback };

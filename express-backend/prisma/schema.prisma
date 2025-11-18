@@ -19,14 +19,15 @@ model Users {
   username String? @unique
   email String @unique
   password String
+  googleId String? @unique
+  googleRefreshToken String?
+  AccountType String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   devices Device[]
-  
-
   Room Room[]
-
   RoomUsers RoomUsers[]
+  refreshToken RefreshToken?
 }
 
 model Device {
@@ -83,4 +84,14 @@ model RoomDevices{
 
   room  Room @relation(fields: [roomId], references: [id])
   devices Device @relation(fields: [deviceId],references: [id]) 
+}
+
+model RefreshToken {
+  id String @id @default(cuid())
+  userId String @unique
+  token String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user Users @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
