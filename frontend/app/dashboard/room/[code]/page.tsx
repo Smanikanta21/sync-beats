@@ -3,7 +3,9 @@
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState, useRef } from "react"
 import { toast } from "react-toastify"
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Users, LogOut, Music, Clock, Crown, User, Search, Plus, Trash2, ArrowUp, ArrowDown, Shuffle, Repeat, X, ListMusic, Settings, Copy, Globe, Lock, Info, Radio, Wifi } from "lucide-react"
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Users, LogOut, Music, Clock, Crown, User, Plus, Trash2, ArrowUp, ArrowDown, Shuffle, Repeat, X, ListMusic, Settings, Copy, Globe, Lock, Info, Radio } from "lucide-react"
+import { useSyncPlayback } from "@/hooks/useSyncPlayback"
+import { authFetch, getUserIdFromToken } from "@/lib/authFetch"
 
 type RoomResponse = {
   name: string
@@ -36,19 +38,33 @@ type QueueItem = Track & {
   addedAt: string
 }
 
+const isMobileDevice = (): boolean => {
+  if (typeof window === 'undefined') return false
+  const userAgent = navigator.userAgent.toLowerCase()
+  return /iphone|ipad|ipod|android|mobile|tablet|blackberry|windows phone/.test(userAgent)
+}
+
+const isDevelopment = (): boolean => {
+  if (typeof window === 'undefined') return false
+  const isDev = process.env.NODE_ENV === 'development'
+  const isLocalNetwork = window.location.hostname === 'localhost' || 
+                         window.location.hostname === '127.0.0.1' ||
+                         window.location.hostname.startsWith('10.') ||
+                         window.location.hostname.startsWith('192.168.')
+  return isDev || isLocalNetwork
+}
+
 export default function RoomPage() {
   const params = useParams()
   const router = useRouter()
   const roomcode = params.code as string
+  const [isMobile, setIsMobile] = useState(false)
 
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [roomData, setRoomData] = useState<RoomResponse | null>(null)
 
-  const wsRef = useRef<WebSocket | null>(null)
-  const wsIdRef = useRef<string | null>(null)
-  const [serverOffsetMs, setServerOffsetMs] = useState(0)
-  const [isHost, setIsHost] = useState(false)
+  const [localIsHost, setLocalIsHost] = useState(false)
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null)
@@ -72,9 +88,59 @@ export default function RoomPage() {
 
   const audioRef = useRef<HTMLAudioElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL
+
+  const { playbackState, commands } = useSyncPlayback({
+    roomCode: params.code as string,
+    userId: currentUserId || "",
+    hostId: roomData?.hostId || "",
+    audioRef: audioRef as React.RefObject<HTMLAudioElement>,
+    onSync: (data: Record<string, unknown>) => {
+      console.log("Synced:", data)
+      if (data.type === "TRACK_CHANGE" && data.trackData) {
+        const trackData = data.trackData as { title: string; audioUrl: string }
+        console.log("Track changed to:", trackData.title)
+        const track = mockTracks.find(t => t.audioUrl === trackData.audioUrl)
+        if (track) {
+          setCurrentTrack(track)
+          setCurrentTime(0)
+        }
+      }
+    },
+    onError: (error: string) => {
+      toast.error(error)
+    }
+  })
+
+  useEffect(() => {
+    setIsPlaying(playbackState.isPlaying)
+  }, [playbackState.isPlaying])
+
+
+
+useEffect(() => {
+  if (!audioRef.current) return
+
+  let lastLoggedSecond = -1
+
+  const interval = setInterval(() => {
+    const audio = audioRef.current
+    if (audio) {
+      setCurrentTime(audio.currentTime)
+      if (!audio.paused && isPlaying) {
+        const currentSecond = Math.floor(audio.currentTime)
+        if (currentSecond !== lastLoggedSecond) {
+          console.log(`⏱️ Playing: ${formatTime(audio.currentTime)} / ${formatTime(audio.duration || 0)} - ${currentTrack?.title}`)
+          lastLoggedSecond = currentSecond
+        }
+      }
+    }
+  }, 20)
+
+  return () => clearInterval(interval)
+}, [isPlaying, currentTrack])
+
 
   const mockTracks: Track[] = [
     {
@@ -93,18 +159,18 @@ export default function RoomPage() {
       artist: "Post Malone & Swae Lee",
       album: "",
       duration: 174,
-      audioUrl: "/audio/sunflower.mp3",
+      audioUrl: "/audio/Sunflower.mp3",
       coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='24' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3Esunflower%3C/text%3E%3C/svg%3E",
       playedAt: new Date(Date.now() - 600000).toISOString()
     },
     {
       id: "3",
-      title: "Levitating",
-      artist: "Dua Lipa",
-      album: "Future Nostalgia",
-      duration: 203,
-      audioUrl: "/audio/Levitating.mp3",
-      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='24' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3ELevitating%3C/text%3E%3C/svg%3E",
+      title: "Starboy",
+      artist: "The Weeknd ft. Daft Punk",
+      album: "Starboy",
+      duration: 230,
+      audioUrl: "/audio/Starboy.mp3",
+      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='24' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EStarboy%3C/text%3E%3C/svg%3E",
       playedAt: new Date(Date.now() - 900000).toISOString()
     },
     {
@@ -120,250 +186,229 @@ export default function RoomPage() {
 
   const mockSearchResults: Track[] = [
     {
-      id: "4",
-      title: "As It Was",
-      artist: "Harry Styles",
-      album: "Harry's House",
-      duration: 167,
-      audioUrl: "/audio/As It Was.mp3",
-      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='20' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EAs It Was%3C/text%3E%3C/svg%3E"
-    },
-    {
       id: "5",
-      title: "Stay",
-      artist: "The Kid LAROI & Justin Bieber",
-      album: "F*CK LOVE 3",
-      duration: 141,
-      audioUrl: "/audio/Stay.mp3",
-      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='24' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EStay%3C/text%3E%3C/svg%3E"
+      title: "Blinding Lights",
+      artist: "The Weeknd",
+      album: "After Hours",
+      duration: 200,
+      audioUrl: "/audio/Blinding Lights.mp3",
+      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='20' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EBlinding Lights%3C/text%3E%3C/svg%3E"
     },
     {
       id: "6",
-      title: "Heat Waves",
-      artist: "Glass Animals",
-      album: "Dreamland",
-      duration: 238,
-      audioUrl: "/audio/Heat Waves.mp3",
-      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='20' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EHeat Waves%3C/text%3E%3C/svg%3E"
+      title: "Sunflower",
+      artist: "Post Malone & Swae Lee",
+      album: "",
+      duration: 174,
+      audioUrl: "/audio/Sunflower.mp3",
+      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='24' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3ESunflower%3C/text%3E%3C/svg%3E"
     },
     {
       id: "7",
-      title: "Good 4 U",
-      artist: "Olivia Rodrigo",
-      album: "SOUR",
-      duration: 178,
-      audioUrl: "/audio/Good 4 U.mp3",
-      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='20' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EGood 4 U%3C/text%3E%3C/svg%3E"
+      title: "Starboy",
+      artist: "The Weeknd ft. Daft Punk",
+      album: "Starboy",
+      duration: 230,
+      audioUrl: "/audio/Starboy.mp3",
+      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='20' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EStarboy%3C/text%3E%3C/svg%3E"
     },
     {
       id: "8",
-      title: "Peaches",
-      artist: "Justin Bieber ft. Daniel Caesar & Giveon",
-      album: "Justice",
-      duration: 198,
-      audioUrl: "/audio/Peaches.mp3",
-      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='24' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EPeaches%3C/text%3E%3C/svg%3E"
+      title: "Double Take",
+      artist: "Dhruv",
+      album: "Single",
+      duration: 215,
+      audioUrl: "/audio/Double Take.mp3",
+      coverUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Crect fill='%231a1a2e' width='300' height='300'/%3E%3Ctext x='50%25' y='50%25' font-size='24' fill='%23888' text-anchor='middle' dominant-baseline='middle'%3EDouble Take%3C/text%3E%3C/svg%3E"
     }
   ]
 
 
   useEffect(() => {
-    if (!wsRef.current) return
-
-    const interval = setInterval(() => {
-      wsRef.current?.send(JSON.stringify({
-        type: "time_ping",
-        id: Math.random().toString(36),
-        t0: Date.now(),
-      }))
-    }, 2000)
-
-    return () => clearInterval(interval)
-  }, [])
-
-
-
+    const userId = getUserIdFromToken();
+    if (userId) {
+      setCurrentUserId(userId);
+      console.log('[Room] Current user ID:', userId);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!mounted || !roomData) return;
+    if (!mounted || !roomData || !currentUserId) return;
 
-    // const host = process.env.NEXT_PUBLIC_SOCKET_HOST;
-    // const port = process.env.NEXT_PUBLIC_SOCKET_PORT;
-    // const isProduction = host?.includes("onrender.com");
-    // const protocol = isProduction ? "wss" : "ws";
-    // const url = isProduction 
-    //   ? `${protocol}://${host}` 
-    //   : `${protocol}://${host}${port ? `:${port}` : ""}`;
-    const ws = new WebSocket("wss://sync-beats-qoe8.onrender.com");
-    wsRef.current = ws;
+    setLocalIsHost(currentUserId === roomData.hostId);
+    console.log("Host status:", currentUserId === roomData.hostId);
+  }, [mounted, roomData, currentUserId]);
 
-    ws.onopen = () => {
-      console.log("🟢 WebSocket connected");
-      let userId = null;
-      const token = localStorage.getItem("token");
+  const pausePlaySync = () => {
+    console.log("pausePlaySync called")
+    if (audioRef.current) {
+      const pauseTime = audioRef.current.currentTime
+      console.log(`⏸️ Pausing at: ${formatTime(pauseTime)}`)
+      audioRef.current.pause()
+    }
+    setIsPlaying(false)
+    commands.pause()
+  }
 
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split(".")[1]));
-
-          userId =
-            payload.id ||
-            payload.userId ||
-            payload.user?.id ||
-            payload.sub || null;
-
-          console.log("Decoded userId:", userId);
-          console.log("Room hostId:", roomData.hostId);
-          console.log("MATCH =", userId === roomData.hostId);
-        } catch (err) {
-          console.error("JWT decode failed:", err);
-        }
+  const resumePlaySync = () => {
+    console.log("resumePlaySync called")
+    if (audioRef.current) {
+      const resumeTime = audioRef.current.currentTime
+      console.log(`▶️ Resuming from: ${formatTime(resumeTime)}`)
+      
+      const playPromise = audioRef.current.play()
+      if (playPromise) {
+        playPromise
+          .then(() => {
+            console.log("✅ Resume successful")
+            setIsPlaying(true)
+            commands.resume()
+          })
+          .catch(err => {
+            if (err.name !== 'NotAllowedError') {
+              console.error("Resume error:", err)
+              toast.error("Failed to resume: " + err.message)
+            }
+          })
       }
-
-      console.log("🔥 Sending JOIN with hostId =", roomData.hostId);
-
-      ws.send(JSON.stringify({
-        type: "join",
-        roomCode: roomcode,
-        userId,
-        hostId: roomData.hostId
-      }));
-    };
-
-    ws.onmessage = (ev) => {
-      const msg = JSON.parse(ev.data);
-      console.log("📨 WebSocket message received:", msg);
-
-      if (msg.type === "joined") {
-        console.log("  Joined live room", msg);
-        wsIdRef.current = msg.yourId;
-        setIsHost(msg.isHost);
-        toast.success(`Connected to room (Host: ${msg.isHost})`);
-      }
-
-      if (msg.type === "user_joined") {
-        console.log("👥 Other user joined:", msg);
-        toast.info(`User joined. Total: ${msg.totalClients}`);
-      }
-
-      if (msg.type === "time_pong") {
-        const t1 = Date.now();
-        const rtt = t1 - msg.t0;
-        const offset = msg.serverTime - (msg.t0 + rtt / 2);
-        setServerOffsetMs(offset);
-        console.log("⏰ Clock sync offset:", offset);
-      }
-
-      if (msg.type === "PLAY") {
-        console.log("PLAY received:", msg);
-
-        const track = findTrackByAudioUrl(msg.audioUrl);
-        if (!track) {
-          console.error("Track not found for url:", msg.audioUrl);
-        } else {
-          console.log("Matched track:", track.title);
-          setCurrentTrack(track);
-        }
-
-        handleSyncPlay(msg);
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.error("🔴 WebSocket error:", error);
-      toast.error("Connection error");
-    };
-
-    ws.onclose = () => {
-      console.log("🔌 WebSocket disconnected");
-      toast.warning("Disconnected from room");
-    };
-
-    return () => {
-      console.log("🛑 Closing WebSocket connection");
-      ws.close();
-    };
-  }, [mounted, roomData, roomcode]);
-
-  const findTrackByAudioUrl = (url: string): Track | null => {
-    console.log("Finding track:", url);
-    const all = [...mockTracks, ...mockSearchResults, ...queue];
-    return all.find(t => t.audioUrl?.trim() === url.trim()) || null;
-  };
-
-  const scheduleSyncPlay = (audioElement: HTMLAudioElement, audioUrl: string, startServerMs: number, serverOffsetMs: number) => {
-    audioElement.src = audioUrl;
-
-    const now = Date.now() + serverOffsetMs;
-    const delay = startServerMs - now;
-
-    console.log("📊 scheduleSyncPlay", { startServerMs, now, delay, serverOffsetMs });
-
-    if (delay > 0) {
-      setTimeout(() => {
-        console.log("▶️ Playing after delay");
-        audioElement.play().catch(err => console.error("Play error:", err));
-      }, delay);
     } else {
-      const lateBy = -delay;
-      audioElement.currentTime = lateBy / 1000;
-      console.log("⏩ Starting late by", lateBy, "ms, jumping to", audioElement.currentTime, "s");
-      audioElement.play().catch(err => console.error("Play error:", err));
+      setIsPlaying(true)
+      commands.resume()
     }
-  };
-
-  const handleSyncPlay = (msg: { audioUrl: string; startServerMs: number }) => {
-    const { audioUrl, startServerMs } = msg;
-    if (!audioRef.current) {
-      console.error("handleSyncPlay: audioRef not available");
-      return;
-    }
-
-    console.log("🎵 handleSyncPlay received:", msg);
-    scheduleSyncPlay(audioRef.current, audioUrl, startServerMs, serverOffsetMs);
-    setIsPlaying(true);
-    console.log("  setIsPlaying called: true");
-  };
+  }
 
   const startPlaySync = () => {
-    if (!isHost) return toast.error("Only host can play");
-
-    if (!currentTrack || !audioRef.current) {
-      return toast.error("Select a song first");
+    console.log("🎬 === startPlaySync CALLED ===")
+    console.log("📱 Mobile Debug:", {
+      isMobile,
+      isPlaying,
+      hasAudioRef: !!audioRef.current,
+      hasCurrentTrack: !!currentTrack,
+    })
+    
+    if (!currentTrack) {
+      console.log("No track selected")
+      return toast.error("Select a song first")
     }
 
-    const startDelayMs = 400;
-    const startServerMs = Date.now() + startDelayMs;
+    if (isPlaying) {
+      console.log("🔴 Currently playing - calling pausePlaySync()")
+      pausePlaySync()
+      return
+    }
 
-    console.log("Host starting PLAY", {
-      audioUrl: currentTrack.audioUrl,
-      startServerMs,
-    });
+    if (audioRef.current && audioRef.current.src && audioRef.current.currentTime > 0) {
+      console.log("🔄 Audio is paused with position, resuming from:", formatTime(audioRef.current.currentTime))
+      resumePlaySync()
+      return
+    }
 
-    scheduleSyncPlay(
-      audioRef.current,
-      currentTrack.audioUrl!,
-      startServerMs,
-      serverOffsetMs
-    );
+    console.log("▶️ Starting new playback of:", currentTrack.title)
+    if (!audioRef.current) {
+      console.error("No audio ref!")
+      return
+    }
 
-    wsRef.current?.send(
-      JSON.stringify({
-        type: "PLAY",
-        audioUrl: currentTrack.audioUrl,
-        startDelayMs,
-        duration: currentTrack.duration,
+    const audio = audioRef.current
+    audio.src = currentTrack.audioUrl!
+    console.log("Audio src set to:", audio.src)
+    console.log("📱 Audio Element State:", {
+      src: audio.src,
+      paused: audio.paused,
+      networkState: audio.networkState,
+      readyState: audio.readyState,
+    })
+    
+    audio.currentTime = 0
+    setCurrentTime(0)
+
+    const attemptPlay = () => {
+      console.log("📋 Attempting play with audio state:", {
+        src: audio.src,
+        readyState: audio.readyState,
+        paused: audio.paused,
       })
-    );
+      
+      const playPromise = audio.play()
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log("✅ Audio play() resolved successfully")
+            console.log("📱 Mobile - Playback started on", isMobile ? "MOBILE" : "DESKTOP")
+            setIsPlaying(true)
+            commands.play(currentTrack.audioUrl!, currentTrack.duration, 0)
+          })
+          .catch(err => {
+            console.error("❌ Play failed:", err.name, err.message)
+            console.error("📱 Mobile Error:", {
+              isMobile,
+              errorName: err.name,
+              errorMessage: err.message,
+              readyState: audio.readyState,
+              networkState: audio.networkState,
+            })
+            if (err.name === 'NotAllowedError') {
+              console.warn("📱 NotAllowedError - Autoplay blocked, user interaction required")
+              toast.warn("Tap play button to start playback (autoplay blocked)")
+            } else {
+              toast.error("Failed to play: " + err.message)
+            }
+          })
+      }
+    }
 
-    setIsPlaying(true);
-  };
+    audio.load()
+    console.log("🔄 Called audio.load()")
+
+    const timeoutId = setTimeout(() => {
+      console.log("⏱️ Load timeout triggered - attempting play anyway")
+      attemptPlay()
+    }, 1500)
+
+    const handleCanPlay = () => {
+      console.log("✅ canplay event fired")
+      clearTimeout(timeoutId)
+      attemptPlay()
+      audio.removeEventListener('canplay', handleCanPlay)
+    }
+
+    const handleCanPlayThrough = () => {
+      console.log("✅ canplaythrough event fired")
+      clearTimeout(timeoutId)
+      attemptPlay()
+      audio.removeEventListener('canplaythrough', handleCanPlayThrough)
+    }
+
+    audio.addEventListener('canplay', handleCanPlay, { once: true })
+    audio.addEventListener('canplaythrough', handleCanPlayThrough, { once: true })
+
+    return () => {
+      clearTimeout(timeoutId)
+      audio.removeEventListener('canplay', handleCanPlay)
+      audio.removeEventListener('canplaythrough', handleCanPlayThrough)
+    }
+  }
 
   useEffect(() => {
     setMounted(true)
+    
+    const mobile = isMobileDevice()
+    setIsMobile(mobile)
+    
+    console.log("📱 Device Detection:", {
+      isMobile: mobile,
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      screenWidth: window.innerWidth,
+      screenHeight: window.innerHeight,
+      devicePixelRatio: window.devicePixelRatio,
+      touchSupported: 'ontouchstart' in window,
+      standalone: (navigator as unknown as { standalone?: boolean }).standalone,
+    })
 
     if (mockTracks.length > 0) {
       setRecentTracks([mockTracks[0]])
+      setCurrentTrack(mockTracks[0])
     }
   }, [])
 
@@ -373,17 +418,15 @@ export default function RoomPage() {
     const fetchRoomData = async () => {
       try {
         setLoading(true)
-        const token = localStorage.getItem("token")
-        if (!token) {
+        const userId = getUserIdFromToken();
+        if (!userId) {
           toast.error("Please login first")
           router.push("/")
           return
         }
 
-        const res = await fetch(`${apiUrl}/api/room/${roomcode}`, {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: "include"
+        const res = await authFetch(`${apiUrl}/api/room/${roomcode}`, {
+          method: "GET"
         })
 
         const data = await res.json()
@@ -408,26 +451,186 @@ export default function RoomPage() {
   }, [mounted, roomcode, router, apiUrl])
 
   useEffect(() => {
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
-    }
-  }, [currentTrack])
+    const audio = audioRef.current
+    if (!audio) return
 
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!currentTrack || !progressRef.current) return
+    audio.volume = volume / 100
+    console.log("🔊 Audio element state:", {
+      src: audio.src,
+      currentTime: audio.currentTime,
+      duration: audio.duration,
+      paused: audio.paused,
+      volume: audio.volume,
+      muted: audio.muted
+    })
+
+    const handleTimeUpdate = () => {
+      console.log(`⏱️ TIMEUPDATE: ${formatTime(audio.currentTime)} / ${formatTime(audio.duration || 0)} - Paused: ${audio.paused}`)
+      setCurrentTime(audio.currentTime)
+    }
+
+    const handleError = (_e: Event): void => {
+      const errorCode = audio.error?.code
+      const errorMessage = audio.error?.message
+      console.error("❌ AUDIO ERROR EVENT:", {
+        errorCode,
+        errorMessage,
+        networkState: audio.networkState,
+        readyState: audio.readyState,
+        src: audio.src,
+      })
+      
+      let errorReason = "Unknown error"
+      if (audio.error?.code === 1) errorReason = "MEDIA_ERR_ABORTED - Playback aborted"
+      if (audio.error?.code === 2) errorReason = "MEDIA_ERR_NETWORK - Network error"
+      if (audio.error?.code === 3) errorReason = "MEDIA_ERR_DECODE - Decoding error"
+      if (audio.error?.code === 4) errorReason = "MEDIA_ERR_SRC_NOT_SUPPORTED - Format not supported"
+      
+      toast.error("Audio error: " + errorReason)
+    }
+
+    const handleLoadStart = () => {
+      console.log("⏳ LOADSTART: Audio began loading", { networkState: audio.networkState, src: audio.src })
+    }
+
+    const handleCanPlay = () => {
+      console.log("✅ CANPLAY: Audio has buffered enough to play", { readyState: audio.readyState, duration: audio.duration })
+    }
+
+    const handleCanPlayThrough = () => {
+      console.log("✅ CANPLAYTHROUGH: Audio fully buffered", { readyState: audio.readyState, duration: audio.duration })
+    }
+
+    const handlePlay = () => {
+      console.log("🎵 PLAY EVENT: play() was called", { paused: audio.paused, currentTime: audio.currentTime })
+    }
+
+    const handlePlaying = () => {
+      console.log("▶️ PLAYING EVENT: Playback actually started!", { currentTime: audio.currentTime, paused: audio.paused, duration: audio.duration })
+    }
+
+    const handlePause = () => {
+      console.log("⏸️ PAUSE EVENT: Audio paused", { currentTime: audio.currentTime })
+    }
+
+    const handleLoadedMetadata = () => {
+      console.log("📝 LOADED_METADATA: Duration available", { duration: audio.duration, readyState: audio.readyState })
+    }
+
+    const handleSuspend = () => {
+      console.log("⚠️ SUSPEND: Loading suspended")
+    }
+
+    const handleStalled = () => {
+      console.log("⚠️ STALLED: Playback stalled - buffering issue", { networkState: audio.networkState })
+    }
+
+    const handleAbort = () => {
+      console.log("❌ ABORT: Loading aborted")
+    }
+
+    audio.addEventListener("timeupdate", handleTimeUpdate)
+    audio.addEventListener("error", handleError)
+    audio.addEventListener("loadstart", handleLoadStart)
+    audio.addEventListener("canplay", handleCanPlay)
+    audio.addEventListener("canplaythrough", handleCanPlayThrough)
+    audio.addEventListener("play", handlePlay)
+    audio.addEventListener("playing", handlePlaying)
+    audio.addEventListener("pause", handlePause)
+    audio.addEventListener("loadedmetadata", handleLoadedMetadata)
+    audio.addEventListener("suspend", handleSuspend)
+    audio.addEventListener("stalled", handleStalled)
+    audio.addEventListener("abort", handleAbort)
+
+    return () => {
+      audio.removeEventListener("timeupdate", handleTimeUpdate)
+      audio.removeEventListener("error", handleError)
+      audio.removeEventListener("loadstart", handleLoadStart)
+      audio.removeEventListener("canplay", handleCanPlay)
+      audio.removeEventListener("canplaythrough", handleCanPlayThrough)
+      audio.removeEventListener("play", handlePlay)
+      audio.removeEventListener("playing", handlePlaying)
+      audio.removeEventListener("pause", handlePause)
+      audio.removeEventListener("loadedmetadata", handleLoadedMetadata)
+      audio.removeEventListener("suspend", handleSuspend)
+      audio.removeEventListener("stalled", handleStalled)
+      audio.removeEventListener("abort", handleAbort)
+    }
+  }, [volume, isMobile])
+
+
+
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).debugAudio = () => {
+        const audio = audioRef.current
+        if (!audio) return console.error("No audio ref")
+        
+        console.log("=== AUDIO DEBUG INFO ===")
+        console.log("Source:", audio.src)
+        console.log("State:", {
+          paused: audio.paused,
+          ended: audio.ended,
+          currentTime: audio.currentTime,
+          duration: audio.duration,
+          volume: audio.volume,
+          muted: audio.muted
+        })
+        console.log("Readiness:", {
+          readyState: audio.readyState + " (0=HAVE_NOTHING, 1=HAVE_METADATA, 2=HAVE_CURRENT_DATA, 3=HAVE_FUTURE_DATA, 4=HAVE_ENOUGH_DATA)",
+          networkState: audio.networkState + " (0=NETWORK_EMPTY, 1=NETWORK_IDLE, 2=NETWORK_LOADING, 3=NETWORK_NO_SOURCE)"
+        })
+        console.log("Error:", audio.error?.message || "none")
+        console.log("CanPlayType (audio/mpeg):", audio.canPlayType('audio/mpeg'))
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (window as any).playTest = (url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3") => {
+        const audio = audioRef.current
+        if (!audio) return console.error("No audio ref")
+        
+        console.log("Testing playback with URL:", url)
+        audio.src = url
+        audio.currentTime = 0
+        
+        const playPromise = audio.play()
+        if (playPromise) {
+          playPromise
+            .then(() => console.log("Play succeeded"))
+            .catch(e => console.error("Play failed:", e.message))
+        }
+      }
+
+      console.log("Debug utilities loaded. Try: window.debugAudio() or window.playTest()")
+    }
+  }, [])
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    if (!currentTrack || !progressRef.current) {
+      return
+    }
 
     const rect = progressRef.current.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const percentage = x / rect.width
+    let x: number
+    
+    // Handle both mouse and touch events
+    if ('clientX' in e) {
+      x = e.clientX - rect.left
+    } else {
+      x = e.touches[0].clientX - rect.left
+    }
+    
+    const percentage = Math.max(0, Math.min(1, x / rect.width))
     const newTime = percentage * currentTrack.duration
 
     setCurrentTime(newTime)
     if (audioRef.current) {
       audioRef.current.currentTime = newTime
     }
+    
+    commands.seek(newTime * 1000)
   }
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -455,9 +658,18 @@ export default function RoomPage() {
   const handlePrevious = () => {
     if (recentTracks.length > 0 && currentTrack) {
       const newRecent: Track[] = [currentTrack, ...recentTracks.slice(1)]
-      setCurrentTrack(recentTracks[0])
+      const prevTrack = recentTracks[0]
+      setCurrentTrack(prevTrack)
       setRecentTracks(newRecent)
       setCurrentTime(0)
+      // Broadcast track change to other devices
+      commands.trackChange({
+        id: prevTrack.id,
+        title: prevTrack.title,
+        artist: prevTrack.artist,
+        duration: prevTrack.duration,
+        audioUrl: prevTrack.audioUrl || ""
+      })
     }
   }
 
@@ -477,20 +689,47 @@ export default function RoomPage() {
       if (repeatMode === 'one') {
         setIsPlaying(true)
       }
+      // Broadcast track change to other devices
+      commands.trackChange({
+        id: nextTrack.id,
+        title: nextTrack.title,
+        artist: nextTrack.artist,
+        duration: nextTrack.duration,
+        audioUrl: nextTrack.audioUrl || ""
+      })
     } else if (repeatMode === 'all' && recentTracks.length > 0) {
       const nextTrack = recentTracks[0]
       setRecentTracks(prev => [...prev.slice(1), currentTrack!])
       setCurrentTrack(nextTrack)
       setCurrentTime(0)
       setIsPlaying(true)
+      // Broadcast track change to other devices
+      commands.trackChange({
+        id: nextTrack.id,
+        title: nextTrack.title,
+        artist: nextTrack.artist,
+        duration: nextTrack.duration,
+        audioUrl: nextTrack.audioUrl || ""
+      })
     } else if (recentTracks.length > 0) {
       const newRecent = [...recentTracks]
       if (currentTrack) {
         newRecent.unshift(currentTrack)
       }
-      setCurrentTrack(newRecent.pop() || null)
+      const prevTrack = newRecent.pop() || null
+      setCurrentTrack(prevTrack)
       setRecentTracks(newRecent)
       setCurrentTime(0)
+      // Broadcast track change to other devices
+      if (prevTrack) {
+        commands.trackChange({
+          id: prevTrack.id,
+          title: prevTrack.title,
+          artist: prevTrack.artist,
+          duration: prevTrack.duration,
+          audioUrl: prevTrack.audioUrl || ""
+        })
+      }
     }
   }
 
@@ -572,6 +811,14 @@ export default function RoomPage() {
     setCurrentTrack(queueItem)
     setCurrentTime(0)
     setIsPlaying(true)
+    // Broadcast track change to other devices
+    commands.trackChange({
+      id: queueItem.id,
+      title: queueItem.title,
+      artist: queueItem.artist,
+      duration: queueItem.duration,
+      audioUrl: queueItem.audioUrl || ""
+    })
   }
 
   const clearQueue = () => {
@@ -616,13 +863,8 @@ export default function RoomPage() {
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
-        const token = localStorage.getItem("token")
-        if (!token) return
-
-        const res = await fetch(`${apiUrl}/auth/dashboard`, {
-          method: "GET",
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: "include"
+        const res = await authFetch(`${apiUrl}/auth/dashboard`, {
+          method: "GET"
         })
 
         if (res.ok) {
@@ -711,21 +953,29 @@ export default function RoomPage() {
                 <div className="mt-6">
                   <div
                     ref={progressRef}
-                    className="w-full h-2 bg-gray-700 rounded-full cursor-pointer relative group"
+                    className={`w-full h-2 rounded-full relative group ${
+                      localIsHost 
+                        ? "bg-gray-700 cursor-pointer hover:h-3" 
+                        : "bg-gray-700 cursor-not-allowed"
+                    } transition-all touch-none`}
                     onClick={handleSeek}
+                    onTouchEnd={handleSeek}
+                    title={localIsHost ? "Seek to position" : "Only host can seek"}
                   >
                     <div
                       className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all"
                       style={{ width: `${progressPercentage}%` }}
                     />
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ left: `calc(${progressPercentage}% - 8px)` }}
-                    />
+                    {localIsHost && (
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ left: `calc(${progressPercentage}% - 8px)` }}
+                      />
+                    )}
                   </div>
                   <div className="flex justify-between text-xs text-gray-400 mt-2">
                     <span>{formatTime(currentTime)}</span>
-                    <span>{currentTrack ? formatTime(currentTrack.duration) : "0:00"}</span>
+                    <span>{audioRef.current?.duration && !isNaN(audioRef.current.duration) ? formatTime(audioRef.current.duration) : (currentTrack ? formatTime(currentTrack.duration) : "0:00")}</span>
                   </div>
                 </div>
 
@@ -750,9 +1000,20 @@ export default function RoomPage() {
                     </button>
                     <button
                       onClick={startPlaySync}
-                      className="p-4 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-full transition-all shadow-lg shadow-blue-500/25"
+                      className={`p-4 rounded-full transition-all shadow-lg relative group ${
+                        localIsHost
+                          ? "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 shadow-blue-500/25"
+                          : "bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 cursor-not-allowed shadow-gray-600/25"
+                      }`}
+                      disabled={!localIsHost}
+                      title={isPlaying ? "Pause" : "Play"}
                     >
                       {isPlaying ? <Pause size={32} /> : <Play size={32} className="ml-1" />}
+                      {!localIsHost && (
+                        <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-xs text-yellow-400 px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          Host only
+                        </span>
+                      )}
                     </button>
                     <button
                       onClick={handleNext}
@@ -925,6 +1186,13 @@ export default function RoomPage() {
                       setCurrentTrack(track)
                       setCurrentTime(0)
                       setIsPlaying(true)
+                      commands.trackChange({
+                        id: track.id,
+                        title: track.title,
+                        artist: track.artist,
+                        duration: track.duration,
+                        audioUrl: track.audioUrl || ""
+                      })
                     }}
                   >
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg overflow-hidden flex-shrink-0">
@@ -1024,6 +1292,32 @@ export default function RoomPage() {
               </div>
 
               <div className="p-3 bg-gray-700/30 rounded-lg">
+                <div className="flex items-center gap-2 mb-3">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-400"><circle cx="12" cy="12" r="1"></circle><path d="M12 1v6"></path><path d="M4.22 4.22l4.24 4.24"></path><path d="M1 12h6"></path><path d="M4.22 19.78l4.24-4.24"></path><path d="M12 17v6"></path><path d="M19.78 19.78l-4.24-4.24"></path><path d="M23 12h-6"></path><path d="M19.78 4.22l-4.24 4.24"></path></svg>
+                  <span className="text-sm text-gray-400">Network Stats</span>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">RTT (Round Trip)</span>
+                    <span className="font-mono text-blue-400 font-semibold">{Math.round(playbackState.rttMs)}ms</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Latency (one-way)</span>
+                    <span className="font-mono text-blue-400 font-semibold">{Math.round(playbackState.latencyMs)}ms</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Time Offset</span>
+                    <span className="font-mono text-blue-400 font-semibold">{Math.round(playbackState.serverOffsetMs)}ms</span>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-gray-600">
+                    <p className="text-xs text-gray-500">
+                      {playbackState.rttMs < 100 ? "✅ Excellent connection" : playbackState.rttMs < 200 ? "🟢 Good connection" : "🟡 Moderate latency"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-gray-700/30 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
                   <Radio size={16} className="text-gray-400" />
                   <span className="text-sm text-gray-400">Room Type</span>
@@ -1043,7 +1337,7 @@ export default function RoomPage() {
                     )}
                     <span className="text-sm text-gray-400">Visibility</span>
                   </div>
-                  {isHost && (
+                  {localIsHost && (
                     <button
                       className="text-xs text-blue-400 hover:text-blue-300"
                       onClick={() => toast.info("Feature coming soon - Update room visibility")}
@@ -1065,7 +1359,7 @@ export default function RoomPage() {
               {roomData?.wifiSSID && (
                 <div className="p-3 bg-gray-700/30 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
-                    <Wifi size={16} className="text-gray-400" />
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.94 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
                     <span className="text-sm text-gray-400">WiFi Network</span>
                   </div>
                   <p className="text-white font-medium">{roomData.wifiSSID}</p>
@@ -1088,7 +1382,8 @@ export default function RoomPage() {
                 </div>
               )}
 
-              {isHost && (
+
+              {localIsHost && (
                 <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                   <div className="flex items-center gap-2">
                     <Crown size={16} className="text-yellow-400" />
@@ -1121,9 +1416,6 @@ export default function RoomPage() {
           </div>
         </div>
       </div>
-
-      <audio ref={audioRef} />
-
       {showSearchModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-gray-800 rounded-2xl border border-gray-700 w-full max-w-2xl max-h-[80vh] flex flex-col">
@@ -1143,7 +1435,9 @@ export default function RoomPage() {
 
             <div className="p-6 flex-1 overflow-y-auto">
               <div className="relative mb-6">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+                </div>
                 <input
                   type="text"
                   placeholder="Search for songs, artists, albums..."
@@ -1237,6 +1531,30 @@ export default function RoomPage() {
           </div>
         </div>
       )}
+
+      {isDevelopment() && isMobile && (
+        <div className="fixed bottom-24 left-4 right-4 bg-gray-900/95 border border-yellow-600 rounded-lg p-4 text-xs font-mono max-h-40 overflow-y-auto z-40">
+          <div className="mb-2 font-bold text-yellow-400">🔧 DEV DEBUG</div>
+          <div className="space-y-1 text-gray-300">
+            <div>Device: {navigator.userAgent.substring(0, 50)}...</div>
+            <div>Host: {localIsHost ? "YES" : "NO"}</div>
+            <div>Playing: {isPlaying ? "Playing" : "Not Playing"}</div>
+            <div>Track: {currentTrack?.title || "None"}</div>
+            <div>Time: {formatTime(currentTime)} / {formatTime(audioRef.current?.duration || currentTrack?.duration || 0)}</div>
+            <div>Audio Ready: {audioRef.current?.readyState === 4 ? "true" : `${audioRef.current?.readyState}`}</div>
+            <div>Audio Paused: {audioRef.current?.paused ? "Paused" : "Not Paused"}</div>
+            <div>Volume: {Math.round((audioRef.current?.volume || 0) * 100)}%</div>
+            <div>Audio Duration: {audioRef.current?.duration || "loading"}s</div>
+          </div>
+        </div>
+      )}
+
+      <audio 
+        ref={audioRef}
+        crossOrigin="anonymous"
+        preload="auto"
+        playsInline
+      />
     </div>
   )
 }

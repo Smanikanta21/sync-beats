@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import Image from 'next/image';
 import { toast } from 'react-toastify';
 import jsQR from 'jsqr';
+import { authFetch } from '@/lib/authFetch';
 
 export function CreateRoom({ onBack }: { onBack: () => void }) {
     const [roomName, setRoomName] = useState<string>("");
@@ -18,18 +19,15 @@ export function CreateRoom({ onBack }: { onBack: () => void }) {
     const handleCreateRoom = async () => {
         try {
             setLoading(true)
-            const token = localStorage.getItem('token')
-            const res = await fetch(`${url}/api/createroom`, {
+            const res = await authFetch(`${url}/api/createroom`, {
                 method: "POST",
                 headers: {
-                    "content-type": "application/json",
-                    Authorization: token ? `Bearer ${token}` : "",
+                    "content-type": "application/json"
                 },
                 body: JSON.stringify({ 
                     name: roomName, 
                     type: roomType
-                }),
-                credentials: "include"
+                })
             })
             const data = await res.json()
             if (res.ok && data.room) {
@@ -128,15 +126,12 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
 
         try {
             setLoading(true);
-            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-            const res = await fetch(`${url}/api/joinroom`, {
+            const res = await authFetch(`${url}/api/joinroom`, {
                 method: "POST",
                 headers: {
-                    "content-type": "application/json",
-                    Authorization: token ? `Bearer ${token}` : "",
+                    "content-type": "application/json"
                 },
-                body: JSON.stringify({ code: codeToJoin }),
-                credentials: "include"
+                body: JSON.stringify({ code: codeToJoin })
             });
 
             const data = await res.json();

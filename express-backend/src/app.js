@@ -8,6 +8,14 @@ const app = express()
 const authroutes = require('./routes/routes');
 const router = require('./routes/routes')
 
+const createLogger = (namespace) => ({
+  info: (msg, data) => console.log(`[${namespace}] ℹ️  ${msg}`, data ? data : ''),
+  error: (msg, err) => console.error(`[${namespace}] ❌ ${msg}`, err ? err.message : ''),
+  warn: (msg, data) => console.warn(`[${namespace}] ⚠️  ${msg}`, data ? data : ''),
+})
+
+const logger = createLogger('Express')
+
 app.use(cors({
   origin: [`${process.env.FRONTEND_DEV_URL}`,`${process.env.FRONTEND_URL}`,`${process.env.BACKEND_URL}`,`${process.env.FRONTEND_N_DEV_URL}`],
   methods: ['GET','POST','DELETE','PATCH','PUT'],
@@ -38,18 +46,22 @@ app.get('/', (req, res) => {
 })
 
 
-app.use((req,res) => {
+app.use((req, res) => {
+  logger.warn(`404 - Route not found: ${req.path}`)
   res.status(404).json({ message: 'Not Found' })
 })
 
 app.use((err, req, res, next) => {
-  console.error(err)
-  res.status(500).json({ message: 'Server Error' })
+  logger.error(`Request error: ${req.path}`, err)
+  res.status(err.status || 500).json({ 
+    message: process.env.NODE_ENV === 'production' ? 'Server Error' : err.message,
+    ...(process.env.NODE_ENV !== 'production' && { error: err.stack })
+  })
 })
 
 if (process.env.NODE_ENV !== 'production') {
   app.listen(process.env.PORT, () => {
-    console.log(`Server is running on port ${process.env.PORT}`)
+    logger.info(`✅ Server is running on port ${process.env.PORT}`)
   })
 }
 

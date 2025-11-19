@@ -5,19 +5,15 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const axios = require('axios');
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT;
-const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'refresh-secret-key';
-const ACCESS_TOKEN_EXPIRY = '15m';
-const REFRESH_TOKEN_EXPIRY = '7d';
+const TOKEN_EXPIRY = '7d';
 
 function getDeviceName(name, userAgent) {
     const parser = new UAParser(userAgent)
     const device = parser.getDevice()
     const os = parser.getOS()
-    const browser = parser.getBrowser()
 
     let device_type = 'device';
     if (os.name === 'iOS') device_type = 'iPhone';
@@ -32,52 +28,64 @@ function getDeviceName(name, userAgent) {
     return `${name}'s ${device_type}`
 }
 
-function generateAccessToken(user) {
+function generateToken(user) {
     return jwt.sign(
-        { id: user.id, email: user.email, name: user.name, type: 'access' },
+        { id: user.id, email: user.email, name: user.name },
         JWT_SECRET,
-        { expiresIn: ACCESS_TOKEN_EXPIRY }
+        { expiresIn: TOKEN_EXPIRY }
     );
 }
 
-function generateRefreshToken(user) {
-    return jwt.sign(
-        { id: user.id, email: user.email, type: 'refresh' },
-        REFRESH_TOKEN_SECRET,
-        { expiresIn: REFRESH_TOKEN_EXPIRY }
-    );
-}
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_REDIRECT_URL
+},
+    async (accessToken, refreshToken, profile, done) => {
+        try {
+            const email = profile.emails[0].value;
+            const name = profile.displayName;
 
-async function saveRefreshToken(userId, refreshToken) {
-    try {
-        const hashedToken = await bcrypt.hash(refreshToken, 10);
-        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        
-        const result = await prisma.refreshToken.upsert({
-            where: { userId },
-            update: { token: hashedToken, expiresAt },
-            create: { userId, token: hashedToken, expiresAt }
-        });
-        
-        console.log("Refresh token saved for user:", userId);
-        return result;
-    } catch (err) {
-        console.error("Error saving refresh token:", err.message);
-        throw err;
-    }
-}
+            let user = await prisma.Users.findUnique({
+                where: { email }
+            });
 
-async function verifyRefreshToken(userId, refreshToken) {
-    try {
-        const stored = await prisma.refreshToken.findUnique({ where: { userId } });
-        if (!stored || stored.expiresAt < new Date()) return null;
-        
-        const isValid = await bcrypt.compare(refreshToken, stored.token);
-        return isValid ? jwt.verify(refreshToken, REFRESH_TOKEN_SECRET) : null;
-    } catch (err) {
-        return null;
+            if (!user) {
+                user = await prisma.Users.create({
+                    data: {
+                        name,
+                        email,
+                        username: email.split('@')[0] + Math.random().toString(36).substring(7),
+                        password: '',
+                        googleId: profile.id
+                    }
+                });
+            } else if (!user.googleId) {
+                await prisma.Users.update({
+                    where: { id: user.id },
+                    data: { googleId: profile.id }
+                });
+            }
+
+            return done(null, user);
+        } catch (err) {
+            return done(err, null);
+        }
     }
-}
+));
+
+passport.serializeUser((user, done) => {
+    done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+    try {
+        const user = await prisma.Users.findUnique({ where: { id } });
+        done(null, user);
+    } catch (err) {
+        done(err, null);
+    }
+});
 
 async function signup(req, res, next) {
     try {
@@ -102,15 +110,10 @@ async function signup(req, res, next) {
 }
 
 async function login(req, res, next) {
-
     try {
         const { identifier, password } = req.body;
-        if (!identifier)
-            return res.status(400).json({ message: "Email or Username required" });
-
-        if (!password) {
-            return res.status(400).json({ message: " password required" })
-        }
+        if (!identifier) return res.status(400).json({ message: "Email or Username required" });
+        if (!password) return res.status(400).json({ message: "Password required" });
 
         const user = await prisma.Users.findFirst({
             where: {
@@ -120,18 +123,14 @@ async function login(req, res, next) {
                 ]
             }
         });
-        if (!user) {
-            return res.status(400).json({ message: "User not found" });
-        }
+        if (!user) return res.status(400).json({ message: "User not found" });
 
         const ok = await bcrypt.compare(password, user.password);
         if (!ok) return res.status(400).json({ message: "Invalid password" });
 
-        const accessToken = generateAccessToken(user);
-        const refreshToken = generateRefreshToken(user);
-        await saveRefreshToken(user.id, refreshToken);
-
+        const token = generateToken(user);
         const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Unknown Device");
+        
         const existingDevice = await prisma.device.findFirst({
             where: { DeviceUserId: user.id, name: deviceName }
         });
@@ -155,126 +154,30 @@ async function login(req, res, next) {
             });
         }
 
-        res
-            .cookie("accessToken", accessToken, { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 15 * 60 * 1000 })
-            .cookie("refreshToken", refreshToken, { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000 })
-            .json({ message: "Login success", accessToken, refreshToken, deviceName });
+        res.cookie("token", token, { 
+            httpOnly: true, 
+            secure: false,
+            sameSite: 'none',
+            path: '/',
+            maxAge: 7 * 24 * 60 * 60 * 1000 
+        });
+
+        // Return token in response for Bearer token fallback (dev support)
+        res.json({ message: "Login success", deviceName, token });
     } catch (err) {
-        console.log(err)
+        console.error(err);
         next(err);
     }
 }
 
 async function logout(req, res, next) {
     try {
-        const userId = req.user?.id;
-        
-        if (userId) {
-            await prisma.refreshToken.delete({ 
-                where: { userId } 
-            }).catch(() => null);
-        }
-        
-        res
-            .clearCookie("accessToken", { httpOnly: true, secure: true, sameSite: 'strict' })
-            .clearCookie("refreshToken", { httpOnly: true, secure: true, sameSite: 'strict' })
+        res.clearCookie("token", { httpOnly: true, secure: false, sameSite: 'none' })
             .json({ message: "Logout success" });
     } catch (err) {
         next(err);
     }
 }
-
-async function refreshAccessToken(req, res, next) {
-    try {
-        const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
-        
-        if (!refreshToken) {
-            return res.status(401).json({ message: "Refresh token missing" });
-        }
-
-        const decoded = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
-        const isValid = await verifyRefreshToken(decoded.id, refreshToken);
-        
-        if (!isValid) {
-            return res.status(401).json({ message: "Invalid or expired refresh token" });
-        }
-
-        const user = await prisma.users.findUnique({ where: { id: decoded.id } });
-        if (!user) {
-            return res.status(401).json({ message: "User not found" });
-        }
-
-        const newAccessToken = generateAccessToken(user);
-        const newRefreshToken = generateRefreshToken(user);
-        await saveRefreshToken(user.id, newRefreshToken);
-
-        res
-            .cookie("accessToken", newAccessToken, { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 15 * 60 * 1000 })
-            .cookie("refreshToken", newRefreshToken, { httpOnly: true, secure: true, sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000 })
-            .json({ message: "Token refreshed", accessToken: newAccessToken, refreshToken: newRefreshToken });
-    } catch (err) {
-        return res.status(401).json({ message: "Token refresh failed" });
-    }
-}
-
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.GOOGLE_REDIRECT_URL,
-    accessType: 'offline',
-    prompt: 'consent'
-},
-    async (accessToken, refreshToken, profile, done) => {
-        try {
-            const email = profile.emails[0].value;
-            const name = profile.displayName;
-
-            let user = await prisma.Users.findUnique({
-                where: { email }
-            });
-
-            if (!user) {
-                user = await prisma.Users.create({
-                    data: {
-                        name,
-                        email,
-                        username: email.split('@')[0] + Math.random().toString(36).substring(7),
-                        password: '',
-                        googleId: profile.id,
-                        googleRefreshToken: refreshToken || null
-                    }
-                });
-            } else {
-                await prisma.Users.update({
-                    where: { id: user.id },
-                    data: {
-                        googleId: profile.id,
-                        googleRefreshToken: refreshToken || user.googleRefreshToken
-                    }
-                });
-            }
-
-            return done(null, user);
-        } catch (err) {
-            return done(err, null);
-        }
-    }));
-
-passport.serializeUser((user, done) => {
-    done(null, user.id);
-});
-
-passport.deserializeUser(async (id, done) => {
-    try {
-        const user = await prisma.Users.findUnique({
-            where: { id }
-        });
-        done(null, user);
-    } catch (err) {
-        done(err, null);
-    }
-});
-
 
 async function googleAuthCallback(req, res) {
     try {
@@ -286,12 +189,7 @@ async function googleAuthCallback(req, res) {
 
         console.log("🔐 Google OAuth user:", user.email);
 
-        const accessToken = generateAccessToken(user);
-        const refreshToken = generateRefreshToken(user);
-        
-        console.log("📝 Generated tokens - Saving refresh token to DB...");
-        await saveRefreshToken(user.id, refreshToken);
-
+        const token = generateToken(user);
         const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Google OAuth Device");
 
         const existingDevice = await prisma.device.findFirst({
@@ -318,27 +216,21 @@ async function googleAuthCallback(req, res) {
             });
         }
 
-        res
-            .cookie("accessToken", accessToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
-                maxAge: 15 * 60 * 1000
-            })
-            .cookie("refreshToken", refreshToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
-                maxAge: 7 * 24 * 60 * 60 * 1000
-            });
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: false,
+            sameSite: 'none',
+            path: '/',
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
 
         console.log("✅ Google auth successful - Redirecting to dashboard");
         return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/dashboard?auth=success`);
 
     } catch (err) {
-        console.error("❌ Google Auth Callback Error:", err);
+        console.error("Google Auth Callback Error:", err);
         return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/?error=google_auth_failed`);
     }
 }
 
-module.exports = { signup, login, logout, refreshAccessToken, getDeviceName, googleAuthCallback };
+module.exports = { signup, login, logout, getDeviceName, googleAuthCallback };

@@ -3,6 +3,7 @@ import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { toast } from "react-toastify"
 import { Music, Users, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import { authFetch, getUserIdFromToken } from "@/lib/authFetch"
 
 export default function JoinRoomPage() {
     const params = useParams();
@@ -29,21 +30,9 @@ export default function JoinRoomPage() {
                 if (typeof window === 'undefined') {
                     return;
                 }
-                
-                const token = localStorage.getItem("token");
-                
-                if (!token) {
-                    toast.error("Please login first");
-                    router.push('/');
-                    return;
-                }
 
-                const res = await fetch(`${url}/api/verifyroom/${roomcode}`, {
-                    method: "GET",
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                    credentials: "include"
+                const res = await authFetch(`${url}/api/verifyroom/${roomcode}`, {
+                    method: "GET"
                 });
 
                 const data = await res.json();
@@ -72,26 +61,20 @@ export default function JoinRoomPage() {
     const handleJoinRoom = async () => {
         try {
             setJoining(true);
-            if (typeof window === 'undefined') {
-                return;
-            }
             
-            const token = localStorage.getItem("token");
-            
-            if (!token) {
+            const userId = getUserIdFromToken();
+            if (!userId) {
                 toast.error("Please login first");
                 router.push('/');
                 return;
             }
 
-            const res = await fetch(`${url}/api/joinroom`, {
+            const res = await authFetch(`${url}/api/joinroom`, {
                 method: "POST",
                 headers: {
-                    "content-type": "application/json",
-                    Authorization: `Bearer ${token}`,
+                    "content-type": "application/json"
                 },
-                body: JSON.stringify({ code: roomcode }),
-                credentials: "include"
+                body: JSON.stringify({ code: roomcode })
             });
 
             const data = await res.json();

@@ -19,7 +19,7 @@ Stack Overview:
 ●   Hosting:
 
 
-○   Frontend → Vercel
+○   Frontend → Vercel: 
 ○   Backend → Vercel and render
 ○   Database → Neon.tech
 

@@ -24,13 +24,10 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    const user = params.get('user');
+    const authSuccess = params.get('auth');
     
-    if (token) {
-      localStorage.setItem('token', token);
-      
-      toast.success(`Welcome ${user}!`);
+    if (authSuccess === 'success') {
+      toast.success('Signup successful!');
       router.push('/dashboard');
       setShowSignup(false);
     }
@@ -50,17 +47,16 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
         body : JSON.stringify({name,username,email,password})
       })
       const data = await res.json()
-      console.log(data)
 
       if(res.ok){
-        toast.success("Signup Successfull")
+        toast.success("Signup successful! Please log in.")
         setShowSignup(false)
         setShowLogin(true);
       }else{
-        toast.error("signup Failed: " + JSON.stringify(data));
+        toast.error("Signup failed: " + data.message);
       }
     }catch(err){
-      toast.error(`Error during Signup : ${err}`)
+      toast.error(`Error during signup`)
     }finally{
       setLoading(false)
     }

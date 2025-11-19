@@ -20,12 +20,9 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const token = params.get('token');
-        const user = params.get('user');
-        if (token) {
-            localStorage.setItem('token', token);
-            
-            toast.success(`Welcome ${user}!`);
+        const authSuccess = params.get('auth');
+        if (authSuccess === 'success') {
+            toast.success('Login successful!');
             router.push('/dashboard');
             setShowLogin?.(false);
         }
@@ -35,6 +32,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
         e.preventDefault()
         try {
             setLoading(true)
+            console.log(`[Login] Attempting login to ${API_BASE}/auth/login with credentials: include`)
             const res = await fetch(`${API_BASE}/auth/login`, {
                 method: "POST",
                 headers: { "content-type": "application/json" },
@@ -42,19 +40,24 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
                 body: JSON.stringify({ identifier, password })
             })
             const data = await res.json()
-            console.log(data)
+            console.log(`[Login] Response status: ${res.status}`, data)
 
             if (res.ok) {
-                localStorage.setItem('token', data.token)
-                
-                toast.success("logged in Successfull")
+                toast.success("Login successful")
+                console.log(`[Login] Redirecting to dashboard...`)
+                // For development: store token for Bearer auth fallback when cookies don't work
+                if (data.token) {
+                    console.log(`[Login] Development mode: storing token for Bearer auth`)
+                    localStorage.setItem('authToken', data.token)
+                }
                 router.push('/dashboard')
             } else {
-                toast.error(`logging in failed ${data.message}`)
+                toast.error(`Login failed: ${data.message}`)
+                console.error(`[Login] Login failed with status ${res.status}:`, data)
             }
         } catch (err) {
-            console.log(err)
-            toast.error(`login failed because ${err}`)
+            console.error(`[Login] Fetch error:`, err)
+            toast.error(`Login failed`)
         } finally {
             setLoading(false)
         }
