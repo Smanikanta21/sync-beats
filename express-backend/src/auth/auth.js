@@ -8,12 +8,12 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 const prisma = new PrismaClient();
 const JWT_SECRET = process.env.JWT;
+const TOKEN_EXPIRY = '7d';
 
 function getDeviceName(name, userAgent) {
     const parser = new UAParser(userAgent)
     const device = parser.getDevice()
     const os = parser.getOS()
-    const browser = parser.getBrowser()
 
     let device_type = 'device';
     if (os.name === 'iOS') device_type = 'iPhone';
@@ -27,6 +27,65 @@ function getDeviceName(name, userAgent) {
 
     return `${name}'s ${device_type}`
 }
+
+function generateToken(user) {
+    return jwt.sign(
+        { id: user.id, email: user.email, name: user.name },
+        JWT_SECRET,
+        { expiresIn: TOKEN_EXPIRY }
+    );
+}
+
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_REDIRECT_URL
+},
+    async (accessToken, refreshToken, profile, done) => {
+        try {
+            const email = profile.emails[0].value;
+            const name = profile.displayName;
+
+            let user = await prisma.Users.findUnique({
+                where: { email }
+            });
+
+            if (!user) {
+                user = await prisma.Users.create({
+                    data: {
+                        name,
+                        email,
+                        username: email.split('@')[0] + Math.random().toString(36).substring(7),
+                        password: '',
+                        googleId: profile.id
+                    }
+                });
+            } else if (!user.googleId) {
+                await prisma.Users.update({
+                    where: { id: user.id },
+                    data: { googleId: profile.id }
+                });
+            }
+
+            return done(null, user);
+        } catch (err) {
+            return done(err, null);
+        }
+    }
+));
+
+passport.serializeUser((user, done) => {
+    done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+    try {
+        const user = await prisma.Users.findUnique({ where: { id } });
+        done(null, user);
+    } catch (err) {
+        done(err, null);
+    }
+});
 
 async function signup(req, res, next) {
     try {
@@ -51,15 +110,10 @@ async function signup(req, res, next) {
 }
 
 async function login(req, res, next) {
-
     try {
         const { identifier, password } = req.body;
-        if (!identifier)
-            return res.status(400).json({ message: "Email or Username required" });
-
-        if (!password) {
-            return res.status(400).json({ message: " password required" })
-        }
+        if (!identifier) return res.status(400).json({ message: "Email or Username required" });
+        if (!password) return res.status(400).json({ message: "Password required" });
 
         const user = await prisma.Users.findFirst({
             where: {
@@ -69,19 +123,14 @@ async function login(req, res, next) {
                 ]
             }
         });
-        if (!user) {
-            return res.status(400).json({ message: "User not found" });
-        }
+        if (!user) return res.status(400).json({ message: "User not found" });
 
         const ok = await bcrypt.compare(password, user.password);
         if (!ok) return res.status(400).json({ message: "Invalid password" });
 
-        const token = jwt.sign(
-            { id: user.id, email: user.email, name: user.name },
-            JWT_SECRET,
-        );
-
+        const token = generateToken(user);
         const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Unknown Device");
+        
         const existingDevice = await prisma.device.findFirst({
             where: { DeviceUserId: user.id, name: deviceName }
         });
@@ -105,86 +154,30 @@ async function login(req, res, next) {
             });
         }
 
-        res
-            .cookie("token", token, { httpOnly: true })
-            .json({ message: "Login success", token, deviceName });
+        res.cookie("token", token, { 
+            httpOnly: true, 
+            secure: false,
+            sameSite: 'none',
+            path: '/',
+            maxAge: 7 * 24 * 60 * 60 * 1000 
+        });
+
+        // Return token in response for Bearer token fallback (dev support)
+        res.json({ message: "Login success", deviceName, token });
     } catch (err) {
-        console.log(err)
+        console.error(err);
         next(err);
     }
 }
 
 async function logout(req, res, next) {
     try {
-        res.clearCookie("token", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-        });
-        
-        if (req.session) {
-            req.session.destroy((err) => {
-                if (err) {
-                    console.log("Session destruction error:", err);
-                }
-            });
-        }
-        
-        res.json({ 
-            message: "Logout success",
-            note: "All cookies cleared. Client should also clear localStorage tokens."
-        });
+        res.clearCookie("token", { httpOnly: true, secure: false, sameSite: 'none' })
+            .json({ message: "Logout success" });
     } catch (err) {
         next(err);
     }
 }
-
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.GOOGLE_REDIRECT_URL
-},
-    async (accessToken, refreshToken, profile, done) => {
-        try {
-            const email = profile.emails[0].value;
-            const name = profile.displayName;
-
-            let user = await prisma.Users.findUnique({
-                where: { email }
-            });
-
-            if (!user) {
-                user = await prisma.Users.create({
-                    data: {
-                        name,
-                        email,
-                        username: email.split('@')[0] + Math.random().toString(36).substring(7),
-                        password: ''
-                    }
-                });
-            }
-
-            return done(null, user);
-        } catch (err) {
-            return done(err, null);
-        }
-    }));
-
-passport.serializeUser((user, done) => {
-    done(null, user.id);
-});
-
-passport.deserializeUser(async (id, done) => {
-    try {
-        const user = await prisma.Users.findUnique({
-            where: { id }
-        });
-        done(null, user);
-    } catch (err) {
-        done(err, null);
-    }
-});
-
 
 async function googleAuthCallback(req, res) {
     try {
@@ -194,11 +187,9 @@ async function googleAuthCallback(req, res) {
             return res.status(401).json({ message: "Authentication failed" });
         }
 
-        const token = jwt.sign(
-            { id: user.id, email: user.email, name: user.name },
-            JWT_SECRET,
-        );
+        console.log("🔐 Google OAuth user:", user.email);
 
+        const token = generateToken(user);
         const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Google OAuth Device");
 
         const existingDevice = await prisma.device.findFirst({
@@ -224,17 +215,20 @@ async function googleAuthCallback(req, res) {
                 }
             });
         }
+
         res.cookie("token", token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
-            maxAge: 7 * 24 * 60 * 60 * 1000,
+            secure: false,
+            sameSite: 'none',
+            path: '/',
+            maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
-        return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/dashboard`);
+        console.log("✅ Google auth successful - Redirecting to dashboard");
+        return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/dashboard?auth=success`);
 
     } catch (err) {
-        console.log("Google Auth Callback Error:", err);
+        console.error("Google Auth Callback Error:", err);
         return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/?error=google_auth_failed`);
     }
 }

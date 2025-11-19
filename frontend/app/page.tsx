@@ -8,12 +8,12 @@ import SignupPage from './components/SignUpPage';
 export default function LandingPage() {
   const router = useRouter()
 
-  useEffect(()=>{
-    const token = localStorage.getItem('token')
-    if(token){
-      router.push('/dashboard')
-    }
-  },[router])
+//   useEffect(()=>{
+//     const token = localStorage.getItem('accessToken')
+//     if(token){
+//       router.push('/dashboard')
+//     }
+//   },[router])
 
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [showLogin, setShowLogin] = useState<boolean>(false);
@@ -200,7 +200,7 @@ export default function LandingPage() {
       </div>
       <footer className='sb-glass mt-12 rounded-xl p-8'>
         <div className='flex flex-col md:flex-row justify-between items-center gap-4'>
-          <div className='text-white/60 text-sm'>© {new Date().getFullYear()} Sync Beats. All rights reserved.</div>
+          <div className='text-white/60 text-sm'>© 2025 Sync Beats. All rights reserved.</div>
           <div className='flex flex-row gap-4'>
             <a href="#" className='text-white/60 hover:text-cyan-300'>Privacy Policy</a>
             <a href="#" className='text-white/60 hover:text-cyan-300'>Terms of Service</a>
@@ -210,3 +210,139 @@ export default function LandingPage() {
     </>
   );
 }
+
+
+// "use client"
+
+// import React, { useState, useEffect } from "react"
+// import { useRouter } from "next/navigation"
+// import { Music, Zap, Users, Lock } from "lucide-react"
+// import LoginPage from "./components/LoginPage"
+// import SignUpPage from "./components/SignUpPage"
+
+// export default function HomePage() {
+//   const router = useRouter()
+//   const [showLogin, setShowLogin] = useState(false)
+//   const [showSignup, setShowSignup] = useState(false)
+
+//   useEffect(() => {
+//     const token = localStorage.getItem("token")
+//     if (token) {
+//       router.push("/dashboard")
+//     }
+//   }, [router])
+
+//   if (showLogin) {
+//     return <LoginPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />
+//   }
+
+//   if (showSignup) {
+//     return <SignUpPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />
+//   }
+
+//   return (
+//     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden">
+//       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_50%,rgba(139,92,246,0.15),transparent_50%),radial-gradient(circle_at_80%_80%,rgba(59,130,246,0.15),transparent_50%)]" />
+
+//       <nav className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-slate-700/30">
+//         <div className="flex items-center gap-2">
+//           <Music className="w-8 h-8 text-purple-400" />
+//           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-blue-400 bg-clip-text text-transparent">
+//             Sync Beats
+//           </h1>
+//         </div>
+//         <button
+//           onClick={() => setShowLogin(true)}
+//           className="px-6 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg font-medium transition"
+//         >
+//           Sign In
+//         </button>
+//       </nav>
+
+//       <div className="relative z-10 max-w-6xl mx-auto px-6 py-20">
+//         <div className="grid md:grid-cols-2 gap-12 items-center">
+//           <div>
+//             <h2 className="text-5xl font-bold mb-6 leading-tight">
+//               Music Sync Redefined
+//             </h2>
+//             <p className="text-xl text-slate-300 mb-8 leading-relaxed">
+//               Experience perfectly synchronized music playback across all your devices in real-time. 
+//               Create shared listening rooms and enjoy the same song at the exact same moment.
+//             </p>
+
+//             <div className="space-y-4 mb-10">
+//               <div className="flex items-start gap-4">
+//                 <Zap className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-1" />
+//                 <div>
+//                   <h3 className="font-semibold text-lg mb-1">Millisecond Precision</h3>
+//                   <p className="text-slate-400">
+//                     Advanced clock synchronization keeps all devices perfectly aligned
+//                   </p>
+//                 </div>
+//               </div>
+
+//               <div className="flex items-start gap-4">
+//                 <Users className="w-6 h-6 text-blue-400 flex-shrink-0 mt-1" />
+//                 <div>
+//                   <h3 className="font-semibold text-lg mb-1">Share Rooms</h3>
+//                   <p className="text-slate-400">
+//                     Invite friends to join your listening room with a simple code
+//                   </p>
+//                 </div>
+//               </div>
+
+//               <div className="flex items-start gap-4">
+//                 <Lock className="w-6 h-6 text-green-400 flex-shrink-0 mt-1" />
+//                 <div>
+//                   <h3 className="font-semibold text-lg mb-1">Secure & Private</h3>
+//                   <p className="text-slate-400">
+//                     OAuth 2.0 authentication and encrypted connections for your privacy
+//                   </p>
+//                 </div>
+//               </div>
+//             </div>
+
+//             <div className="flex gap-4">
+//               <button
+//                 onClick={() => setShowLogin(true)}
+//                 className="px-8 py-3 bg-purple-500 hover:bg-purple-600 rounded-lg font-semibold transition"
+//               >
+//                 Sign In
+//               </button>
+//               <button
+//                 onClick={() => setShowSignup(true)}
+//                 className="px-8 py-3 border border-slate-500 hover:bg-slate-800 rounded-lg font-semibold transition"
+//               >
+//                 Create Account
+//               </button>
+//             </div>
+//           </div>
+
+//           <div className="relative">
+//             <div className="bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-2xl p-8 border border-slate-700/50 backdrop-blur">
+//               <div className="space-y-4">
+//                 <div className="h-12 bg-slate-700/50 rounded-lg animate-pulse" />
+//                 <div className="h-32 bg-gradient-to-br from-purple-400/20 to-blue-400/20 rounded-lg border border-slate-600/50 flex items-center justify-center">
+//                   <Music className="w-16 h-16 text-slate-600" />
+//                 </div>
+//                 <div className="h-8 bg-slate-700/50 rounded-lg animate-pulse" />
+//                 <div className="grid grid-cols-3 gap-2">
+//                   <div className="h-8 bg-slate-700/50 rounded animate-pulse" />
+//                   <div className="h-8 bg-slate-700/50 rounded animate-pulse" />
+//                   <div className="h-8 bg-slate-700/50 rounded animate-pulse" />
+//                 </div>
+//               </div>
+//             </div>
+//           </div>
+//         </div>
+//       </div>
+
+//       <footer className="relative z-10 border-t border-slate-700/30 mt-20 py-8 text-center text-slate-400">
+//         <p>&copy; 2025 Sync Beats. All rights reserved.</p>
+//       </footer>
+//     </div>
+//   )
+// }
+
+
+

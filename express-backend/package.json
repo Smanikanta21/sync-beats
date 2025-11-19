@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "sockets":"nodemon sockets/sever.js",
+    "sockets": "nodemon sockets/sever.js",
     "postinstall": "prisma generate"
   },
   "keywords": [],
@@ -15,6 +15,7 @@
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^6.16.3",
+    "axios": "^1.13.2",
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
     "cookie-session": "^2.1.1",

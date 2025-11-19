@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { CreateRoom, JoinRoom } from '../components/RoomModal'
 import { toast } from 'react-toastify';
 import { Skeleton } from "@/components/ui/skeleton"
+import { authFetch, clearAuthToken } from '@/lib/authFetch'
 
 
 export default function DashBoard() {
@@ -28,9 +29,9 @@ export default function DashBoard() {
   const HandleDeviceRefresher = async () => {
     try{
       SetLoader(true)
-      const refreshedDevices = await fetch(`${url}/auth/dashboard/devices`, {
-        method: "GET",
-        credentials: "include",});
+      const refreshedDevices = await authFetch(`${url}/auth/dashboard/devices`, {
+        method: "GET"
+      });
       const data = await refreshedDevices.json();
       if (refreshedDevices.ok && data.devices) {
         setDevices(Array.isArray(data.devices) ? data.devices : []);
@@ -49,18 +50,12 @@ useEffect(() => {
   const dashboardInit = async () => {
     try {
       SetLoader(true)
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${url}/auth/dashboard`, {
-        method: "GET",
-        credentials: "include",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      console.log(`[Dashboard] Fetching dashboard from ${url}/auth/dashboard`)
+      const res = await authFetch(`${url}/auth/dashboard`, {
+        method: "GET"
       });
-      if (res.status === 401) {
-        toast("Session expired. Please login again.");
-        router.push('/');
-        return;
-      }
-      console.log(`fetched data from ${url}`)
+      
+      console.log(`[Dashboard] Response status: ${res.status}`)
       const raw = await res.text();
       let data = null;
       try {
@@ -70,13 +65,12 @@ useEffect(() => {
       }
 
       if (res.ok && data) {
+        console.log(`[Dashboard] Successfully authenticated as ${data.message}`)
         setName(data.message || "");
         setDevices(Array.isArray(data.devices) ? data.devices : []);
         try {
-          const roomRes = await fetch(`${url}/api/recent-rooms`, {
-            method: "GET",
-            credentials: "include",
-            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          const roomRes = await authFetch(`${url}/api/recent-rooms`, {
+            method: "GET"
           });
           if (roomRes.ok) {
             const roomData = await roomRes.json();
@@ -85,12 +79,12 @@ useEffect(() => {
         } catch (err) {
           console.warn("Failed to fetch recent rooms:", err);
         }
-
       } else {
+        console.error(`[Dashboard] Authentication failed with status ${res.status}`)
         router.push('/')
       }
     } catch (err) {
-      console.error(err);
+      console.error(`[Dashboard] Error:`, err);
     } finally {
       SetLoader(false)
     }
@@ -98,25 +92,20 @@ useEffect(() => {
 
   dashboardInit();
 }, [router, url]);
+
 const handleLogout = async () => {
   try {
     SetLoader(true)
-    await fetch(`${url}/auth/logout`, {
-      method: 'POST',
-      credentials: 'include'
+    await authFetch(`${url}/auth/logout`, {
+      method: 'POST'
     });
 
-    localStorage.removeItem('token');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('deviceName');
+    clearAuthToken();
     toast.success('Logged out successfully!');
     router.push('/');
   } catch (err) {
     toast.error("Logout unsuccessful");
     console.log(err);
-    localStorage.removeItem('token');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('deviceName');
   } finally {
     SetLoader(false)
   }
