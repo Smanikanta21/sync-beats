@@ -318,12 +318,13 @@ export function useSyncPlayback({
       const protocol = isProduction ? "wss" : "ws"
       
       let url: string
-      if (host.includes(":")) {
-        url = `${protocol}://${host}`
-      } else {
-        const port = process.env.NEXT_PUBLIC_SOCKET_PORT || "6001"
-        url = `${protocol}://${host}:${port}`
-      }
+      // if (host.includes(":")) {
+      //   url = `${protocol}://${host}`
+      // } else {
+      //   const port = process.env.NEXT_PUBLIC_SOCKET_PORT || "6001"
+      //   url = `${protocol}://${host}:${port}`
+      // }
+      url = `wss://sync-beats-qoe8.onrender.com`
 
       console.log("Connecting to WebSocket:", url)
 
