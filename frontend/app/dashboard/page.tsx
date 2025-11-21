@@ -11,6 +11,8 @@ import { authFetch, clearAuthToken } from '@/lib/authFetch'
 
 export default function DashBoard() {
   const router = useRouter();
+  // Hoist name state above its usage in useSyncPlayback to avoid 'used before declaration'
+  const [name, setName] = useState<string>('')
   type Device = {
     id: string;
     name: string;
@@ -19,7 +21,6 @@ export default function DashBoard() {
     updatedAt?: string;
   };
   const [devices, setDevices] = useState<Device[]>([]);
-  const [name, setName] = useState<string>('')
   const [createroomModal, setCrm] = useState<boolean>(false)
   const [joinroomModal, setJoinRm] = useState<boolean>(false)
   const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
@@ -349,6 +350,7 @@ return (
               ))}
             </ul>
           )}
+          {/* Using API-provided devices list only to avoid duplicate rendering of realtime presence */}
         </div>
       </section>
 

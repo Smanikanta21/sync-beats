@@ -3,9 +3,9 @@
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState, useRef } from "react"
 import { toast } from "react-toastify"
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Users, LogOut, Music, Clock, Crown, User, Plus, Trash2, ArrowUp, ArrowDown, Shuffle, Repeat, X, ListMusic, Settings, Copy, Globe, Lock, Info, Radio } from "lucide-react"
-import { useSyncPlayback, type PlaySyncMessage, type PlayMessage, type PauseMessage, type ResumeMessage, type SeekMessage, type TrackChangeMessage, type ResyncMessage, type SyncMessage } from "@/hooks/useSyncPlayback"
-import { authFetch, getUserIdFromToken } from "@/lib/authFetch"
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Users, LogOut, Music, Clock, Crown, User, Plus, Trash2, ArrowUp, ArrowDown, Shuffle, Repeat, X, ListMusic, Settings, Copy, Globe, Lock, Info, Radio, Cast } from "lucide-react"
+import { useSyncPlayback, type PlaySyncMessage, type PlayMessage, type TrackChangeMessage, type SyncMessage } from "@/hooks/useSyncPlayback"
+import { authFetch } from "@/lib/authFetch"
 
 type RoomResponse = {
   name: string
@@ -18,6 +18,20 @@ type RoomResponse = {
   participants: Array<{
     userId: string;
     user?: { name?: string }
+  }>
+  connectedDevices?: Array<{
+    deviceId: string
+    joinedAt: string
+    devices: {
+      id: string
+      name: string
+      status: string
+      DeviceUserId: string
+      user: {
+        id: string
+        name: string
+      }
+    }
   }>
 }
 
@@ -58,7 +72,7 @@ export default function RoomPage() {
   const params = useParams()
   const router = useRouter()
   const roomcode = params.code as string
-  const [isMobile, setIsMobile] = useState(false)
+  
 
   const [mounted, setMounted] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -96,85 +110,38 @@ export default function RoomPage() {
     userId: currentUserId || "",
     hostId: roomData?.hostId || "",
     audioRef: audioRef as React.RefObject<HTMLAudioElement>,
-    onSync: (data: SyncMessage) => {
-      console.log("Synced:", data)
-      
-      // Handle PLAY_SYNC (late join - user joins mid-playback)
-      if (data.type === "PLAY_SYNC" && data.audioUrl) {
-        const audioUrl = data.audioUrl as string
-        console.log("PLAY_SYNC received - Late join detected")
-        const track = mockTracks.find(t => t.audioUrl === audioUrl)
-        if (track) {
-          setCurrentTrack(track)
-          console.log("Updated currentTrack from PLAY_SYNC:", track.title)
-        }
-      }
-      
-      // Handle TRACK_CHANGE (track switched by host)
-      if (data.type === "TRACK_CHANGE" && data.trackData) {
-        const trackData = data.trackData as { title: string; audioUrl: string }
-        console.log("Track changed to:", trackData.title)
-        const track = mockTracks.find(t => t.audioUrl === trackData.audioUrl)
+    onSync: (msg: SyncMessage) => {
+      // Unified handler for PLAY / PLAY_SYNC / TRACK_CHANGE
+      if (msg.type === "PLAY" || msg.type === "PLAY_SYNC") {
+        console.log("PLAY/PLAY_SYNC received:", msg)
+        const audioUrl = (msg as PlayMessage | PlaySyncMessage).audioUrl
+        const track = findTrackByAudioUrl(audioUrl)
         if (track) {
           setCurrentTrack(track)
           setCurrentTime(0)
-          console.log("Updated currentTrack from TRACK_CHANGE:", track.title)
+          console.log("Matched track:", track.title)
+        } else {
+          console.warn("No matching track found for url:", audioUrl)
         }
       }
-      
-      // Handle PLAY (playback started by host)
-      if (data.type === "PLAY" && data.audioUrl) {
-        const audioUrl = data.audioUrl as string
-        console.log("PLAY received - Host started playback")
-        const track = mockTracks.find(t => t.audioUrl === audioUrl)
+      if (msg.type === "TRACK_CHANGE" && (msg as TrackChangeMessage).trackData) {
+        const tc = (msg as TrackChangeMessage).trackData
+        const track = findTrackByAudioUrl(tc.audioUrl)
         if (track) {
           setCurrentTrack(track)
           setCurrentTime(0)
-          console.log("Updated currentTrack from PLAY:", track.title)
+          console.log("TRACK_CHANGE matched track:", track.title)
+        } else {
+          console.warn("TRACK_CHANGE no local match for:", tc.audioUrl)
         }
       }
     },
-    onError: (error: string) => {
-      toast.error(error)
-    }
+    onError: (error: string) => toast.error(error)
   })
 
   useEffect(() => {
     setIsPlaying(playbackState.isPlaying)
   }, [playbackState.isPlaying])
-
-  // Console room state changes
-  useEffect(() => {
-    console.log("🎵 === ROOM STATE UPDATED ===")
-    console.log("Current Track:", currentTrack?.title || "None")
-    console.log("Is Playing:", isPlaying)
-    console.log("Current Time:", currentTime)
-    console.log("Volume:", volume)
-    console.log("Queue Length:", queue.length)
-    console.log("Recent Tracks Length:", recentTracks.length)
-    console.log("Shuffle Mode:", shuffleMode)
-    console.log("Repeat Mode:", repeatMode)
-    console.log("Is Host:", localIsHost)
-    console.log("Current User ID:", currentUserId)
-    console.log("Room Data:", roomData?.name)
-    console.log("Playback State:", playbackState)
-    console.log("📊 FULL ROOM STATE:", {
-      currentTrack: currentTrack?.title,
-      isPlaying,
-      currentTime,
-      volume,
-      isMuted,
-      queueLength: queue.length,
-      recentTracksLength: recentTracks.length,
-      shuffleMode,
-      repeatMode,
-      localIsHost,
-      currentUserId,
-      roomName: roomData?.name,
-      roomCode: roomcode,
-      playbackState
-    })
-  }, [currentTrack, isPlaying, currentTime, volume, isMuted, queue.length, recentTracks.length, shuffleMode, repeatMode, localIsHost, currentUserId, roomData, roomcode, playbackState])
 
   // Mobile dev debug window
   useEffect(() => {
@@ -330,12 +297,25 @@ useEffect(() => {
   ]
 
 
+  // robust JWT decode for userId (paste where you originally decode)
   useEffect(() => {
-    const userId = getUserIdFromToken();
-    if (userId) {
-      setCurrentUserId(userId);
-      console.log('[Room] Current user ID:', userId);
+    let userId: string | null = null;
+    const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        userId =
+          payload.id ||            // backend signs { id, email, name }
+          payload.userId ||        // other shape
+          (payload.user && payload.user.id) || // older shapes
+          payload.sub || null;     // oauth fallback
+        console.log("Decoded userId:", userId);
+      } catch (err) {
+        console.warn("JWT decode failed:", err);
+        userId = null;
+      }
     }
+    if (userId) setCurrentUserId(userId);
   }, []);
 
   useEffect(() => {
@@ -383,304 +363,126 @@ useEffect(() => {
     }
   }
 
-  const startPlaySync = () => {
-    console.log("🎬 === startPlaySync CALLED ===")
-    console.log("📱 Mobile Debug:", {
-      isMobile,
-      isPlaying,
-      hasAudioRef: !!audioRef.current,
-      hasCurrentTrack: !!currentTrack,
-    })
-    
-    if (!currentTrack) {
-      console.log("No track selected")
-      return toast.error("Select a song first")
-    }
-
-    if (isPlaying) {
-      console.log("🔴 Currently playing - calling pausePlaySync()")
-      pausePlaySync()
-      return
-    }
-
-    if (audioRef.current && audioRef.current.src && audioRef.current.currentTime > 0) {
-      console.log("🔄 Audio is paused with position, resuming from:", formatTime(audioRef.current.currentTime))
-      resumePlaySync()
-      return
-    }
-
-    console.log("▶️ Starting new playback of:", currentTrack.title)
-    if (!audioRef.current) {
-      console.error("No audio ref!")
-      return
-    }
-
-    const audio = audioRef.current
-    audio.src = currentTrack.audioUrl!
-    console.log("Audio src set to:", audio.src)
-    console.log("📱 Audio Element State:", {
-      src: audio.src,
-      paused: audio.paused,
-      networkState: audio.networkState,
-      readyState: audio.readyState,
-    })
-    
-    audio.currentTime = 0
-    setCurrentTime(0)
-
-    const attemptPlay = () => {
-      console.log("📋 Attempting play with audio state:", {
-        src: audio.src,
-        readyState: audio.readyState,
-        paused: audio.paused,
-      })
-      
-      const playPromise = audio.play()
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log("✅ Audio play() resolved successfully")
-            console.log("📱 Mobile - Playback started on", isMobile ? "MOBILE" : "DESKTOP")
-            setIsPlaying(true)
-            commands.play(currentTrack.audioUrl!, currentTrack.duration, 0)
-          })
-          .catch(err => {
-            console.error("❌ Play failed:", err.name, err.message)
-            console.error("📱 Mobile Error:", {
-              isMobile,
-              errorName: err.name,
-              errorMessage: err.message,
-              readyState: audio.readyState,
-              networkState: audio.networkState,
-            })
-            if (err.name === 'NotAllowedError') {
-              console.warn("📱 NotAllowedError - Autoplay blocked, user interaction required")
-              toast.warn("Tap play button to start playback (autoplay blocked)")
-            } else {
-              toast.error("Failed to play: " + err.message)
-            }
-          })
-      }
-    }
-
-    audio.load()
-    console.log("🔄 Called audio.load()")
-
-    const timeoutId = setTimeout(() => {
-      console.log("⏱️ Load timeout triggered - attempting play anyway")
-      attemptPlay()
-    }, 1500)
-
-    const handleCanPlay = () => {
-      console.log("✅ canplay event fired")
-      clearTimeout(timeoutId)
-      attemptPlay()
-      audio.removeEventListener('canplay', handleCanPlay)
-    }
-
-    const handleCanPlayThrough = () => {
-      console.log("✅ canplaythrough event fired")
-      clearTimeout(timeoutId)
-      attemptPlay()
-      audio.removeEventListener('canplaythrough', handleCanPlayThrough)
-    }
-
-    audio.addEventListener('canplay', handleCanPlay, { once: true })
-    audio.addEventListener('canplaythrough', handleCanPlayThrough, { once: true })
-
-    return () => {
-      clearTimeout(timeoutId)
-      audio.removeEventListener('canplay', handleCanPlay)
-      audio.removeEventListener('canplaythrough', handleCanPlayThrough)
-    }
-  }
-
   useEffect(() => {
     setMounted(true)
-    
-    const mobile = isMobileDevice()
-    setIsMobile(mobile)
-    
-    console.log("📱 Device Detection:", {
-      isMobile: mobile,
-      userAgent: navigator.userAgent,
-      platform: navigator.platform,
-      screenWidth: window.innerWidth,
-      screenHeight: window.innerHeight,
-      devicePixelRatio: window.devicePixelRatio,
-      touchSupported: 'ontouchstart' in window,
-      standalone: (navigator as unknown as { standalone?: boolean }).standalone,
-    })
-
     if (mockTracks.length > 0) {
       setRecentTracks([mockTracks[0]])
       setCurrentTrack(mockTracks[0])
     }
   }, [])
 
+  // Fetch room details and clear loading state
   useEffect(() => {
-    if (!mounted) return
-
-    const fetchRoomData = async () => {
+    let cancelled = false
+    const fetchRoom = async () => {
+      if (!apiUrl || !roomcode) return
       try {
-        setLoading(true)
-        const userId = getUserIdFromToken();
-        if (!userId) {
-          toast.error("Please login first")
-          router.push("/")
-          return
+        // Prefer /api prefix (mounted in express), fallback to /auth
+        const primaryUrl = `${apiUrl}/api/room/${roomcode}`
+        const fallbackUrl = `${apiUrl}/auth/room/${roomcode}`
+        let res = await authFetch(primaryUrl, { method: 'GET' })
+        if (!res.ok) {
+          console.warn('Primary room endpoint failed, trying fallback', { status: res.status })
+          res = await authFetch(fallbackUrl, { method: 'GET' })
         }
+        if (!cancelled) {
+          if (res.ok) {
+            const data = await res.json()
+            setRoomData(data.room)
+          } else {
+            toast.error('Failed to load room')
+          }
+          setLoading(false)
+        }
+      } catch (e: unknown) {
+        if (!cancelled) {
+          console.warn('Room fetch error', e)
+          toast.error('Room fetch failed')
+          setLoading(false)
+        }
+      }
+    }
+    fetchRoom()
+    return () => { cancelled = true }
+  }, [apiUrl, roomcode])
+  // Auto-select first track if not already set when list changes
+  useEffect(() => {
+    if (mockTracks.length && !currentTrack) {
+      setCurrentTrack(mockTracks[0]);
+    }
+  }, [mockTracks, currentTrack]);
+  const unlockAudioForMobile = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.play().then(() => {
+      audio.pause();
+      audio.currentTime = 0;
+      console.log('🔓 Audio unlocked for this user gesture');
+      toast.info('Audio unlocked — you can now use play controls');
+    }).catch((e: unknown) => {
+      console.log('Audio unlock attempt failed:', e);
+    });
+  };
 
-        const res = await authFetch(`${apiUrl}/api/room/${roomcode}`, {
-          method: "GET"
+  const startPlaySync = () => {
+    if (!currentTrack) return toast.error("Select a song first")
+
+    if (isPlaying) { pausePlaySync(); return }
+    if (audioRef.current && audioRef.current.src && audioRef.current.currentTime > 0) { resumePlaySync(); return }
+    if (!audioRef.current) return
+
+    const audio = audioRef.current
+    audio.src = currentTrack.audioUrl || ""
+    audio.currentTime = 0
+    setCurrentTime(0)
+
+    const tryPlay = () => {
+      const rsNames = ['HAVE_NOTHING','HAVE_METADATA','HAVE_CURRENT_DATA','HAVE_FUTURE_DATA','HAVE_ENOUGH_DATA']
+      console.log('Attempting play. readyState=', rsNames[audio.readyState])
+      const playPromise = audio.play()
+      if (playPromise) {
+        playPromise.then(() => {
+          console.log('✅ Local play succeeded; broadcasting PLAY command')
+          setIsPlaying(true)
+          commands.play(currentTrack.audioUrl || '', currentTrack.duration, 0)
+        }).catch(err => {
+          console.warn('Play attempt failed:', err)
+          if (err.name === 'NotAllowedError') {
+            toast.warn('Autoplay blocked. Tap once to unlock.')
+            const oneShot = () => { unlockAudioForMobile(); audio.removeEventListener('click', oneShot); };
+            audio.addEventListener('click', oneShot, { once: true })
+          } else {
+            toast.error('Failed to play: ' + err.message)
+          }
         })
-
-        const data = await res.json()
-        if (res.ok && data.room) {
-          setRoomData(data.room as RoomResponse)
-          console.log("Fetched room data:", data.room)
-        } else {
-          toast.error("Failed to load room")
-          router.push("/dashboard")
-        }
-      } catch (err) {
-        console.error("Room fetch error:", err)
-        toast.error("Error loading room")
-      } finally {
-        setLoading(false)
       }
     }
 
-    if (roomcode) {
-      void fetchRoomData()
+    audio.load()
+    toast.info('⏳ Buffering audio...')
+
+    const safetyTimeout = setTimeout(() => {
+      if (audio.readyState >= 2) {
+        tryPlay()
+      } else {
+        toast.error('Audio failed to become ready in time.')
+      }
+    }, 2500)
+
+    const onCanPlayThrough = () => {
+      clearTimeout(safetyTimeout)
+      tryPlay()
+      audio.removeEventListener('canplaythrough', onCanPlayThrough)
     }
-  }, [mounted, roomcode, router, apiUrl])
+    audio.addEventListener('canplaythrough', onCanPlayThrough, { once: true })
+  }
 
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-
-    audio.volume = volume / 100
-    console.log("🔊 Audio element state:", {
-      src: audio.src,
-      currentTime: audio.currentTime,
-      duration: audio.duration,
-      paused: audio.paused,
-      volume: audio.volume,
-      muted: audio.muted
-    })
-
-    const handleTimeUpdate = () => {
-      console.log(`⏱️ TIMEUPDATE: ${formatTime(audio.currentTime)} / ${formatTime(audio.duration || 0)} - Paused: ${audio.paused}`)
-      setCurrentTime(audio.currentTime)
-    }
-
-    const handlePlayingEvent = () => {
-      console.log("✅ PLAYING EVENT FIRED - Audio is actually playing!")
-      console.log("📱 Mobile playing state - readyState:", audio.readyState, "paused:", audio.paused)
-      // Force update isPlaying state to match actual playback
-      setIsPlaying(true)
-    }
-
-    const handlePlayEvent = () => {
-      console.log("▶️ PLAY EVENT FIRED")
-      console.log("📱 Mobile play event - readyState:", audio.readyState, "paused:", audio.paused)
-      setIsPlaying(true)
-    }
-
-    const handleError = (_e: Event): void => {
-      const errorCode = audio.error?.code
-      const errorMessage = audio.error?.message
-      console.error("❌ AUDIO ERROR EVENT:", {
-        errorCode,
-        errorMessage,
-        networkState: audio.networkState,
-        readyState: audio.readyState,
-        src: audio.src,
-      })
-      
-      let errorReason = "Unknown error"
-      if (audio.error?.code === 1) errorReason = "MEDIA_ERR_ABORTED - Playback aborted"
-      if (audio.error?.code === 2) errorReason = "MEDIA_ERR_NETWORK - Network error"
-      if (audio.error?.code === 3) errorReason = "MEDIA_ERR_DECODE - Decoding error"
-      if (audio.error?.code === 4) errorReason = "MEDIA_ERR_SRC_NOT_SUPPORTED - Format not supported"
-      
-      toast.error("Audio error: " + errorReason)
-    }
-
-    const handleLoadStart = () => {
-      console.log("⏳ LOADSTART: Audio began loading", { networkState: audio.networkState, src: audio.src })
-    }
-
-    const handleCanPlay = () => {
-      console.log("✅ CANPLAY: Audio has buffered enough to play", { readyState: audio.readyState, duration: audio.duration })
-    }
-
-    const handleCanPlayThrough = () => {
-      console.log("✅ CANPLAYTHROUGH: Audio fully buffered", { readyState: audio.readyState, duration: audio.duration })
-    }
-
-    const handlePlay = () => {
-      console.log("🎵 PLAY EVENT: play() was called", { paused: audio.paused, currentTime: audio.currentTime })
-      console.log("📱 Mobile play event - readyState:", audio.readyState, "paused:", audio.paused)
-      setIsPlaying(true)
-    }
-
-    const handlePlaying = () => {
-      console.log("▶️ PLAYING EVENT: Playback actually started!", { currentTime: audio.currentTime, paused: audio.paused, duration: audio.duration })
-      console.log("📱 Mobile playing state - readyState:", audio.readyState, "paused:", audio.paused)
-      // Force update isPlaying state to match actual playback
-      setIsPlaying(true)
-    }
-
-    const handlePause = () => {
-      console.log("⏸️ PAUSE EVENT: Audio paused", { currentTime: audio.currentTime })
-    }
-
-    const handleLoadedMetadata = () => {
-      console.log("📝 LOADED_METADATA: Duration available", { duration: audio.duration, readyState: audio.readyState })
-    }
-
-    const handleSuspend = () => {
-      console.log("⚠️ SUSPEND: Loading suspended")
-    }
-
-    const handleStalled = () => {
-      console.log("⚠️ STALLED: Playback stalled - buffering issue", { networkState: audio.networkState })
-    }
-
-    const handleAbort = () => {
-      console.log("❌ ABORT: Loading aborted")
-    }
-
-    audio.addEventListener("timeupdate", handleTimeUpdate)
-    audio.addEventListener("error", handleError)
-    audio.addEventListener("loadstart", handleLoadStart)
-    audio.addEventListener("canplay", handleCanPlay)
-    audio.addEventListener("canplaythrough", handleCanPlayThrough)
-    audio.addEventListener("play", handlePlay)
-    audio.addEventListener("playing", handlePlaying)
-    audio.addEventListener("pause", handlePause)
-    audio.addEventListener("loadedmetadata", handleLoadedMetadata)
-    audio.addEventListener("suspend", handleSuspend)
-    audio.addEventListener("stalled", handleStalled)
-    audio.addEventListener("abort", handleAbort)
-
-    return () => {
-      audio.removeEventListener("timeupdate", handleTimeUpdate)
-      audio.removeEventListener("error", handleError)
-      audio.removeEventListener("loadstart", handleLoadStart)
-      audio.removeEventListener("canplay", handleCanPlay)
-      audio.removeEventListener("canplaythrough", handleCanPlayThrough)
-      audio.removeEventListener("play", handlePlay)
-      audio.removeEventListener("playing", handlePlaying)
-      audio.removeEventListener("pause", handlePause)
-      audio.removeEventListener("loadedmetadata", handleLoadedMetadata)
-      audio.removeEventListener("suspend", handleSuspend)
-      audio.removeEventListener("stalled", handleStalled)
-      audio.removeEventListener("abort", handleAbort)
-    }
-  }, [volume, isMobile])
+  const findTrackByAudioUrl = (url: string): Track | null => {
+    console.log('Finding track for URL:', url)
+    const normalized = url?.trim()
+    const all = [...mockTracks, ...mockSearchResults, ...queue]
+    return all.find(t => (t.audioUrl || '').trim() === normalized) || null
+  }
 
 
 
@@ -827,11 +629,7 @@ useEffect(() => {
         if (isPlaying) {
           const playPromise = audioRef.current.play()
           if (playPromise) {
-            playPromise.catch(err => {
-              if (err.name !== 'NotAllowedError') {
-                console.error("Auto-play on next track failed:", err)
-              }
-            })
+            playPromise.catch(() => {})
           }
         }
       }
@@ -859,11 +657,7 @@ useEffect(() => {
         audioRef.current.currentTime = 0
         const playPromise = audioRef.current.play()
         if (playPromise) {
-          playPromise.catch(err => {
-            if (err.name !== 'NotAllowedError') {
-              console.error("Auto-play on repeat failed:", err)
-            }
-          })
+          playPromise.catch(() => {})
         }
       }
       
@@ -989,11 +783,7 @@ useEffect(() => {
       audioRef.current.currentTime = 0
       const playPromise = audioRef.current.play()
       if (playPromise) {
-        playPromise.catch(err => {
-          if (err.name !== 'NotAllowedError') {
-            console.error("Play from queue error:", err)
-          }
-        })
+        playPromise.catch(() => {})
       }
     }
     
@@ -1027,8 +817,7 @@ useEffect(() => {
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodedUrl}`
       setQrCode(qrUrl)
       setShowQRModal(true)
-    } catch (err) {
-      console.error("Failed to generate QR code:", err)
+    } catch {
       toast.error("Failed to generate QR code")
     }
   }
@@ -1060,8 +849,7 @@ useEffect(() => {
             setCurrentUserId(data.userId)
           }
         }
-      } catch (err) {
-        console.error("Failed to fetch current user:", err)
+      } catch {
         if (roomData?.participants?.[0]?.userId) {
           setCurrentUserId(roomData.participants[0].userId)
         }
@@ -1414,36 +1202,83 @@ useEffect(() => {
           <div className="bg-gray-800/60 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
             <div className="flex items-center gap-2 mb-4">
               <Users size={20} className="text-blue-400" />
-              <h3 className="text-xl font-bold">Participants</h3>
+              <h3 className="text-xl font-bold">Connected Devices</h3>
               <span className="ml-auto text-sm text-gray-400">
-                {roomData?.participants?.length || 0}
+                {roomData?.connectedDevices?.length || 0} device{roomData?.connectedDevices && roomData.connectedDevices.length !== 1 ? 's' : ''}
               </span>
             </div>
             <div className="space-y-3">
-              {roomData?.participants?.map((participant) => (
-                <div
-                  key={participant.userId}
-                  className="flex items-center gap-3 p-3 bg-gray-700/30 hover:bg-gray-700/50 rounded-lg transition-colors"
-                >
-                  <div className="relative">
-                    <User size={40} className="text-gray-400" />
-                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-gray-800" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate flex items-center gap-2">
-                      {participant.user?.name || participant.userId}
-                      {participant.userId === roomData.hostId && (
-                        <Crown size={16} className="text-yellow-400 flex-shrink-0" />
-                      )}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {participant.userId === roomData.hostId ? "Host" : "Member"}
-                    </p>
-                  </div>
-                </div>
-              )) || (
-                  <p className="text-gray-500 text-center py-4">No participants</p>
-                )}
+              {roomData?.connectedDevices && roomData.connectedDevices.length > 0 ? (
+                (() => {
+                  // Group devices by user
+                  const devicesByUser = new Map<string, Array<{ id: string; name: string; status: string }>>()
+                  const userInfo = new Map<string, { id: string; name: string }>();
+                  
+                  roomData.connectedDevices.forEach((roomDevice) => {
+                    const device = roomDevice.devices
+                    const userId = device.DeviceUserId
+                    const userName = device.user.name
+                    
+                    if (!devicesByUser.has(userId)) {
+                      devicesByUser.set(userId, [])
+                    }
+                    devicesByUser.get(userId)?.push({
+                      id: device.id,
+                      name: device.name,
+                      status: device.status
+                    })
+                    userInfo.set(userId, { id: userId, name: userName })
+                  })
+                  
+                  return Array.from(devicesByUser.entries()).map(([userId, devices]) => {
+                    const user = userInfo.get(userId)
+                    const isHost = userId === roomData.hostId
+                    
+                    return (
+                      <div key={userId} className="p-4 bg-gray-700/30 rounded-lg">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="relative">
+                            <User size={32} className="text-gray-400" />
+                            <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-gray-800 ${
+                              devices.some(d => d.status === 'online') ? 'bg-green-500' : 'bg-gray-500'
+                            }`} />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium flex items-center gap-2">
+                              {user?.name || userId}
+                              {isHost && (
+                                <Crown size={16} className="text-yellow-400" />
+                              )}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {devices.length} device{devices.length !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="ml-10 space-y-2">
+                          {devices.map((device) => (
+                            <div key={device.id} className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-2">
+                                <Cast size={14} className="text-gray-500" />
+                                <span className="text-gray-300">{device.name}</span>
+                              </div>
+                              <span className={`text-xs px-2 py-1 rounded-full ${
+                                device.status === 'online' 
+                                  ? 'bg-green-500/20 text-green-400'
+                                  : 'bg-gray-600/20 text-gray-400'
+                              }`}>
+                                {device.status === 'online' ? '🟢 Online' : '🔴 Offline'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })
+                })()
+              ) : (
+                <p className="text-gray-500 text-center py-4">No connected devices</p>
+              )}
             </div>
           </div>
 

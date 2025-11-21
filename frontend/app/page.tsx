@@ -1,12 +1,10 @@
 "use client";
 import { Music, PlayCircle, Users2, Menu, Radio, Smartphone, Headphones, MessageSquare, Mail, User, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import LoginPage from './components/LoginPage';
 import SignupPage from './components/SignUpPage';
 
 export default function LandingPage() {
-  const router = useRouter()
 
 //   useEffect(()=>{
 //     const token = localStorage.getItem('accessToken')

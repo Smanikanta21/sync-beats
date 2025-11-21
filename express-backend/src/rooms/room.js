@@ -132,7 +132,15 @@ async function joinRoom(req, res) {
                 devices: {
                     include: {
                         devices: {
-                            select: { id: true, name: true, status: true }
+                            select: { 
+                                id: true, 
+                                name: true, 
+                                status: true,
+                                DeviceUserId: true,
+                                user: {
+                                    select: { id: true, name: true }
+                                }
+                            }
                         }
                     }
                 }
@@ -167,7 +175,21 @@ async function verifyRoom(req, res) {
                         }
                     }
                 },
-                devices: true
+                devices: {
+                    include: {
+                        devices: {
+                            select: { 
+                                id: true, 
+                                name: true, 
+                                status: true,
+                                DeviceUserId: true,
+                                user: {
+                                    select: { id: true, name: true }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         });
 
@@ -184,7 +206,8 @@ async function verifyRoom(req, res) {
                 type: room.type,
                 hostId: room.hostId,
                 isActive: room.isActive,
-                participants: room.participants
+                participants: room.participants,
+                connectedDevices: room.devices
             }
         });
     } catch (err) {
@@ -214,7 +237,15 @@ async function getRoomDetails(req, res) {
                 devices: {
                     include: {
                         devices: {
-                            select: { id: true, name: true, status: true }
+                            select: { 
+                                id: true, 
+                                name: true, 
+                                status: true,
+                                DeviceUserId: true,
+                                user: {
+                                    select: { id: true, name: true }
+                                }
+                            }
                         }
                     }
                 }
@@ -232,7 +263,10 @@ async function getRoomDetails(req, res) {
 
         return res.status(200).json({
             message: "Room details fetched successfully",
-            room
+            room: {
+                ...room,
+                connectedDevices: room.devices
+            }
         });
     } catch (err) {
         console.log(`GetRoomDetails Err: ${err}`);
