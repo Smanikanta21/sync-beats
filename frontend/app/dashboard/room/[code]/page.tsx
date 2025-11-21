@@ -111,7 +111,6 @@ export default function RoomPage() {
     hostId: roomData?.hostId || "",
     audioRef: audioRef as React.RefObject<HTMLAudioElement>,
     onSync: (msg: SyncMessage) => {
-      // Unified handler for PLAY / PLAY_SYNC / TRACK_CHANGE
       if (msg.type === "PLAY" || msg.type === "PLAY_SYNC") {
         console.log("PLAY/PLAY_SYNC received:", msg)
         const audioUrl = (msg as PlayMessage | PlaySyncMessage).audioUrl
@@ -143,7 +142,7 @@ export default function RoomPage() {
     setIsPlaying(playbackState.isPlaying)
   }, [playbackState.isPlaying])
 
-  // Mobile dev debug window
+  
   useEffect(() => {
     if (typeof window !== 'undefined' && isDevelopment()) {
       type DebugWindow = Record<string, () => Record<string, unknown>>;
@@ -297,7 +296,7 @@ useEffect(() => {
   ]
 
 
-  // robust JWT decode for userId (paste where you originally decode)
+  
   useEffect(() => {
     let userId: string | null = null;
     const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
@@ -305,10 +304,10 @@ useEffect(() => {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
         userId =
-          payload.id ||            // backend signs { id, email, name }
-          payload.userId ||        // other shape
-          (payload.user && payload.user.id) || // older shapes
-          payload.sub || null;     // oauth fallback
+          payload.id ||
+          payload.userId ||
+          (payload.user && payload.user.id) ||
+          payload.sub || null;
         console.log("Decoded userId:", userId);
       } catch (err) {
         console.warn("JWT decode failed:", err);
@@ -371,13 +370,13 @@ useEffect(() => {
     }
   }, [])
 
-  // Fetch room details and clear loading state
+  
   useEffect(() => {
     let cancelled = false
     const fetchRoom = async () => {
       if (!apiUrl || !roomcode) return
       try {
-        // Prefer /api prefix (mounted in express), fallback to /auth
+        
         const primaryUrl = `${apiUrl}/api/room/${roomcode}`
         const fallbackUrl = `${apiUrl}/auth/room/${roomcode}`
         let res = await authFetch(primaryUrl, { method: 'GET' })
@@ -405,7 +404,7 @@ useEffect(() => {
     fetchRoom()
     return () => { cancelled = true }
   }, [apiUrl, roomcode])
-  // Auto-select first track if not already set when list changes
+  
   useEffect(() => {
     if (mockTracks.length && !currentTrack) {
       setCurrentTrack(mockTracks[0]);
@@ -542,7 +541,7 @@ useEffect(() => {
     const rect = progressRef.current.getBoundingClientRect()
     let x: number
     
-    // Handle both mouse and touch events
+    
     if ('clientX' in e) {
       x = e.clientX - rect.left
     } else {
@@ -590,7 +589,7 @@ useEffect(() => {
       setRecentTracks(newRecent)
       setCurrentTime(0)
       
-      // Update audio element immediately
+      
       if (audioRef.current) {
         audioRef.current.src = prevTrack.audioUrl || ""
         audioRef.current.currentTime = 0

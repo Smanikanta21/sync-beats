@@ -2,12 +2,12 @@
 
 interface SchedulePlayOptions {
   audioUrl: string;
-  playbackPosition: number; // milliseconds into track
-  masterClockMs: number; // server monotonic clock now
-  masterClockLatencyMs: number; // RTT/2
+  playbackPosition: number;
+  masterClockMs: number;
+  masterClockLatencyMs: number;
   durationMs: number;
-  monotonicToUnixDelta?: number; // server unix - server monotonic (from time sync)
-  filteredOffset?: number; // client filtered offset (serverUnix - clientUnix)
+  monotonicToUnixDelta?: number;
+  filteredOffset?: number;
 }
 
 
@@ -18,13 +18,13 @@ class WebAudioScheduler {
   private audioBuffer: AudioBuffer | null = null;
   
   private isPlaying: boolean = false;
-  private startTime: number = 0; // AudioContext.currentTime when started
-  private pauseTime: number = 0; // Position when paused
+  private startTime: number = 0;
+  private pauseTime: number = 0;
 
   private volume: number = 1.0;
   private playbackRate: number = 1.0;
 
-  private timeSync: unknown = null; // Reference to TimeSyncCalculator
+  private timeSync: unknown = null;
   private playPromise: Promise<void> | null = null;
   private cachedBuffers: Map<string, AudioBuffer> = new Map();
   private scheduledMasterClockMs: number | null = null;
@@ -38,15 +38,11 @@ class WebAudioScheduler {
     this.timeSync = timeSync;
   }
 
-  /**
-   * Initialize Web Audio API context
-   * Must be called after user interaction (for mobile)
-   */
+  
   async initialize() {
     if (this.audioContext) return this.audioContext;
 
     try {
-      // Use window.AudioContext or window.webkitAudioContext for iOS
       const AudioContextClass = (window as (Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext })).AudioContext 
         || (window as (Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext })).webkitAudioContext;
       
@@ -75,7 +71,6 @@ class WebAudioScheduler {
     }
   }
 
-  /** Ensure context is running (Safari may suspend). */
   async ensureRunning() {
     if (!this.audioContext) throw new Error('AudioContext not initialized');
     if (this.audioContext.state === 'suspended') {
@@ -83,9 +78,7 @@ class WebAudioScheduler {
     }
   }
 
-  /**
-   * Resume audio context if suspended (iOS requirement)
-   */
+  
   async resumeContext() {
     if (!this.audioContext) return;
 
@@ -95,11 +88,8 @@ class WebAudioScheduler {
     }
   }
 
-  /**
-   * Load audio file via fetch + decode
-   */
+  
   async loadAudio(url: string): Promise<AudioBuffer> {
-    // Check cache first
     if (this.cachedBuffers.has(url)) {
       console.log('📦 Using cached audio buffer');
       return this.cachedBuffers.get(url)!;
@@ -134,13 +124,7 @@ class WebAudioScheduler {
     }
   }
 
-  /**
-   * Schedule precise playback
-   * 
-   * This is the core function that achieves synchronization
-   * 
-   * @param options - See SchedulePlayOptions
-   */
+  
   async schedule(options: SchedulePlayOptions) {
     if (!this.audioContext) {
       throw new Error('AudioContext not initialized');
@@ -148,25 +132,20 @@ class WebAudioScheduler {
     await this.ensureRunning();
 
     try {
-      // Stop any existing playback
       this.stop();
 
-      // Load audio
       const audioBuffer = await this.loadAudio(options.audioUrl);
       this.audioBuffer = audioBuffer;
 
-      // Precise scheduling against shared clock
-      const monotonicToUnixDelta = options.monotonicToUnixDelta ?? 0; // serverUnix - serverMonotonic
-      const filteredOffset = options.filteredOffset ?? 0; // serverUnix - clientUnix
+      const monotonicToUnixDelta = options.monotonicToUnixDelta ?? 0;
+      const filteredOffset = options.filteredOffset ?? 0;
       const clientUnixNow = Date.now();
-      const serverUnixNowEst = clientUnixNow + filteredOffset; // Estimate server unix now
-      const masterClockUnix = options.masterClockMs + monotonicToUnixDelta; // Convert master monotonic to unix
-      let delayMs = masterClockUnix - serverUnixNowEst + options.masterClockLatencyMs; // adjust for one-way latency
-      const safetyLeadMs = 60; // small lead to ensure buffer
-      // If delay very small or negative, we are late; compute catch-up start position
+      const serverUnixNowEst = clientUnixNow + filteredOffset;
+      const masterClockUnix = options.masterClockMs + monotonicToUnixDelta;
+      let delayMs = masterClockUnix - serverUnixNowEst + options.masterClockLatencyMs;
+      const safetyLeadMs = 60;
       let startPositionMs = options.playbackPosition;
       if (delayMs < safetyLeadMs) {
-        // Late by L ms => advance start position by |delayMs| - safetyLeadMs
         const lateness = safetyLeadMs - delayMs; // if delayMs < safetyLeadMs, lateness positive
         if (lateness > 0) {
           startPositionMs += lateness; // Jump forward in track to remain aligned
@@ -174,14 +153,13 @@ class WebAudioScheduler {
         }
       }
       if (startPositionMs < 0) startPositionMs = 0;
-      const audioContextDelay = Math.max(delayMs, safetyLeadMs) / 1000; // seconds
+      const audioContextDelay = Math.max(delayMs, safetyLeadMs) / 1000;
       this.sourceNode = this.audioContext.createBufferSource();
       this.sourceNode.buffer = audioBuffer;
       this.sourceNode.connect(this.gainNode!);
       this.sourceNode.playbackRate.value = this.playbackRate;
       this.startTime = this.audioContext.currentTime + audioContextDelay;
       this.sourceNode.start(this.startTime, startPositionMs / 1000);
-      // Store scheduling metadata for drift correction
       this.scheduledMasterClockMs = options.masterClockMs;
       this.scheduledStartPositionMs = startPositionMs;
       this.monotonicToUnixDelta = monotonicToUnixDelta;
@@ -207,15 +185,11 @@ class WebAudioScheduler {
     }
   }
 
-  /**
-   * Pause playback and remember position
-   */
   pause() {
     if (!this.sourceNode || !this.audioContext) return;
 
     try {
-      // Calculate current playback position
-      const elapsed = (this.audioContext.currentTime - this.startTime) * 1000; // Convert to ms
+      const elapsed = (this.audioContext.currentTime - this.startTime) * 1000;
       this.pauseTime = elapsed;
 
       this.sourceNode.stop();
@@ -227,9 +201,6 @@ class WebAudioScheduler {
     }
   }
 
-  /**
-   * Resume from paused position
-   */
   async resume() {
     if (this.isPlaying || !this.audioBuffer) return;
     await this.ensureRunning();
@@ -254,17 +225,11 @@ class WebAudioScheduler {
     }
   }
 
-  /**
-   * Adjust internal paused position prior to resume (for authoritative server position)
-   */
   setPausedPosition(positionMs: number) {
     if (positionMs < 0) positionMs = 0;
     this.pauseTime = positionMs;
   }
 
-  /**
-   * Stop playback completely
-   */
   stop() {
     if (this.sourceNode) {
       try {
@@ -280,9 +245,6 @@ class WebAudioScheduler {
     this.pauseTime = 0;
   }
 
-  /**
-   * Seek to specific position
-   */
   async seek(positionMs: number) {
     if (!this.audioBuffer) return;
     await this.ensureRunning();
@@ -307,9 +269,6 @@ class WebAudioScheduler {
     }
   }
 
-  /**
-   * Set volume (0.0 - 1.0)
-   */
   setVolume(volume: number) {
     this.volume = Math.max(0, Math.min(1, volume));
     if (this.gainNode) {
@@ -317,29 +276,19 @@ class WebAudioScheduler {
     }
   }
 
-  /**
-   * Get current playback position
-   */
   getCurrentPosition(): number {
     if (!this.isPlaying || !this.audioContext || !this.sourceNode) {
       return this.pauseTime;
     }
 
-    // Calculate position based on AudioContext time
     const elapsed = (this.audioContext.currentTime - this.startTime) * 1000;
     return elapsed;
   }
 
-  /**
-   * Check if currently playing
-   */
   getIsPlaying(): boolean {
     return this.isPlaying;
   }
 
-  /**
-   * Get audio context state
-   */
   getState() {
     return {
       initialized: !!this.audioContext,
@@ -351,24 +300,15 @@ class WebAudioScheduler {
     };
   }
 
-  /**
-   * Clear audio cache
-   */
   clearCache() {
     this.cachedBuffers.clear();
     console.log('🗑️ Audio cache cleared');
   }
 
-  /**
-   * Public helper to know if a decoded buffer is currently loaded
-   */
   hasBuffer(): boolean {
     return !!this.audioBuffer;
   }
 
-  /**
-   * Compute expected track position based on shared clock & offsets.
-   */
   private computeExpectedPositionMs(filteredOffset: number, monotonicToUnixDelta: number): number | null {
     if (!this.scheduledMasterClockMs) return null;
     const serverUnixNowEst = Date.now() + filteredOffset;
@@ -378,9 +318,6 @@ class WebAudioScheduler {
     return expectedTrackPos;
   }
 
-  /**
-   * Attempt gentle drift correction; small drift -> playbackRate tweak; large drift -> micro-reschedule.
-   */
   autoCorrectDrift(filteredOffset: number, monotonicToUnixDelta: number) {
     if (!this.audioContext || !this.isPlaying || !this.sourceNode || !this.audioBuffer) return;
     const expected = this.computeExpectedPositionMs(filteredOffset, monotonicToUnixDelta);

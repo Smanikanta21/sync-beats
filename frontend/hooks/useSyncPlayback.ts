@@ -140,7 +140,7 @@ export function useSyncPlayback({
   const onErrorRef = useRef(onError)
   const onPositionUpdateRef = useRef(onPositionUpdate)
   
-  // Phase 2: Web Audio API + Linear Regression Sync
+  
   const timeSyncCalcRef = useRef<TimeSyncCalculator>(new TimeSyncCalculator(8))
   const schedulerRef = useRef<WebAudioScheduler | null>(null)
   const webAudioDisabledRef = useRef<boolean>(false)
@@ -154,7 +154,7 @@ export function useSyncPlayback({
     latencyMs: 0
   })
 
-  // Presence removed per specification; focusing solely on clock + playback sync
+  
 
   useEffect(() => {
     onSyncRef.current = onSync
@@ -166,7 +166,6 @@ export function useSyncPlayback({
   const timeSyncIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const driftCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const driftAutoCorrectIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  // RAF-based position update loop
   const positionRafRef = useRef<number | null>(null)
   const lastPositionPushRef = useRef<number>(0)
   const trackDurationRef = useRef<number>(0)
@@ -174,19 +173,16 @@ export function useSyncPlayback({
   const syncClientTime = useCallback(() => {
     const ws = wsRef.current
     if (!ws) return
-    // Guard against invalid state (CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3)
     if (ws.readyState !== 1) return
     try {
       const t0 = Date.now()
       const pingId = Math.random().toString(36)
       ws.send(JSON.stringify({ type: "time_ping", id: pingId, t0 }))
     } catch (e) {
-      // Avoid noisy logs; only log in dev
       if (devMode) console.warn('⚠️ time_ping send failed', e)
     }
   }, [devMode])
 
-  // Burst strategy: multiple pings over ~500ms to reduce jitter
   const startPingBurst = useCallback(() => {
     const ws = wsRef.current
     if (!ws || ws.readyState !== 1) return
@@ -195,7 +191,6 @@ export function useSyncPlayback({
     const spacing = Math.floor(totalWindowMs / (burstCount - 1))
     for (let i = 0; i < burstCount; i++) {
       setTimeout(() => {
-        // Re-check readiness per ping to avoid InvalidStateError
         if (!wsRef.current || wsRef.current.readyState !== 1) return
         syncClientTime()
       }, i * spacing)
@@ -208,7 +203,6 @@ export function useSyncPlayback({
     const serverTimeUnix = msg.serverTimeUnix as number
     const serverTimeMonotonic = msg.serverTimeMonotonic as number | undefined
     const sample = timeSyncCalcRef.current.addSample(t0, t1, serverTimeUnix)
-    // Store monotonic->unix delta for scheduling: unix - monotonic
     if (typeof serverTimeMonotonic === 'number') {
       ;(timeSyncCalcRef.current as any)._monotonicToUnixDelta = serverTimeUnix - serverTimeMonotonic
     }
@@ -221,7 +215,6 @@ export function useSyncPlayback({
       rttMs: rtt,
       latencyMs: latency
     }))
-    // (Removed verbose dev logging for time sync metrics)
   }, [log])
 
   const scheduleSync = useCallback(async (
@@ -245,7 +238,6 @@ export function useSyncPlayback({
         isMobile 
       })
 
-      // Schedule playback with master clock and latency
       await schedulerRef.current.schedule({
         audioUrl,
         playbackPosition,
@@ -256,7 +248,6 @@ export function useSyncPlayback({
         filteredOffset: timeSyncCalcRef.current.getFilteredOffset?.() ?? timeSyncCalcRef.current.getOffset()
       })
       trackDurationRef.current = duration
-      // Start RAF loop if not already running
       if (positionRafRef.current === null) {
         const loop = () => {
           positionRafRef.current = requestAnimationFrame(loop)
@@ -264,7 +255,7 @@ export function useSyncPlayback({
           const rawPos = schedulerRef.current.getCurrentPosition()
           const clamped = Math.min(rawPos, trackDurationRef.current)
           const now = performance.now()
-          if (now - lastPositionPushRef.current > 33) { // ~30fps throttle
+          if (now - lastPositionPushRef.current > 33) {
             lastPositionPushRef.current = now
             setPlaybackState(prev => ({ ...prev, currentPosition: clamped }))
             if (onPositionUpdateRef.current) {
@@ -289,7 +280,6 @@ export function useSyncPlayback({
     }
   }, [])
 
-  // Safe audio element helpers to avoid InvalidStateError
   const audioHelpers = useRef({
     ensureSrc: (src: string) => {
       const el = audioRef.current;
@@ -306,12 +296,11 @@ export function useSyncPlayback({
     play: async () => {
       const el = audioRef.current;
       if (!el) return;
-      // Wait for enough readyState (HAVE_FUTURE_DATA = 3)
       if (el.readyState < 2) {
         await new Promise<void>(resolve => {
           const onCanPlay = () => { el.removeEventListener('canplay', onCanPlay); resolve(); };
           el.addEventListener('canplay', onCanPlay, { once: true });
-          setTimeout(resolve, 1500); // fallback timeout
+          setTimeout(resolve, 1500);
         });
       }
       try {
@@ -335,7 +324,6 @@ export function useSyncPlayback({
     }
   });
 
-  // Unlock AudioContext on first user interaction (iOS Safari autoplay policy)
   useEffect(() => {
     const unlock = async () => {
       if (schedulerRef.current) {
@@ -377,7 +365,7 @@ export function useSyncPlayback({
       audioUrl,
       duration,
       startDelayMs,
-      rttMs: playbackState.rttMs, // Send current RTT for server to calculate latency
+      rttMs: playbackState.rttMs,
       timestamp: Date.now()
     }))
 
@@ -393,7 +381,6 @@ export function useSyncPlayback({
     const currentPosition = schedulerRef.current?.getCurrentPosition() || 0
     console.log("⏸️ PAUSE command sent:", { currentPosition: currentPosition.toFixed(0) })
     
-    // Pause scheduler first
     if (schedulerRef.current) {
       schedulerRef.current.pause()
     }
@@ -401,7 +388,7 @@ export function useSyncPlayback({
     wsRef.current.send(JSON.stringify({
       type: "PAUSE",
       roomCode,
-      currentTime: currentPosition / 1000, // Convert to seconds
+      currentTime: currentPosition / 1000,
       timestamp: Date.now()
     }))
 
@@ -424,8 +411,6 @@ export function useSyncPlayback({
       startDelayMs: 200,
       timestamp: Date.now()
     }))
-
-    // Wait for RESUME broadcast to actually schedule/resume
   }, [roomCode])
 
   const seek = useCallback((positionMs: number) => {
@@ -463,7 +448,6 @@ export function useSyncPlayback({
     }))
   }, [devMode, roomCode, playbackState.isPlaying])
 
-  // Local drift auto-correction using filtered offset and monotonic delta
   const autoCorrectLocalDrift = useCallback(() => {
     if (!schedulerRef.current || !playbackState.isPlaying) return
     const filteredOffset = timeSyncCalcRef.current.getFilteredOffset?.() ?? timeSyncCalcRef.current.getOffset()
@@ -499,7 +483,6 @@ export function useSyncPlayback({
     let reconnectAttempts = 0
     const maxReconnectAttempts = 5
 
-    // Defer connection until we have essential identifiers
     if (!roomCode || !userId || !hostId) {
       if (devMode) console.log('[SyncPlayback] Deferring WS connect until identifiers ready', { roomCode, userId, hostId })
       return () => {}
@@ -720,13 +703,12 @@ export function useSyncPlayback({
             if (trackChangeMsg.trackData?.audioUrl && schedulerRef.current) {
               console.log("📱 Loading new track:", trackChangeMsg.trackData.title)
               
-              // Schedule new track from beginning
               scheduleSync(
                 trackChangeMsg.trackData.audioUrl,
-                Date.now(), // Start immediately
+                Date.now(),
                 trackChangeMsg.trackData.duration,
                 0,
-                0 // From beginning
+                0
               ).catch(err => {
                 console.error("Track change scheduling error:", err)
               })
@@ -791,7 +773,6 @@ export function useSyncPlayback({
         wsRef.current.close()
         wsRef.current = null
       }
-      // Clean up Web Audio Scheduler
       if (schedulerRef.current) {
         schedulerRef.current.stop()
         schedulerRef.current = null

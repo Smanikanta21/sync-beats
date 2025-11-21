@@ -15,12 +15,12 @@ module.exports = function createSyncEngine(server) {
       this.clients = new Set();
       this.hostUserId = hostId;
       this.currentTrack = null;
-      this.startedAtServer = null; // Monotonic server clock (from PrecisionClock.now())
+      this.startedAtServer = null;
       this.duration = null;
       this.isPaused = false;
-      this.pausedAt = null; // Position when paused (milliseconds)
+      this.pausedAt = null;
       this.createdAt = Date.now();
-      this.pendingPlayHandshake = null; // { checkId, trackUrl, duration, startDelayMs, responses:Set, initiatedAt }
+      this.pendingPlayHandshake = null;
       logger.debug(`📦 Room created: ${roomCode}`, { hostId });
     }
 
@@ -38,7 +38,7 @@ module.exports = function createSyncEngine(server) {
 
   class DeviceReadinessTracker {
     constructor() {
-      this.deviceStatus = new Map(); // wsId -> { ready:boolean, loadedTracks:Set, lastCheck:number }
+      this.deviceStatus = new Map();
     }
     markReady(wsId) {
       const status = this.deviceStatus.get(wsId) || { ready: false, loadedTracks: new Set(), lastCheck: 0 };
@@ -96,12 +96,12 @@ module.exports = function createSyncEngine(server) {
       type: "time_pong",
       id: msg.id,
       t0: msg.t0,
-      serverTimeUnix: serverTimeUnix, // Unix timestamp for offset calculation
-      serverTimeMonotonic: serverTimeMonotonic, // Monotonic for verification
+      serverTimeUnix: serverTimeUnix,
+      serverTimeMonotonic: serverTimeMonotonic,
       timeOffset: timeOffset,
       playbackPosition: room?.getPlaybackPosition() || 0,
       isPlaying: room?.isTrackActive() || false,
-      masterClock: serverTimeMonotonic // For Web Audio scheduling
+      masterClock: serverTimeMonotonic
     }));
     
     logger.debug(`⏱️ Time pong sent`, { 
@@ -170,9 +170,9 @@ module.exports = function createSyncEngine(server) {
         type: "PLAY_SYNC",
         audioUrl: room.currentTrack,
         duration: room.duration,
-        playbackPosition: playbackPosition, // How many ms into the track
+        playbackPosition: playbackPosition,
         masterClockMs: PrecisionClock.now(),
-        masterClockLatencyMs: 0 // Will be filled by client from time_pong
+        masterClockLatencyMs: 0
       });
     }
 
@@ -206,8 +206,8 @@ module.exports = function createSyncEngine(server) {
   }
 
   function handlePlayCommand(ws, msg, room) {
-    // Initiate handshake instead of immediate play
     const startDelayMs = msg.startDelayMs || 800; // Allow buffer for loading
+    
     const checkId = sendDeviceHealthCheck(room);
     room.pendingPlayHandshake = {
       checkId,
@@ -217,10 +217,10 @@ module.exports = function createSyncEngine(server) {
       responses: new Set(),
       initiatedAt: Date.now()
     };
-    // Mark all devices loading
+    
     for (const client of room.clients) deviceReadiness.markLoading(client._id);
     logger.info(`🕒 Play handshake initiated`, { roomCode: room.roomCode, trackUrl: msg.audioUrl.substring(0,40), checkId, deviceCount: room.clients.size });
-    // Tell clients to prepare track
+    
     broadcast(room, {
       type: "PREPARE_TRACK",
       audioUrl: msg.audioUrl,
@@ -228,9 +228,9 @@ module.exports = function createSyncEngine(server) {
       checkId,
       timestamp: Date.now()
     });
-    // Timeout fallback
+    
     setTimeout(() => {
-      if (!room.pendingPlayHandshake) return; // already finalized
+      if (!room.pendingPlayHandshake) return;
       const readyCount = room.pendingPlayHandshake.responses.size;
       logger.warn(`⏰ Play handshake timeout`, { roomCode: room.roomCode, readyCount, total: room.clients.size });
       finalizePlay(room, msg.audioUrl, msg.duration, msg.rttMs ? msg.rttMs / 2 : 0, startDelayMs);
@@ -362,7 +362,7 @@ module.exports = function createSyncEngine(server) {
           isPlaying: room.isTrackActive()
         })
 
-        // Higher threshold now because Web Audio is more precise
+        
         if (drift > 1000) {
           logger.warn(`🔄 Large drift detected, resyncing`, { roomCode: room.roomCode, drift: `${drift.toFixed(0)}ms` })
           sendToClient(ws, {
@@ -390,7 +390,7 @@ module.exports = function createSyncEngine(server) {
         }
       }
       if (msg.type === "track_prepared" && room) {
-        // Optional additional tracking if needed later
+        
         logger.debug(`🎬 Track prepared acknowledged`, { wsId: ws._id, roomCode: room.roomCode });
       }
       if (msg.type === "audio_loading_status" && room) {
