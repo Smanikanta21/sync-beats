@@ -490,21 +490,10 @@ export function useSyncPlayback({
     }
 
     const connect = () => {
-      const urlcheck = process.env.NEXT_PUBLIC_PRODUCTION
-      const rawSocketHost = process.env.NEXT_PUBLIC_SOCKET_URL
-      const socketsserver = (rawSocketHost && rawSocketHost !== 'undefined' && rawSocketHost.trim() !== '') ? rawSocketHost.trim() : 'localhost:6001'
-      const portFallback = process.env.NEXT_PUBLIC_SOCKET_PORT || '6001'
+  
       if (!isMounted) return
       let url: string
-      if (urlcheck === 'true') {
-        url = `wss://sync-beats-backend.onrender.com/ws/sync?roomCode=${roomCode}&userId=${userId}`
-      } else {
-        const hostWithPort = socketsserver.includes(':') ? socketsserver : `${socketsserver}:${portFallback}`
-        url = `ws://${hostWithPort}/ws/sync?roomCode=${roomCode}&userId=${userId}`
-      }
-      if (devMode) {
-        console.log('[SyncPlayback] WS resolved host:', { rawSocketHost, socketsserver, urlcheck, finalUrl: url })
-      }
+      url = `${process.env.NEXT_PUBLIC_SOCKET_HOST}/ws/sync?roomCode=${roomCode}&userId=${userId}`
 
       try {
         const ws = new WebSocket(url)
