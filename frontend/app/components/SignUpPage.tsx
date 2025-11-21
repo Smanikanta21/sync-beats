@@ -55,7 +55,7 @@ export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
       }else{
         toast.error("Signup failed: " + data.message);
       }
-    }catch(err){
+    }catch{
       toast.error(`Error during signup`)
     }finally{
       setLoading(false)

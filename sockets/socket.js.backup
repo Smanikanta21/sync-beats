@@ -1,0 +1,351 @@
+const { WebSocketServer } = require("ws");
+const { createLogger } = require("./lib/logger");
+const BackupManager = require("./managers/BackupManager");
+const PrecisionClock = require("./lib/PrecisionClock");
+
+const logger = createLogger("SyncEngine");
+
+module.exports = function createSyncEngine(server) {
+  const wss = new WebSocketServer({ server });
+  const liveRooms = new Map();
+
+  class Room {
+    constructor(roomCode, hostId) {
+      this.roomCode = roomCode;
+      this.clients = new Set();
+      this.hostUserId = hostId;
+      
+      this.currentTrack = null;
+      this.startedAtServer = null; // Monotonic server clock (from PrecisionClock.now())
+      this.duration = null;
+      this.isPaused = false;
+      this.pausedAt = null; // Position when paused (milliseconds)
+      this.createdAt = Date.now();
+      
+      logger.debug(`📦 Room created: ${roomCode}`, { hostId })
+    }
+
+    /**
+     * Get playback position in milliseconds using monotonic server clock
+     * This never drifts or jumps
+     */
+    getPlaybackPosition() {
+      if (!this.startedAtServer || this.isPaused) {
+        return this.pausedAt ? this.pausedAt : 0;
+      }
+      // Use monotonic clock for precise timing
+      const elapsedMs = PrecisionClock.now() - this.startedAtServer;
+      return elapsedMs;
+    }
+
+    isTrackActive() {
+      return this.currentTrack !== null && !this.isPaused;
+    }
+  }
+
+  function calculateTimeOffset(t0, serverTime, t1) {
+    const rtt = t1 - t0;
+    const clientServerOffset = serverTime - (t0 + rtt / 2);
+    return clientServerOffset;
+  }
+
+  function sendTimePong(ws, msg, room) {
+    const serverTimeMonotonic = PrecisionClock.now();
+    const serverTimeUnix = PrecisionClock.unixNow();
+    const t1 = Date.now();
+    const timeOffset = calculateTimeOffset(msg.t0, serverTimeUnix, t1);
+    
+    ws.send(JSON.stringify({
+      type: "time_pong",
+      id: msg.id,
+      t0: msg.t0,
+      serverTimeUnix: serverTimeUnix, // Unix timestamp for offset calculation
+      serverTimeMonotonic: serverTimeMonotonic, // Monotonic for verification
+      timeOffset: timeOffset,
+      playbackPosition: room?.getPlaybackPosition() || 0,
+      isPlaying: room?.isTrackActive() || false,
+      masterClock: serverTimeMonotonic // For Web Audio scheduling
+    }));
+    
+    logger.debug(`⏱️ Time pong sent`, { 
+      clientId: ws._id, 
+      timeOffset: `${timeOffset}ms`, 
+      masterClock: `${serverTimeMonotonic.toFixed(0)}ms`
+    })
+  }
+  function broadcast(room, data, excludeWs = null) {
+    let sent = 0;
+    for (const client of room.clients) {
+      if (client.readyState === 1 && client !== excludeWs) {
+        try {
+          client.send(JSON.stringify(data));
+          sent++;
+        } catch (error) {
+          logger.warn(`Failed to send message to client`, { clientId: client._id, error: error.message })
+        }
+      }
+    }
+    logger.debug(`📤 Broadcast sent`, { roomCode: room.roomCode, type: data.type, clientsNotified: sent })
+    return sent;
+  }
+
+  function sendToClient(ws, data) {
+    if (ws.readyState === 1) {
+      try {
+        ws.send(JSON.stringify(data));
+        logger.debug(`📨 Message sent to client`, { clientId: ws._id, type: data.type })
+      } catch (error) {
+        logger.error(`Failed to send message to client`, error)
+      }
+    }
+  }
+
+  function joinLiveRoom(ws, roomCode, userId, hostId) {
+    if (!liveRooms.has(roomCode)) {
+      liveRooms.set(roomCode, new Room(roomCode, hostId));
+      logger.info(`✨ New room created`, { roomCode, hostId })
+    }
+
+    const room = liveRooms.get(roomCode);
+    room.clients.add(ws);
+    room.hostUserId = hostId;
+    
+    ws._userId = userId;
+    ws._wsId = ws._id;
+    ws._room = roomCode;
+
+    logger.info(`👤 User joined room`, { roomCode, userId, totalClients: room.clients.size })
+
+    sendToClient(ws, {
+      type: "joined",
+      roomCode,
+      wsId: ws._id,
+      hostUserId: room.hostUserId,
+      isHost: userId === room.hostUserId,
+      timestamp: Date.now()
+    });
+
+    if (room.isTrackActive()) {
+      const playbackPosition = room.getPlaybackPosition();
+      logger.debug(`🎵 Syncing new client with current playback`, { roomCode, playbackPosition })
+      sendToClient(ws, {
+        type: "PLAY_SYNC",
+        audioUrl: room.currentTrack,
+        duration: room.duration,
+        playbackPosition: playbackPosition, // How many ms into the track
+        masterClockMs: PrecisionClock.now(),
+        masterClockLatencyMs: 0 // Will be filled by client from time_pong
+      });
+    }
+
+    broadcast(room, {
+      type: "user_joined",
+      userId,
+      wsId: ws._id,
+      totalClients: room.clients.size,
+      timestamp: Date.now()
+    }, ws);
+  }
+
+  function handlePlayCommand(ws, msg, room) {
+    const startDelayMs = msg.startDelayMs || 200;
+    
+    // Use monotonic server clock for playback start time
+    const startServerMonotonic = PrecisionClock.now() + startDelayMs;
+
+    room.currentTrack = msg.audioUrl;
+    room.startedAtServer = startServerMonotonic;
+    room.duration = msg.duration;
+    room.isPaused = false;
+    room.pausedAt = null;
+
+    logger.info(`▶️ Playback started`, { 
+      roomCode: room.roomCode, 
+      trackUrl: msg.audioUrl.substring(0, 40), 
+      duration: msg.duration,
+      masterClock: `${startServerMonotonic.toFixed(0)}ms`
+    })
+
+    broadcast(room, {
+      type: "PLAY",
+      audioUrl: msg.audioUrl,
+      duration: msg.duration,
+      masterClockMs: startServerMonotonic, // Send monotonic clock time
+      masterClockLatencyMs: msg.rttMs ? msg.rttMs / 2 : 0, // One-way latency
+      startDelayMs: startDelayMs,
+      timestamp: Date.now()
+    });
+  }
+
+  function handlePauseCommand(ws, msg, room) {
+    const pausePosition = room.getPlaybackPosition();
+    room.isPaused = true;
+    room.pausedAt = pausePosition;
+
+    logger.info(`⏸️ Playback paused`, { roomCode: room.roomCode, position: pausePosition })
+
+    broadcast(room, {
+      type: "PAUSE",
+      pausedAtMs: pausePosition,
+      masterClockMs: PrecisionClock.now(),
+      timestamp: Date.now()
+    });
+  }
+
+  function handleResumeCommand(ws, msg, room) {
+    const resumeDelayMs = 100;
+    const resumeServerMonotonic = PrecisionClock.now() + resumeDelayMs;
+
+    room.isPaused = false;
+    room.startedAtServer = resumeServerMonotonic - (room.pausedAt || 0);
+    room.pausedAt = null;
+
+    logger.info(`▶️ Playback resumed`, { roomCode: room.roomCode })
+
+    broadcast(room, {
+      type: "RESUME",
+      masterClockMs: resumeServerMonotonic,
+      resumeDelayMs: resumeDelayMs,
+      timestamp: Date.now()
+    });
+  }
+
+  function handleSeekCommand(ws, msg, room) {
+    const seekPosition = msg.seekPositionMs || 0;
+    const seekDelayMs = 150;
+    const seekServerMonotonic = PrecisionClock.now() + seekDelayMs;
+
+    room.startedAtServer = seekServerMonotonic - seekPosition;
+    room.pausedAt = null;
+
+    logger.info(`⏩ Seek command`, { roomCode: room.roomCode, seekPosition: `${(seekPosition / 1000).toFixed(2)}s` })
+
+    broadcast(room, {
+      type: "SEEK",
+      seekPositionMs: seekPosition,
+      masterClockMs: seekServerMonotonic,
+      seekDelayMs: seekDelayMs,
+      timestamp: Date.now()
+    });
+  }
+
+  wss.on("connection", (ws) => {
+    ws._id = Math.random().toString(36).slice(2, 9);
+
+    ws.on("message", (data) => {
+      let msg = {};
+      try {
+        msg = JSON.parse(data);
+      } catch (err) {
+        logger.warn(`Invalid JSON message received`, { error: err.message })
+        return;
+      }
+
+      const room = liveRooms.get(msg.roomCode);
+
+      if (msg.type === "join") {
+        joinLiveRoom(ws, msg.roomCode, msg.userId, msg.hostId);
+      }
+
+      if (msg.type === "time_ping") {
+        sendTimePong(ws, msg, room);
+      }
+
+      if (msg.type === "PLAY" && room) {
+        handlePlayCommand(ws, msg, room);
+      }
+
+      if (msg.type === "PAUSE" && room) {
+        handlePauseCommand(ws, msg, room);
+      }
+
+      if (msg.type === "RESUME" && room) {
+        handleResumeCommand(ws, msg, room);
+      }
+
+      if (msg.type === "SEEK" && room) {
+        handleSeekCommand(ws, msg, room);
+      }
+
+      if (msg.type === "TRACK_CHANGE" && room) {
+        logger.info(`🎵 Track changed`, { roomCode: room.roomCode, title: msg.trackData?.title })
+        broadcast(room, {
+          type: "TRACK_CHANGE",
+          trackData: msg.trackData,
+          timestamp: Date.now()
+        });
+      }
+
+      if (msg.type === "get_playback_state" && room) {
+        sendToClient(ws, {
+          type: "playback_state",
+          currentTrack: room.currentTrack,
+          playbackPosition: room.getPlaybackPosition(),
+          isPlaying: room.isTrackActive(),
+          duration: room.duration,
+          serverNow: Date.now(),
+          timestamp: Date.now()
+        });
+      }
+
+      if (msg.type === "sync_check" && room) {
+        const clientReportedPosition = msg.clientPosition;
+        const actualServerPosition = room.getPlaybackPosition();
+        const drift = Math.abs(clientReportedPosition - actualServerPosition);
+
+        logger.debug(`📊 Sync check received`, { 
+          roomCode: room.roomCode, 
+          clientPos: `${clientReportedPosition.toFixed(0)}ms`,
+          serverPos: `${actualServerPosition.toFixed(0)}ms`,
+          drift: `${drift.toFixed(0)}ms`,
+          isPlaying: room.isTrackActive()
+        })
+
+        // Higher threshold now because Web Audio is more precise
+        if (drift > 1000) {
+          logger.warn(`🔄 Large drift detected, resyncing`, { roomCode: room.roomCode, drift: `${drift.toFixed(0)}ms` })
+          sendToClient(ws, {
+            type: "RESYNC",
+            correctPositionMs: actualServerPosition,
+            masterClockMs: PrecisionClock.now(),
+            timestamp: Date.now()
+          });
+        }
+      }
+    });
+
+    ws.on("close", () => {
+      const room = liveRooms.get(ws._room);
+      if (!room) return;
+
+      room.clients.delete(ws);
+      logger.info(`👋 User disconnected`, { roomCode: ws._room, userId: ws._userId, remainingClients: room.clients.size })
+
+      if (room.clients.size === 0) {
+        liveRooms.delete(ws._room);
+        logger.info(`🗑️ Empty room deleted`, { roomCode: ws._room })
+      } else {
+        broadcast(room, {
+          type: "user_left",
+          userId: ws._userId,
+          wsId: ws._id,
+          totalClients: room.clients.size
+        });
+      }
+    });
+
+    ws.on("error", (error) => {
+      logger.error(`❌ WebSocket error`, error)
+      try {
+        ws.close(1011, 'Server error')
+      } catch (e) {
+        logger.warn(`Failed to close WebSocket gracefully`, { error: e.message })
+      }
+    });
+  });
+
+  logger.info("🟢 WebSocket server initialized");
+
+  return wss;
+};
+

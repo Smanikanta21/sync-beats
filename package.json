@@ -21,6 +21,7 @@
   "homepage": "https://github.com/Smanikanta21/sync-beats#readme",
   "dependencies": {
     "@prisma/client": "^6.19.0",
+    "@vercel/speed-insights": "^1.2.0",
     "datetime": "^0.0.3",
     "express": "^5.1.0",
     "prisma": "^6.19.0",

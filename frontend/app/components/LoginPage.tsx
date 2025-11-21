@@ -21,7 +21,13 @@ export default function LoginPage({ setShowLogin, setShowSignup }: PropData) {
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const authSuccess = params.get('auth');
+        const token = params.get('token');
         if (authSuccess === 'success') {
+            // Store token from Google OAuth redirect
+            if (token) {
+                console.log('[Login] Google OAuth: storing token from redirect');
+                localStorage.setItem('authToken', token);
+            }
             toast.success('Login successful!');
             router.push('/dashboard');
             setShowLogin?.(false);

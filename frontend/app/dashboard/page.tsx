@@ -11,6 +11,7 @@ import { authFetch, clearAuthToken } from '@/lib/authFetch'
 
 export default function DashBoard() {
   const router = useRouter();
+  const [name, setName] = useState<string>('')
   type Device = {
     id: string;
     name: string;
@@ -19,7 +20,6 @@ export default function DashBoard() {
     updatedAt?: string;
   };
   const [devices, setDevices] = useState<Device[]>([]);
-  const [name, setName] = useState<string>('')
   const [createroomModal, setCrm] = useState<boolean>(false)
   const [joinroomModal, setJoinRm] = useState<boolean>(false)
   const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
@@ -190,7 +190,7 @@ if (loader) {
       </header>
 
       <main className="w-full px-4 py-10 md:py-14 max-w-7xl mx-auto flex flex-col gap-10">
-        {/* Hero Section Skeleton */}
+        
         <section className="w-full bg-gray-900/70 rounded-2xl shadow-xl p-6 md:p-8 border border-gray-700 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="flex flex-col gap-3">
             <Skeleton className="h-10 w-48 rounded-lg" />
@@ -203,7 +203,7 @@ if (loader) {
           </div>
         </section>
 
-        {/* Main Content Grid Skeleton */}
+        
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 bg-gray-900/70 rounded-xl p-6 border border-gray-700 flex flex-col gap-4">
             <Skeleton className="h-8 w-48 rounded-lg" />
@@ -248,13 +248,13 @@ return (
   <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
     {createroomModal ? (<div className='fixed  inset-0 z-50 flex justify-center items-center bg-black/50 backdrop-blur-sm'>
       <div className={`rounded-2xl md:w-[50%] backdrop-blur-3xl h-auto w-[90%] md:h-[60%] md:bg-blue/5 bg-black/40  relative transition-all duration-150 overflow-y-auto ${createroomModal ? 'opacity-100' : "opacity-0"}`}>
-        {/* <button onClick={() => setCrm(false)} className='absolute top-4 left-4 text-white hover:text-red-500 z-10'><X size={32} /></button> */}
+
         <CreateRoom onBack={() => setCrm(false)} />
       </div>
     </div>) : null}
     {joinroomModal ? (<div className='fixed inset-0 z-50 flex justify-center items-center bg-black/50 backdrop-blur-sm'>
       <div className={`rounded-2xl md:w-[50%] h-auto w-[90%] md:h-[60%] md:bg-blue/5 bg-black/40 backdrop-blur-3xl relative transition-all duration-150 overflow-y-auto ${joinroomModal ? 'opacity-100' : "opacity-0"}`}>
-        {/* <button onClick={() => setJoinRm(false)} className='absolute top-4 left-4 text-white hover:text-red-500 z-10'><X size={32} /></button> */}
+
         <JoinRoom onBack={() => setJoinRm(false)} />
       </div>
     </div>) : null}
@@ -349,6 +349,7 @@ return (
               ))}
             </ul>
           )}
+          
         </div>
       </section>
 

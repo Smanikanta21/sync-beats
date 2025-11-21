@@ -1,6 +1,7 @@
 const { WebSocketServer } = require("ws");
 const { createLogger } = require("./lib/logger");
 const BackupManager = require("./managers/BackupManager");
+const PrecisionClock = require("./lib/PrecisionClock");
 
 const logger = createLogger("SyncEngine");
 
@@ -13,27 +14,70 @@ module.exports = function createSyncEngine(server) {
       this.roomCode = roomCode;
       this.clients = new Set();
       this.hostUserId = hostId;
-      
       this.currentTrack = null;
-      this.startedAt = null;
+      this.startedAtServer = null;
       this.duration = null;
       this.isPaused = false;
       this.pausedAt = null;
       this.createdAt = Date.now();
-      
-      logger.debug(`📦 Room created: ${roomCode}`, { hostId })
+      this.pendingPlayHandshake = null;
+      logger.debug(`📦 Room created: ${roomCode}`, { hostId });
     }
 
     getPlaybackPosition() {
-      if (!this.startedAt || this.isPaused) {
-        return this.pausedAt ? this.pausedAt - this.startedAt : 0;
+      if (!this.startedAtServer || this.isPaused) {
+        return this.pausedAt ? this.pausedAt : 0;
       }
-      return Date.now() - this.startedAt;
+      return PrecisionClock.now() - this.startedAtServer;
     }
 
     isTrackActive() {
       return this.currentTrack !== null && !this.isPaused;
     }
+  }
+
+  class DeviceReadinessTracker {
+    constructor() {
+      this.deviceStatus = new Map();
+    }
+    markReady(wsId) {
+      const status = this.deviceStatus.get(wsId) || { ready: false, loadedTracks: new Set(), lastCheck: 0 };
+      status.ready = true;
+      status.lastCheck = Date.now();
+      this.deviceStatus.set(wsId, status);
+    }
+    markLoading(wsId) {
+      const status = this.deviceStatus.get(wsId) || { ready: false, loadedTracks: new Set(), lastCheck: 0 };
+      status.ready = false;
+      this.deviceStatus.set(wsId, status);
+    }
+    trackLoaded(wsId, trackUrl) {
+      const status = this.deviceStatus.get(wsId) || { ready: false, loadedTracks: new Set(), lastCheck: 0 };
+      status.loadedTracks.add(trackUrl);
+      this.deviceStatus.set(wsId, status);
+    }
+    isReady(wsId) {
+      const status = this.deviceStatus.get(wsId);
+      return !!(status && status.ready);
+    }
+    removeDevice(wsId) {
+      this.deviceStatus.delete(wsId);
+    }
+    allReady(room) {
+      for (const client of room.clients) {
+        if (!this.isReady(client._id)) return false;
+      }
+      return true;
+    }
+  }
+
+  const deviceReadiness = new DeviceReadinessTracker();
+
+  function sendDeviceHealthCheck(room) {
+    const checkId = Math.random().toString(36).slice(2, 9);
+    logger.debug(`🏥 Sending health check to all devices`, { roomCode: room.roomCode, checkId, deviceCount: room.clients.size });
+    broadcast(room, { type: "device_health_check", checkId, timestamp: Date.now() });
+    return checkId;
   }
 
   function calculateTimeOffset(t0, serverTime, t1) {
@@ -43,21 +87,29 @@ module.exports = function createSyncEngine(server) {
   }
 
   function sendTimePong(ws, msg, room) {
-    const serverTime = Date.now();
+    const serverTimeMonotonic = PrecisionClock.now();
+    const serverTimeUnix = PrecisionClock.unixNow();
     const t1 = Date.now();
-    const timeOffset = calculateTimeOffset(msg.t0, serverTime, t1);
+    const timeOffset = calculateTimeOffset(msg.t0, serverTimeUnix, t1);
     
     ws.send(JSON.stringify({
       type: "time_pong",
       id: msg.id,
       t0: msg.t0,
-      serverTime: serverTime,
+      serverTimeUnix: serverTimeUnix,
+      serverTimeMonotonic: serverTimeMonotonic,
       timeOffset: timeOffset,
       playbackPosition: room?.getPlaybackPosition() || 0,
-      isPlaying: room?.isTrackActive() || false
+      isPlaying: room?.isTrackActive() || false,
+      masterClock: serverTimeMonotonic
     }));
     
-    logger.debug(`⏱️ Time pong sent`, { clientId: ws._id, timeOffset: `${timeOffset}ms`, drift: msg.t0 ? Date.now() - msg.t0 : 'N/A' })
+    logger.debug(`⏱️ Time pong sent`, { 
+      clientId: ws._id, 
+      timeOffset: `${timeOffset}ms`, 
+      masterClock: `${serverTimeMonotonic.toFixed(0)}ms`
+    })
+
   }
   function broadcast(room, data, excludeWs = null) {
     let sent = 0;
@@ -118,9 +170,9 @@ module.exports = function createSyncEngine(server) {
         type: "PLAY_SYNC",
         audioUrl: room.currentTrack,
         duration: room.duration,
-        playbackPosition: playbackPosition, // How many ms into the track
-        startServerMs: room.startedAt,
-        serverNow: Date.now()
+        playbackPosition: playbackPosition,
+        masterClockMs: PrecisionClock.now(),
+        masterClockLatencyMs: 0
       });
     }
 
@@ -133,26 +185,56 @@ module.exports = function createSyncEngine(server) {
     }, ws);
   }
 
-  function handlePlayCommand(ws, msg, room) {
-    const startDelayMs = msg.startDelayMs || 200
-
-    room.currentTrack = msg.audioUrl;
-    room.startedAt = Date.now() + startDelayMs;
-    room.duration = msg.duration;
+  function finalizePlay(room, audioUrl, duration, latencyHintMs = 0, startDelayMs = 500) {
+    const startServerMonotonic = PrecisionClock.now() + startDelayMs;
+    room.currentTrack = audioUrl;
+    room.startedAtServer = startServerMonotonic;
+    room.duration = duration;
     room.isPaused = false;
     room.pausedAt = null;
-
-    logger.info(`▶️ Playback started`, { roomCode: room.roomCode, trackUrl: msg.audioUrl.substring(0, 40), duration: msg.duration })
-
+    room.pendingPlayHandshake = null;
+    logger.info(`▶️ Playback starting`, { roomCode: room.roomCode, trackUrl: audioUrl.substring(0, 40), duration, startDelayMs, deviceCount: room.clients.size });
     broadcast(room, {
       type: "PLAY",
-      audioUrl: msg.audioUrl,
-      duration: msg.duration,
-      startServerMs: room.startedAt,
-      serverNow: Date.now(),
-      startDelayMs: startDelayMs,
+      audioUrl,
+      duration,
+      masterClockMs: startServerMonotonic,
+      masterClockLatencyMs: latencyHintMs,
+      startDelayMs,
       timestamp: Date.now()
     });
+  }
+
+  function handlePlayCommand(ws, msg, room) {
+    const startDelayMs = msg.startDelayMs || 800; // Allow buffer for loading
+    
+    const checkId = sendDeviceHealthCheck(room);
+    room.pendingPlayHandshake = {
+      checkId,
+      trackUrl: msg.audioUrl,
+      duration: msg.duration,
+      startDelayMs,
+      responses: new Set(),
+      initiatedAt: Date.now()
+    };
+    
+    for (const client of room.clients) deviceReadiness.markLoading(client._id);
+    logger.info(`🕒 Play handshake initiated`, { roomCode: room.roomCode, trackUrl: msg.audioUrl.substring(0,40), checkId, deviceCount: room.clients.size });
+    
+    broadcast(room, {
+      type: "PREPARE_TRACK",
+      audioUrl: msg.audioUrl,
+      duration: msg.duration,
+      checkId,
+      timestamp: Date.now()
+    });
+    
+    setTimeout(() => {
+      if (!room.pendingPlayHandshake) return;
+      const readyCount = room.pendingPlayHandshake.responses.size;
+      logger.warn(`⏰ Play handshake timeout`, { roomCode: room.roomCode, readyCount, total: room.clients.size });
+      finalizePlay(room, msg.audioUrl, msg.duration, msg.rttMs ? msg.rttMs / 2 : 0, startDelayMs);
+    }, 5000);
   }
 
   function handlePauseCommand(ws, msg, room) {
@@ -160,48 +242,50 @@ module.exports = function createSyncEngine(server) {
     room.isPaused = true;
     room.pausedAt = pausePosition;
 
-    logger.info(`⏸️ Playback paused`, { roomCode: room.roomCode, position: pausePosition })
+    logger.info(`⏸️ Playback paused`, { 
+      roomCode: room.roomCode, 
+      position: pausePosition,
+      deviceCount: room.clients.size
+    })
 
     broadcast(room, {
       type: "PAUSE",
-      pausedAt: pausePosition,
+      pausedAtMs: pausePosition,
+      masterClockMs: PrecisionClock.now(),
       timestamp: Date.now()
     });
   }
 
   function handleResumeCommand(ws, msg, room) {
-    const resumeDelayMs = 100;
-    const resumeServerMs = Date.now() + resumeDelayMs;
-
+    const resumeDelayMs = msg.startDelayMs || 400;
+    const resumeServerMonotonic = PrecisionClock.now() + resumeDelayMs;
+    const pausedAt = room.pausedAt || 0;
     room.isPaused = false;
-    room.startedAt = resumeServerMs - (room.pausedAt || 0);
+    room.startedAtServer = resumeServerMonotonic - pausedAt;
     room.pausedAt = null;
-
-    logger.info(`▶️ Playback resumed`, { roomCode: room.roomCode, fromPosition: room.pausedAt })
-
+    const playbackPosition = pausedAt;
+    logger.info(`▶️ Playback resumed`, { roomCode: room.roomCode, playbackPosition, deviceCount: room.clients.size });
     broadcast(room, {
       type: "RESUME",
-      resumeServerMs: resumeServerMs,
-      serverNow: Date.now(),
+      masterClockMs: resumeServerMonotonic,
+      resumeDelayMs,
+      playbackPositionMs: playbackPosition,
       timestamp: Date.now()
     });
   }
 
   function handleSeekCommand(ws, msg, room) {
     const seekPosition = msg.seekPositionMs || 0;
-    const seekDelayMs = 150;
-    const seekServerMs = Date.now() + seekDelayMs;
-
-    room.startedAt = seekServerMs - seekPosition;
+    const seekDelayMs = 300;
+    const seekServerMonotonic = PrecisionClock.now() + seekDelayMs;
+    room.startedAtServer = seekServerMonotonic - seekPosition;
     room.pausedAt = null;
-
-    logger.info(`⏩ Seek command`, { roomCode: room.roomCode, seekPosition: `${(seekPosition / 1000).toFixed(2)}s` })
-
+    logger.info(`⏩ Seek command`, { roomCode: room.roomCode, seekPosition: `${(seekPosition / 1000).toFixed(2)}s`, deviceCount: room.clients.size });
     broadcast(room, {
       type: "SEEK",
       seekPositionMs: seekPosition,
-      seekServerMs: seekServerMs,
-      serverNow: Date.now(),
+      masterClockMs: seekServerMonotonic,
+      seekDelayMs,
       timestamp: Date.now()
     });
   }
@@ -270,14 +354,50 @@ module.exports = function createSyncEngine(server) {
         const actualServerPosition = room.getPlaybackPosition();
         const drift = Math.abs(clientReportedPosition - actualServerPosition);
 
-        if (drift > 500) {
+        logger.debug(`📊 Sync check received`, { 
+          roomCode: room.roomCode, 
+          clientPos: `${clientReportedPosition.toFixed(0)}ms`,
+          serverPos: `${actualServerPosition.toFixed(0)}ms`,
+          drift: `${drift.toFixed(0)}ms`,
+          isPlaying: room.isTrackActive()
+        })
+
+        
+        if (drift > 1000) {
           logger.warn(`🔄 Large drift detected, resyncing`, { roomCode: room.roomCode, drift: `${drift.toFixed(0)}ms` })
           sendToClient(ws, {
             type: "RESYNC",
-            correctPosition: actualServerPosition,
-            serverNow: Date.now(),
+            correctPositionMs: actualServerPosition,
+            masterClockMs: PrecisionClock.now(),
             timestamp: Date.now()
           });
+        }
+      }
+      if (msg.type === "device_health_check_response" && room) {
+        const { checkId, audioLoaded, deviceReady } = msg;
+        logger.debug(`✅ Device health check response`, { checkId, wsId: ws._id, audioLoaded, deviceReady });
+        if (deviceReady && audioLoaded) {
+          deviceReadiness.markReady(ws._id);
+          if (room.pendingPlayHandshake && room.pendingPlayHandshake.checkId === checkId) {
+            room.pendingPlayHandshake.responses.add(ws._id);
+            logger.debug(`📝 Play handshake response recorded`, { roomCode: room.roomCode, readyCount: room.pendingPlayHandshake.responses.size, total: room.clients.size });
+            if (deviceReadiness.allReady(room)) {
+              logger.info(`✅ All devices ready for playback`, { roomCode: room.roomCode });
+              finalizePlay(room, room.pendingPlayHandshake.trackUrl, room.pendingPlayHandshake.duration, msg.rttMs ? msg.rttMs / 2 : 0, room.pendingPlayHandshake.startDelayMs);
+            }
+          }
+          broadcast(room, { type: "device_ready", wsId: ws._id, timestamp: Date.now() }, ws);
+        }
+      }
+      if (msg.type === "track_prepared" && room) {
+        
+        logger.debug(`🎬 Track prepared acknowledged`, { wsId: ws._id, roomCode: room.roomCode });
+      }
+      if (msg.type === "audio_loading_status" && room) {
+        const { trackUrl, isLoaded } = msg;
+        if (isLoaded) {
+          deviceReadiness.trackLoaded(ws._id, trackUrl);
+          logger.debug(`📦 Audio loaded on device`, { wsId: ws._id, trackUrl: trackUrl.substring(0, 40) });
         }
       }
     });
@@ -316,3 +436,4 @@ module.exports = function createSyncEngine(server) {
 
   return wss;
 };
+
