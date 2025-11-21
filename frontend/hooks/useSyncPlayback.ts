@@ -499,8 +499,15 @@ export function useSyncPlayback({
       if (urlcheck === 'true') {
         url = `wss://sync-beats-backend.onrender.com/ws/sync?roomCode=${roomCode}&userId=${userId}`
       } else {
+        const isSecurePage = typeof window !== 'undefined' && window.location && window.location.protocol === 'https:'
         const hostWithPort = socketsserver.includes(':') ? socketsserver : `${socketsserver}:${portFallback}`
-        url = `ws://${hostWithPort}/ws/sync?roomCode=${roomCode}&userId=${userId}`
+        let selectedHost = hostWithPort
+        if (isSecurePage && (selectedHost.includes('localhost') || selectedHost.includes('127.0.0.1'))) {
+          if (devMode) console.warn('[SyncPlayback] HTTPS page cannot use ws://localhost. Falling back to public WSS host.')
+          selectedHost = 'sync-beats-backend.onrender.com'
+        }
+        const scheme = isSecurePage ? 'wss' : 'ws'
+        url = `${scheme}://${selectedHost}/ws/sync?roomCode=${roomCode}&userId=${userId}`
       }
       if (devMode) {
         console.log('[SyncPlayback] WS resolved host:', { rawSocketHost, socketsserver, urlcheck, finalUrl: url })
