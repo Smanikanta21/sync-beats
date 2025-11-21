@@ -490,28 +490,10 @@ export function useSyncPlayback({
     }
 
     const connect = () => {
-      const urlcheck = process.env.NEXT_PUBLIC_PRODUCTION
-      const rawSocketHost = process.env.NEXT_PUBLIC_SOCKET_URL
-      const socketsserver = (rawSocketHost && rawSocketHost !== 'undefined' && rawSocketHost.trim() !== '') ? rawSocketHost.trim() : 'localhost:6001'
-      const portFallback = process.env.NEXT_PUBLIC_SOCKET_PORT || '6001'
+  
       if (!isMounted) return
       let url: string
-      if (urlcheck === 'true') {
-        url = `wss://sync-beats-backend.onrender.com/ws/sync?roomCode=${roomCode}&userId=${userId}`
-      } else {
-        const isSecurePage = typeof window !== 'undefined' && window.location && window.location.protocol === 'https:'
-        const hostWithPort = socketsserver.includes(':') ? socketsserver : `${socketsserver}:${portFallback}`
-        let selectedHost = hostWithPort
-        if (isSecurePage && (selectedHost.includes('localhost') || selectedHost.includes('127.0.0.1'))) {
-          if (devMode) console.warn('[SyncPlayback] HTTPS page cannot use ws://localhost. Falling back to public WSS host.')
-          selectedHost = 'sync-beats-backend.onrender.com'
-        }
-        const scheme = isSecurePage ? 'wss' : 'ws'
-        url = `${scheme}://${selectedHost}/ws/sync?roomCode=${roomCode}&userId=${userId}`
-      }
-      if (devMode) {
-        console.log('[SyncPlayback] WS resolved host:', { rawSocketHost, socketsserver, urlcheck, finalUrl: url })
-      }
+      url = `${process.env.NEXT_PUBLIC_SOCKET_HOST}/ws/sync?roomCode=${roomCode}&userId=${userId}`
 
       try {
         const ws = new WebSocket(url)
