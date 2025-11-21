@@ -20,10 +20,69 @@ interface PlaybackState {
   latencyMs: number
 }
 
-interface SyncMessage {
-  type: string
-  [key: string]: any
+interface PlaySyncMessage {
+  type: 'PLAY_SYNC'
+  audioUrl: string
+  duration: number
+  playbackPosition: number
+  startServerMs: number
+  serverNow: number
+  isPlaying?: boolean
 }
+
+interface PlayMessage {
+  type: 'PLAY'
+  audioUrl: string
+  duration: number
+  startServerMs: number
+  serverNow: number
+  startDelayMs: number
+  timestamp: number
+}
+
+interface PauseMessage {
+  type: 'PAUSE'
+  pausedAt: number
+  timestamp: number
+}
+
+interface ResumeMessage {
+  type: 'RESUME'
+  resumeServerMs: number
+  serverNow: number
+  timestamp: number
+}
+
+interface SeekMessage {
+  type: 'SEEK'
+  seekPositionMs: number
+  seekServerMs: number
+  serverNow: number
+  timestamp: number
+}
+
+interface TrackChangeMessage {
+  type: 'TRACK_CHANGE'
+  trackData: {
+    id: string
+    title: string
+    artist: string
+    duration: number
+    audioUrl: string
+  }
+  timestamp: number
+}
+
+interface ResyncMessage {
+  type: 'RESYNC'
+  correctPosition: number
+  serverNow: number
+  timestamp: number
+}
+
+export type SyncMessage = PlaySyncMessage | PlayMessage | PauseMessage | ResumeMessage | SeekMessage | TrackChangeMessage | ResyncMessage | Record<string, unknown>
+
+export type { PlaySyncMessage, PlayMessage, PauseMessage, ResumeMessage, SeekMessage, TrackChangeMessage, ResyncMessage }
 
 const isMobileDevice = (): boolean => {
   if (process.env.PRODUCTION === 'true') return false
@@ -90,15 +149,16 @@ export function useSyncPlayback({
       t0: t0
     }))
 
-    if (!(wsRef.current as any)._pendingPings) {
-      (wsRef.current as any)._pendingPings = {}
+    const pendingPings = (wsRef.current as unknown as Record<string, Record<string, number>>)._pendingPings
+    if (!pendingPings) {
+      (wsRef.current as unknown as Record<string, Record<string, number>>)._pendingPings = {}
     }
-    (wsRef.current as any)._pendingPings[pingId] = t0
+    (wsRef.current as unknown as Record<string, Record<string, number>>)._pendingPings[pingId] = t0
   }, [])
 
-  const handleTimePong = useCallback((msg: any) => {
-    const timeOffset = msg.timeOffset ?? 0
-    const rtt = msg.t0 ? Date.now() - msg.t0 : 0
+  const handleTimePong = useCallback((msg: Record<string, unknown>) => {
+    const timeOffset = (msg.timeOffset as number) ?? 0
+    const rtt = msg.t0 ? Date.now() - (msg.t0 as number) : 0
     const latency = rtt / 2
 
     setPlaybackState(prev => ({
@@ -380,20 +440,21 @@ export function useSyncPlayback({
         }
 
         ws.onmessage = (event) => {
-          const msg: SyncMessage = JSON.parse(event.data)
+          const msg = JSON.parse(event.data) as SyncMessage
 
           if (msg.type === "time_pong") {
-            handleTimePong(msg)
+            handleTimePong(msg as Record<string, unknown>)
           }
 
           if (msg.type === "PLAY_SYNC") {
-            console.log("🎵 PLAY_SYNC message received (late join):", { audioUrl: msg.audioUrl?.substring(0, 40), playbackPosition: msg.playbackPosition, duration: msg.duration })
-            console.log("📱 Mobile PLAY_SYNC received:", { isMobile, playbackPosition: msg.playbackPosition, duration: msg.duration })
+            const playSyncMsg = msg as PlaySyncMessage
+            console.log("🎵 PLAY_SYNC message received (late join):", { audioUrl: playSyncMsg.audioUrl?.substring(0, 40), playbackPosition: playSyncMsg.playbackPosition, duration: playSyncMsg.duration })
+            console.log("📱 Mobile PLAY_SYNC received:", { isMobile, playbackPosition: playSyncMsg.playbackPosition, duration: playSyncMsg.duration })
             
             if (audioRef.current) {
-              audioRef.current.src = msg.audioUrl
-              if (msg.isPlaying) {
-                const positionSeconds = (msg.playbackPosition || 0) / 1000
+              audioRef.current.src = playSyncMsg.audioUrl
+              if (playSyncMsg.isPlaying !== undefined) {
+                const positionSeconds = (playSyncMsg.playbackPosition || 0) / 1000
                 audioRef.current.currentTime = positionSeconds
                 console.log(`⏩ Late join: jumping to ${positionSeconds}s`)
                 const playPromise = audioRef.current.play()
@@ -409,29 +470,32 @@ export function useSyncPlayback({
               }
             }
             
-            setPlaybackState(prev => ({ ...prev, isPlaying: msg.isPlaying || false }))
+            setPlaybackState(prev => ({ ...prev, isPlaying: playSyncMsg.isPlaying || false }))
             onSyncRef.current?.(msg)
           }
 
           if (msg.type === "PLAY") {
-            console.log("🎵 PLAY message received:", { audioUrl: msg.audioUrl?.substring(0, 40), startServerMs: msg.startServerMs, duration: msg.duration })
-            console.log("📱 Mobile PLAY received:", { isMobile, duration: msg.duration, startServerMs: msg.startServerMs, startDelayMs: msg.startDelayMs })
-            scheduleSync(msg.audioUrl, msg.startServerMs, msg.duration, msg.startDelayMs)
+            const playMsg = msg as PlayMessage
+            console.log("🎵 PLAY message received:", { audioUrl: playMsg.audioUrl?.substring(0, 40), startServerMs: playMsg.startServerMs, duration: playMsg.duration })
+            console.log("📱 Mobile PLAY received:", { isMobile, duration: playMsg.duration, startServerMs: playMsg.startServerMs, startDelayMs: playMsg.startDelayMs })
+            scheduleSync(playMsg.audioUrl, playMsg.startServerMs, playMsg.duration, playMsg.startDelayMs)
             setPlaybackState(prev => ({ ...prev, isPlaying: true }))
             onSyncRef.current?.(msg)
           }
 
           if (msg.type === "PAUSE") {
-            console.log("⏸️ PAUSE message received:", { pausedAt: msg.pausedAt })
-            console.log("📱 Mobile PAUSE received:", { isMobile, pausedAt: msg.pausedAt, audioCurrentTime: audioRef.current?.currentTime })
+            const pauseMsg = msg as PauseMessage
+            console.log("⏸️ PAUSE message received:", { pausedAt: pauseMsg.pausedAt })
+            console.log("📱 Mobile PAUSE received:", { isMobile, pausedAt: pauseMsg.pausedAt, audioCurrentTime: audioRef.current?.currentTime })
             audioRef.current?.pause()
             setPlaybackState(prev => ({ ...prev, isPlaying: false }))
             onSyncRef.current?.(msg)
           }
 
           if (msg.type === "RESUME") {
-            console.log("▶️ RESUME message received:", { resumeServerMs: msg.resumeServerMs })
-            console.log("📱 Mobile RESUME received:", { isMobile, resumeServerMs: msg.resumeServerMs, audioCurrentTime: audioRef.current?.currentTime })
+            const resumeMsg = msg as ResumeMessage
+            console.log("▶️ RESUME message received:", { resumeServerMs: resumeMsg.resumeServerMs })
+            console.log("📱 Mobile RESUME received:", { isMobile, resumeServerMs: resumeMsg.resumeServerMs, audioCurrentTime: audioRef.current?.currentTime })
             const playPromise = audioRef.current?.play()
             if (playPromise) {
               playPromise.catch(err => {
@@ -447,23 +511,25 @@ export function useSyncPlayback({
           }
 
           if (msg.type === "SEEK") {
-            console.log("SEEK message received:", msg.seekPositionMs)
-            console.log("📱 Mobile SEEK received:", { isMobile, seekPositionMs: msg.seekPositionMs })
-            if (audioRef.current) {
-              audioRef.current.currentTime = msg.seekPositionMs / 1000
+            const seekMsg = msg as SeekMessage
+            console.log("SEEK message received:", seekMsg.seekPositionMs)
+            console.log("📱 Mobile SEEK received:", { isMobile, seekPositionMs: seekMsg.seekPositionMs })
+            if (audioRef.current && seekMsg.seekPositionMs !== undefined && seekMsg.seekPositionMs !== null) {
+              audioRef.current.currentTime = seekMsg.seekPositionMs / 1000
             }
-            setPlaybackState(prev => ({ ...prev, currentPosition: msg.seekPositionMs }))
+            setPlaybackState(prev => ({ ...prev, currentPosition: seekMsg.seekPositionMs || 0 }))
             onSyncRef.current?.(msg)
           }
 
           if (msg.type === "TRACK_CHANGE") {
-            console.log("🎵 TRACK_CHANGE message received:", msg.trackData)
-            console.log("📱 Mobile TRACK_CHANGE:", { isMobile, title: msg.trackData?.title, audioUrl: msg.trackData?.audioUrl })
+            const trackChangeMsg = msg as TrackChangeMessage
+            console.log("🎵 TRACK_CHANGE message received:", trackChangeMsg.trackData)
+            console.log("📱 Mobile TRACK_CHANGE:", { isMobile, title: trackChangeMsg.trackData?.title, audioUrl: trackChangeMsg.trackData?.audioUrl })
             
             // Load and play the new track
-            if (msg.trackData?.audioUrl && audioRef.current) {
-              console.log("📱 Loading new track:", msg.trackData.title)
-              audioRef.current.src = msg.trackData.audioUrl
+            if (trackChangeMsg.trackData?.audioUrl && audioRef.current) {
+              console.log("📱 Loading new track:", trackChangeMsg.trackData.title)
+              audioRef.current.src = trackChangeMsg.trackData.audioUrl
               audioRef.current.currentTime = 0
               
               // Play the track
@@ -484,10 +550,11 @@ export function useSyncPlayback({
           }
 
           if (msg.type === "RESYNC") {
-            console.log("Resyncing to", msg.correctPosition, "ms")
-            console.log("📱 Mobile RESYNC:", { isMobile, correctPosition: msg.correctPosition })
-            if (audioRef.current) {
-              audioRef.current.currentTime = msg.correctPosition / 1000
+            const resyncMsg = msg as ResyncMessage
+            console.log("Resyncing to", resyncMsg.correctPosition, "ms")
+            console.log("📱 Mobile RESYNC:", { isMobile, correctPosition: resyncMsg.correctPosition })
+            if (audioRef.current && resyncMsg.correctPosition !== undefined && resyncMsg.correctPosition !== null) {
+              audioRef.current.currentTime = resyncMsg.correctPosition / 1000
             }
           }
         }

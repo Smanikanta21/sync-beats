@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState, useRef } from "react"
 import { toast } from "react-toastify"
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Users, LogOut, Music, Clock, Crown, User, Plus, Trash2, ArrowUp, ArrowDown, Shuffle, Repeat, X, ListMusic, Settings, Copy, Globe, Lock, Info, Radio } from "lucide-react"
-import { useSyncPlayback } from "@/hooks/useSyncPlayback"
+import { useSyncPlayback, type PlaySyncMessage, type PlayMessage, type PauseMessage, type ResumeMessage, type SeekMessage, type TrackChangeMessage, type ResyncMessage, type SyncMessage } from "@/hooks/useSyncPlayback"
 import { authFetch, getUserIdFromToken } from "@/lib/authFetch"
 
 type RoomResponse = {
@@ -96,7 +96,7 @@ export default function RoomPage() {
     userId: currentUserId || "",
     hostId: roomData?.hostId || "",
     audioRef: audioRef as React.RefObject<HTMLAudioElement>,
-    onSync: (data: Record<string, unknown>) => {
+    onSync: (data: SyncMessage) => {
       console.log("Synced:", data)
       
       // Handle PLAY_SYNC (late join - user joins mid-playback)
@@ -179,7 +179,10 @@ export default function RoomPage() {
   // Mobile dev debug window
   useEffect(() => {
     if (typeof window !== 'undefined' && isDevelopment()) {
-      (window as any).getRoomState = () => {
+      type DebugWindow = Record<string, () => Record<string, unknown>>;
+      const debugWindow = window as unknown as DebugWindow;
+      
+      debugWindow.getRoomState = () => {
         const state = {
           currentTrack: currentTrack?.title,
           isPlaying,
@@ -211,9 +214,11 @@ export default function RoomPage() {
         return state
       }
       
-      (window as any).logRoomStateHistory = () => {
+      debugWindow.logRoomStateHistory = () => {
         console.log("🎵 CURRENT ROOM STATE SNAPSHOT:")
-        console.log(JSON.stringify((window as any).getRoomState(), null, 2))
+        const state = debugWindow.getRoomState()
+        console.log(JSON.stringify(state, null, 2))
+        return state
       }
     }
   }, [currentTrack, isPlaying, currentTime, volume, isMuted, queue.length, recentTracks.length, shuffleMode, repeatMode, localIsHost, currentUserId, roomData, roomcode, playbackState])
@@ -682,8 +687,10 @@ useEffect(() => {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).debugAudio = () => {
+      type DebugWindow = Record<string, (url?: string) => void>;
+      const debugWindow = window as unknown as DebugWindow;
+      
+      debugWindow.debugAudio = () => {
         const audio = audioRef.current
         if (!audio) return console.error("No audio ref")
         
@@ -705,8 +712,7 @@ useEffect(() => {
         console.log("CanPlayType (audio/mpeg):", audio.canPlayType('audio/mpeg'))
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).playTest = (url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3") => {
+      debugWindow.playTest = (url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3") => {
         const audio = audioRef.current
         if (!audio) return console.error("No audio ref")
         
@@ -1746,8 +1752,9 @@ useEffect(() => {
             <div>Offset: {Math.round(playbackState.serverOffsetMs)}ms</div>
             <div className="border-t border-gray-600 mt-2 pt-2">
               <button onClick={() => {
-                (window as any).getRoomState?.()
-                (window as any).logRoomStateHistory?.()
+                const debugWindow = window as unknown as Record<string, () => void>;
+                debugWindow.getRoomState?.()
+                debugWindow.logRoomStateHistory?.()
               }} className="w-full bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-white">
                 📸 Log Full State to Console
               </button>
