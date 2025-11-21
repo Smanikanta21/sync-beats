@@ -112,6 +112,34 @@ export function useSyncPlayback({
     log("⏱️ Time sync received", { serverOffsetMs: timeOffset, rttMs: rtt, latencyMs: latency })
   }, [log])
 
+  const updatePlaybackState = useCallback((data: { isPlaying?: boolean; currentPosition?: number }) => {
+    if (data.isPlaying !== undefined) {
+      if (audioRef.current) {
+        if (data.isPlaying) {
+          console.log("📱 updatePlaybackState: Attempting to play audio on mobile")
+          const playPromise = audioRef.current.play()
+          if (playPromise) {
+            playPromise
+              .then(() => {
+                console.log("📱 Play promise resolved - audio should be playing")
+                setPlaybackState(prev => ({ ...prev, isPlaying: true }))
+              })
+              .catch(err => {
+                console.warn("📱 Play promise rejected:", err.name, err.message)
+                if (err.name === 'NotAllowedError') {
+                  console.warn("📱 Mobile autoplay blocked - user interaction required")
+                }
+              })
+          }
+        } else {
+          console.log("📱 updatePlaybackState: Pausing audio")
+          audioRef.current.pause()
+          setPlaybackState(prev => ({ ...prev, isPlaying: false }))
+        }
+      }
+    }
+  }, [])
+
   const scheduleSync = useCallback((
     audioUrl: string,
     startServerMs: number,
@@ -318,13 +346,16 @@ export function useSyncPlayback({
       const protocol = isProduction ? "wss" : "ws"
       
       let url: string
-      // if (host.includes(":")) {
-      //   url = `${protocol}://${host}`
-      // } else {
-      //   const port = process.env.NEXT_PUBLIC_SOCKET_PORT || "6001"
-      //   url = `${protocol}://${host}:${port}`
-      // }
-      url = `wss://sync-beats-qoe8.onrender.com`
+      if (host.includes(":")) {
+        url = `${protocol}://${host}`
+      } else {
+        const port = process.env.NEXT_PUBLIC_SOCKET_PORT || "6001"
+        url = `${protocol}://${host}:${port}`
+      }
+
+      url = `${url}/ws/sync?roomCode=${roomCode}&userId=${userId}`
+
+      // url = `wss://sync-beats-qoe8.onrender.com`
 
       console.log("Connecting to WebSocket:", url)
 
@@ -353,6 +384,33 @@ export function useSyncPlayback({
 
           if (msg.type === "time_pong") {
             handleTimePong(msg)
+          }
+
+          if (msg.type === "PLAY_SYNC") {
+            console.log("🎵 PLAY_SYNC message received (late join):", { audioUrl: msg.audioUrl?.substring(0, 40), playbackPosition: msg.playbackPosition, duration: msg.duration })
+            console.log("📱 Mobile PLAY_SYNC received:", { isMobile, playbackPosition: msg.playbackPosition, duration: msg.duration })
+            
+            if (audioRef.current) {
+              audioRef.current.src = msg.audioUrl
+              if (msg.isPlaying) {
+                const positionSeconds = (msg.playbackPosition || 0) / 1000
+                audioRef.current.currentTime = positionSeconds
+                console.log(`⏩ Late join: jumping to ${positionSeconds}s`)
+                const playPromise = audioRef.current.play()
+                if (playPromise) {
+                  playPromise.catch(err => {
+                    if (err.name === 'NotAllowedError') {
+                      console.warn("📱 Autoplay blocked on mobile - user interaction required")
+                    } else {
+                      console.error("Play error:", err)
+                    }
+                  })
+                }
+              }
+            }
+            
+            setPlaybackState(prev => ({ ...prev, isPlaying: msg.isPlaying || false }))
+            onSyncRef.current?.(msg)
           }
 
           if (msg.type === "PLAY") {
@@ -399,8 +457,29 @@ export function useSyncPlayback({
           }
 
           if (msg.type === "TRACK_CHANGE") {
-            console.log("TRACK_CHANGE message received:", msg.trackData)
-            console.log("📱 Mobile TRACK_CHANGE:", { isMobile, title: msg.trackData?.title })
+            console.log("🎵 TRACK_CHANGE message received:", msg.trackData)
+            console.log("📱 Mobile TRACK_CHANGE:", { isMobile, title: msg.trackData?.title, audioUrl: msg.trackData?.audioUrl })
+            
+            // Load and play the new track
+            if (msg.trackData?.audioUrl && audioRef.current) {
+              console.log("📱 Loading new track:", msg.trackData.title)
+              audioRef.current.src = msg.trackData.audioUrl
+              audioRef.current.currentTime = 0
+              
+              // Play the track
+              const playPromise = audioRef.current.play()
+              if (playPromise) {
+                playPromise.catch(err => {
+                  if (err.name === 'NotAllowedError') {
+                    console.warn("📱 Autoplay blocked on mobile - user interaction required")
+                  } else {
+                    console.error("Track change play error:", err)
+                  }
+                })
+              }
+              setPlaybackState(prev => ({ ...prev, isPlaying: true }))
+            }
+            
             onSyncRef.current?.(msg)
           }
 

@@ -39,7 +39,8 @@ function generateToken(user) {
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.GOOGLE_REDIRECT_URL
+    // prefer explicit GOOGLE_REDIRECT_URL, otherwise build from BACKEND_URL or default to localhost
+    callbackURL: process.env.GOOGLE_REDIRECT_URL || (process.env.BACKEND_URL ? `${process.env.BACKEND_URL.replace(/\/$/, '')}/auth/callback/google` : 'http://localhost:5001/auth/callback/google')
 },
     async (accessToken, refreshToken, profile, done) => {
         try {
@@ -157,7 +158,7 @@ async function login(req, res, next) {
         res.cookie("token", token, { 
             httpOnly: true, 
             secure: false,
-            sameSite: 'none',
+            sameSite: 'lax',
             path: '/',
             maxAge: 7 * 24 * 60 * 60 * 1000 
         });
@@ -219,13 +220,14 @@ async function googleAuthCallback(req, res) {
         res.cookie("token", token, {
             httpOnly: true,
             secure: false,
-            sameSite: 'none',
+            sameSite: 'lax',
             path: '/',
             maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
         console.log("✅ Google auth successful - Redirecting to dashboard");
-        return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/dashboard?auth=success`);
+        // Pass token in query param for frontend to store in localStorage
+        return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/dashboard?auth=success&token=${encodeURIComponent(token)}`);
 
     } catch (err) {
         console.error("Google Auth Callback Error:", err);

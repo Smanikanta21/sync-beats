@@ -32,13 +32,20 @@ export function getUserIdFromToken(): string | null {
   if (typeof window === 'undefined') return null;
   
   const token = localStorage.getItem('authToken');
-  if (!token) return null;
+  if (!token) {
+    console.warn('[authFetch] No authToken found in localStorage');
+    return null;
+  }
 
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload.id || payload.userId || payload.sub || null;
+    const id = payload.id || payload.userId || payload.sub;
+    if (!id) {
+      console.warn('[authFetch] Token has no id/userId/sub field:', payload);
+    }
+    return id || null;
   } catch (err) {
-    console.error('[authFetch] Token parse failed:', err);
+    console.error('[authFetch] Token parse failed:', err, 'Token:', token?.substring(0, 20));
     return null;
   }
 }

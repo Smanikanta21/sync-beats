@@ -98,6 +98,19 @@ export default function RoomPage() {
     audioRef: audioRef as React.RefObject<HTMLAudioElement>,
     onSync: (data: Record<string, unknown>) => {
       console.log("Synced:", data)
+      
+      // Handle PLAY_SYNC (late join - user joins mid-playback)
+      if (data.type === "PLAY_SYNC" && data.audioUrl) {
+        const audioUrl = data.audioUrl as string
+        console.log("PLAY_SYNC received - Late join detected")
+        const track = mockTracks.find(t => t.audioUrl === audioUrl)
+        if (track) {
+          setCurrentTrack(track)
+          console.log("Updated currentTrack from PLAY_SYNC:", track.title)
+        }
+      }
+      
+      // Handle TRACK_CHANGE (track switched by host)
       if (data.type === "TRACK_CHANGE" && data.trackData) {
         const trackData = data.trackData as { title: string; audioUrl: string }
         console.log("Track changed to:", trackData.title)
@@ -105,6 +118,19 @@ export default function RoomPage() {
         if (track) {
           setCurrentTrack(track)
           setCurrentTime(0)
+          console.log("Updated currentTrack from TRACK_CHANGE:", track.title)
+        }
+      }
+      
+      // Handle PLAY (playback started by host)
+      if (data.type === "PLAY" && data.audioUrl) {
+        const audioUrl = data.audioUrl as string
+        console.log("PLAY received - Host started playback")
+        const track = mockTracks.find(t => t.audioUrl === audioUrl)
+        if (track) {
+          setCurrentTrack(track)
+          setCurrentTime(0)
+          console.log("Updated currentTrack from PLAY:", track.title)
         }
       }
     },
@@ -116,6 +142,81 @@ export default function RoomPage() {
   useEffect(() => {
     setIsPlaying(playbackState.isPlaying)
   }, [playbackState.isPlaying])
+
+  // Console room state changes
+  useEffect(() => {
+    console.log("🎵 === ROOM STATE UPDATED ===")
+    console.log("Current Track:", currentTrack?.title || "None")
+    console.log("Is Playing:", isPlaying)
+    console.log("Current Time:", currentTime)
+    console.log("Volume:", volume)
+    console.log("Queue Length:", queue.length)
+    console.log("Recent Tracks Length:", recentTracks.length)
+    console.log("Shuffle Mode:", shuffleMode)
+    console.log("Repeat Mode:", repeatMode)
+    console.log("Is Host:", localIsHost)
+    console.log("Current User ID:", currentUserId)
+    console.log("Room Data:", roomData?.name)
+    console.log("Playback State:", playbackState)
+    console.log("📊 FULL ROOM STATE:", {
+      currentTrack: currentTrack?.title,
+      isPlaying,
+      currentTime,
+      volume,
+      isMuted,
+      queueLength: queue.length,
+      recentTracksLength: recentTracks.length,
+      shuffleMode,
+      repeatMode,
+      localIsHost,
+      currentUserId,
+      roomName: roomData?.name,
+      roomCode: roomcode,
+      playbackState
+    })
+  }, [currentTrack, isPlaying, currentTime, volume, isMuted, queue.length, recentTracks.length, shuffleMode, repeatMode, localIsHost, currentUserId, roomData, roomcode, playbackState])
+
+  // Mobile dev debug window
+  useEffect(() => {
+    if (typeof window !== 'undefined' && isDevelopment()) {
+      (window as any).getRoomState = () => {
+        const state = {
+          currentTrack: currentTrack?.title,
+          isPlaying,
+          currentTime,
+          volume,
+          isMuted,
+          queueLength: queue.length,
+          recentTracksLength: recentTracks.length,
+          shuffleMode,
+          repeatMode,
+          localIsHost,
+          currentUserId,
+          roomName: roomData?.name,
+          roomCode: roomcode,
+          playbackState,
+          audioElement: {
+            src: audioRef.current?.src,
+            currentTime: audioRef.current?.currentTime,
+            duration: audioRef.current?.duration,
+            paused: audioRef.current?.paused,
+            volume: audioRef.current?.volume,
+            readyState: audioRef.current?.readyState,
+            networkState: audioRef.current?.networkState
+          },
+          isMobileDevice,
+          isDevelopmentMode: isDevelopment()
+        }
+        console.log("📱 Mobile Room State:", state)
+        return state
+      }
+      
+      (window as any).logRoomStateHistory = () => {
+        console.log("🎵 CURRENT ROOM STATE SNAPSHOT:")
+        console.log(JSON.stringify((window as any).getRoomState(), null, 2))
+      }
+    }
+  }, [currentTrack, isPlaying, currentTime, volume, isMuted, queue.length, recentTracks.length, shuffleMode, repeatMode, localIsHost, currentUserId, roomData, roomcode, playbackState])
 
 
 
@@ -469,6 +570,19 @@ useEffect(() => {
       setCurrentTime(audio.currentTime)
     }
 
+    const handlePlayingEvent = () => {
+      console.log("✅ PLAYING EVENT FIRED - Audio is actually playing!")
+      console.log("📱 Mobile playing state - readyState:", audio.readyState, "paused:", audio.paused)
+      // Force update isPlaying state to match actual playback
+      setIsPlaying(true)
+    }
+
+    const handlePlayEvent = () => {
+      console.log("▶️ PLAY EVENT FIRED")
+      console.log("📱 Mobile play event - readyState:", audio.readyState, "paused:", audio.paused)
+      setIsPlaying(true)
+    }
+
     const handleError = (_e: Event): void => {
       const errorCode = audio.error?.code
       const errorMessage = audio.error?.message
@@ -503,10 +617,15 @@ useEffect(() => {
 
     const handlePlay = () => {
       console.log("🎵 PLAY EVENT: play() was called", { paused: audio.paused, currentTime: audio.currentTime })
+      console.log("📱 Mobile play event - readyState:", audio.readyState, "paused:", audio.paused)
+      setIsPlaying(true)
     }
 
     const handlePlaying = () => {
       console.log("▶️ PLAYING EVENT: Playback actually started!", { currentTime: audio.currentTime, paused: audio.paused, duration: audio.duration })
+      console.log("📱 Mobile playing state - readyState:", audio.readyState, "paused:", audio.paused)
+      // Force update isPlaying state to match actual playback
+      setIsPlaying(true)
     }
 
     const handlePause = () => {
@@ -662,6 +781,13 @@ useEffect(() => {
       setCurrentTrack(prevTrack)
       setRecentTracks(newRecent)
       setCurrentTime(0)
+      
+      // Update audio element immediately
+      if (audioRef.current) {
+        audioRef.current.src = prevTrack.audioUrl || ""
+        audioRef.current.currentTime = 0
+      }
+      
       // Broadcast track change to other devices
       commands.trackChange({
         id: prevTrack.id,
@@ -686,6 +812,24 @@ useEffect(() => {
       setQueue(prev => prev.filter(t => t.queueId !== nextTrack.queueId))
       setCurrentTrack(nextTrack)
       setCurrentTime(0)
+      
+      // Update audio element immediately
+      if (audioRef.current) {
+        audioRef.current.src = nextTrack.audioUrl || ""
+        audioRef.current.currentTime = 0
+        // Continue playing if it was playing
+        if (isPlaying) {
+          const playPromise = audioRef.current.play()
+          if (playPromise) {
+            playPromise.catch(err => {
+              if (err.name !== 'NotAllowedError') {
+                console.error("Auto-play on next track failed:", err)
+              }
+            })
+          }
+        }
+      }
+      
       if (repeatMode === 'one') {
         setIsPlaying(true)
       }
@@ -702,6 +846,21 @@ useEffect(() => {
       setRecentTracks(prev => [...prev.slice(1), currentTrack!])
       setCurrentTrack(nextTrack)
       setCurrentTime(0)
+      
+      // Update audio element immediately
+      if (audioRef.current) {
+        audioRef.current.src = nextTrack.audioUrl || ""
+        audioRef.current.currentTime = 0
+        const playPromise = audioRef.current.play()
+        if (playPromise) {
+          playPromise.catch(err => {
+            if (err.name !== 'NotAllowedError') {
+              console.error("Auto-play on repeat failed:", err)
+            }
+          })
+        }
+      }
+      
       setIsPlaying(true)
       // Broadcast track change to other devices
       commands.trackChange({
@@ -720,6 +879,13 @@ useEffect(() => {
       setCurrentTrack(prevTrack)
       setRecentTracks(newRecent)
       setCurrentTime(0)
+      
+      // Update audio element immediately
+      if (audioRef.current && prevTrack) {
+        audioRef.current.src = prevTrack.audioUrl || ""
+        audioRef.current.currentTime = 0
+      }
+      
       // Broadcast track change to other devices
       if (prevTrack) {
         commands.trackChange({
@@ -810,6 +976,21 @@ useEffect(() => {
     }
     setCurrentTrack(queueItem)
     setCurrentTime(0)
+    
+    // Update audio element immediately
+    if (audioRef.current) {
+      audioRef.current.src = queueItem.audioUrl || ""
+      audioRef.current.currentTime = 0
+      const playPromise = audioRef.current.play()
+      if (playPromise) {
+        playPromise.catch(err => {
+          if (err.name !== 'NotAllowedError') {
+            console.error("Play from queue error:", err)
+          }
+        })
+      }
+    }
+    
     setIsPlaying(true)
     // Broadcast track change to other devices
     commands.trackChange({
@@ -1532,19 +1713,45 @@ useEffect(() => {
         </div>
       )}
 
-      {isDevelopment() && isMobile && (
-        <div className="fixed bottom-24 left-4 right-4 bg-gray-900/95 border border-yellow-600 rounded-lg p-4 text-xs font-mono max-h-40 overflow-y-auto z-40">
-          <div className="mb-2 font-bold text-yellow-400">🔧 DEV DEBUG</div>
+      {isDevelopment() && (
+        <div className="fixed bottom-24 left-4 right-4 bg-gray-900/95 border border-yellow-600 rounded-lg p-4 text-xs font-mono max-h-64 overflow-y-auto z-40">
+          <div className="mb-2 font-bold text-yellow-400">🔧 DEV DEBUG - Room State</div>
           <div className="space-y-1 text-gray-300">
-            <div>Device: {navigator.userAgent.substring(0, 50)}...</div>
-            <div>Host: {localIsHost ? "YES" : "NO"}</div>
-            <div>Playing: {isPlaying ? "Playing" : "Not Playing"}</div>
+            <div className="text-blue-400 font-semibold mb-2">📊 Room Info</div>
+            <div>Room: {roomData?.name || "Loading"}</div>
+            <div>Code: {roomcode}</div>
+            <div>Host: {localIsHost ? "✅ YES" : "❌ NO"}</div>
+            <div>User ID: {currentUserId || "None"}</div>
+            <div className="border-t border-gray-600 mt-2 pt-2 text-purple-400 font-semibold">🎵 Playback</div>
             <div>Track: {currentTrack?.title || "None"}</div>
+            <div>Artist: {currentTrack?.artist || "—"}</div>
+            <div>Playing: {isPlaying ? "▶️ YES" : "⏸️ NO"}</div>
             <div>Time: {formatTime(currentTime)} / {formatTime(audioRef.current?.duration || currentTrack?.duration || 0)}</div>
-            <div>Audio Ready: {audioRef.current?.readyState === 4 ? "true" : `${audioRef.current?.readyState}`}</div>
-            <div>Audio Paused: {audioRef.current?.paused ? "Paused" : "Not Paused"}</div>
-            <div>Volume: {Math.round((audioRef.current?.volume || 0) * 100)}%</div>
-            <div>Audio Duration: {audioRef.current?.duration || "loading"}s</div>
+            <div className="border-t border-gray-600 mt-2 pt-2 text-green-400 font-semibold">🎧 Audio Element</div>
+            <div>Src: {audioRef.current?.src ? audioRef.current.src.split('/').pop() : "empty"}</div>
+            <div>Paused: {audioRef.current?.paused ? "🔴 YES" : "🟢 NO"}</div>
+            <div>Ready: {audioRef.current?.readyState === 4 ? "✅ 4-ENOUGH_DATA" : audioRef.current?.readyState === 3 ? "🟡 3-FUTURE_DATA" : audioRef.current?.readyState === 2 ? "🟠 2-CURRENT_DATA" : audioRef.current?.readyState === 1 ? "🔴 1-METADATA" : "⚪ 0-NOTHING"}</div>
+            <div>Network: {audioRef.current?.networkState === 0 ? "⚪ EMPTY" : audioRef.current?.networkState === 1 ? "🟢 IDLE" : audioRef.current?.networkState === 2 ? "🔵 LOADING" : "⚪ NO_SOURCE"}</div>
+            <div>Playing: {audioRef.current && !audioRef.current.paused && (audioRef.current.readyState || 0) >= 2 ? "▶️ YES" : "⏸️ NO"}</div>
+            <div>Volume: {Math.round((audioRef.current?.volume || 0) * 100)}% {isMuted ? "(Muted)" : ""}</div>
+            <div>Duration: {audioRef.current?.duration ? formatTime(audioRef.current.duration) : "N/A"}</div>
+            <div className="border-t border-gray-600 mt-2 pt-2 text-cyan-400 font-semibold">📋 Queue & Recent</div>
+            <div>Queue: {queue.length} songs</div>
+            <div>Recent: {recentTracks.length} songs</div>
+            <div>Shuffle: {shuffleMode ? "🔀 ON" : "OFF"}</div>
+            <div>Repeat: {repeatMode === 'off' ? "OFF" : repeatMode === 'all' ? "🔁 ALL" : "🔂 ONE"}</div>
+            <div className="border-t border-gray-600 mt-2 pt-2 text-orange-400 font-semibold">🌐 Network</div>
+            <div>RTT: {Math.round(playbackState.rttMs)}ms</div>
+            <div>Latency: {Math.round(playbackState.latencyMs)}ms</div>
+            <div>Offset: {Math.round(playbackState.serverOffsetMs)}ms</div>
+            <div className="border-t border-gray-600 mt-2 pt-2">
+              <button onClick={() => {
+                (window as any).getRoomState?.()
+                (window as any).logRoomStateHistory?.()
+              }} className="w-full bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-white">
+                📸 Log Full State to Console
+              </button>
+            </div>
           </div>
         </div>
       )}
