@@ -679,13 +679,11 @@ useEffect(() => {
       setRecentTracks(newRecent)
       setCurrentTime(0)
       
-      // Update audio element immediately
       if (audioRef.current && prevTrack) {
         audioRef.current.src = prevTrack.audioUrl || ""
         audioRef.current.currentTime = 0
       }
-      
-      // Broadcast track change to other devices
+
       if (prevTrack) {
         commands.trackChange({
           id: prevTrack.id,
@@ -775,8 +773,6 @@ useEffect(() => {
     }
     setCurrentTrack(queueItem)
     setCurrentTime(0)
-    
-    // Update audio element immediately
     if (audioRef.current) {
       audioRef.current.src = queueItem.audioUrl || ""
       audioRef.current.currentTime = 0
@@ -787,7 +783,6 @@ useEffect(() => {
     }
     
     setIsPlaying(true)
-    // Broadcast track change to other devices
     commands.trackChange({
       id: queueItem.id,
       title: queueItem.title,
