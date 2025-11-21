@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import TimeSyncCalculator from "@/lib/TimeSyncCalculator"
 import WebAudioScheduler from "@/lib/WebAudioScheduler"
+import { url } from "inspector"
 
 interface SyncConfig {
   roomCode: string
@@ -489,42 +490,37 @@ export function useSyncPlayback({
     }
 
     const connect = () => {
+      const urlcheck = process.env.NEXT_PUBLIC_PRODUCTION
+      const rawSocketHost = process.env.NEXT_PUBLIC_SOCKET_URL
+      const socketsserver = (rawSocketHost && rawSocketHost !== 'undefined' && rawSocketHost.trim() !== '') ? rawSocketHost.trim() : 'localhost:6001'
+      const portFallback = process.env.NEXT_PUBLIC_SOCKET_PORT || '6001'
       if (!isMounted) return
-
-      const host = process.env.NEXT_PUBLIC_SOCKET_HOST || "localhost:6001"
-      const isProduction = host.includes("onrender.com")
-      const protocol = isProduction ? "wss" : "ws"
       let url: string
-      if (host.includes(":")) {
-        url = `${protocol}://${host}`
+      if (urlcheck === 'true') {
+        url = `wss://sync-beats-backend.onrender.com/ws/sync?roomCode=${roomCode}&userId=${userId}`
       } else {
-        const port = process.env.NEXT_PUBLIC_SOCKET_PORT || "6001"
-        url = `${protocol}://${host}:${port}`
+        const hostWithPort = socketsserver.includes(':') ? socketsserver : `${socketsserver}:${portFallback}`
+        url = `ws://${hostWithPort}/ws/sync?roomCode=${roomCode}&userId=${userId}`
       }
-
-      url = `${url}/ws/sync?roomCode=${roomCode}&userId=${userId}`
-
-      // url = `wss://sync-beats-qoe8.onrender.com`
-
-      console.log("Connecting to WebSocket:", url)
+      if (devMode) {
+        console.log('[SyncPlayback] WS resolved host:', { rawSocketHost, socketsserver, urlcheck, finalUrl: url })
+      }
 
       try {
         const ws = new WebSocket(url)
         wsRef.current = ws
 
         ws.onopen = () => {
-          console.log("🟢 Sync WebSocket connected")
-          console.log("📱 Mobile Connection:", { isMobile, roomCode, userId, isHost })
+          console.log("Sync WebSocket connected")
+          console.log("Mobile Connection:", { isMobile, roomCode, userId, isHost })
           reconnectAttempts = 0
-
-          // Phase 2: Initialize Web Audio Scheduler after first connection
           if (!schedulerRef.current) {
             try {
               schedulerRef.current = new WebAudioScheduler(timeSyncCalcRef.current)
               schedulerRef.current.initialize().then(() => {
-                console.log("✅ Web Audio Scheduler initialized")
+                console.log("Web Audio Scheduler initialized")
               }).catch(err => {
-                console.warn("⚠️ Web Audio initialization deferred (needs user interaction):", err)
+                console.warn("Web Audio initialization deferred (needs user interaction):", err)
               })
             } catch (err) {
               console.error("Failed to create scheduler:", err)
@@ -537,9 +533,7 @@ export function useSyncPlayback({
             userId,
             hostId
           }))
-
-          // Phase 3 advanced clock sync: ping bursts every 800ms
-          startPingBurst(); // initial burst immediately
+          startPingBurst();
           timeSyncIntervalRef.current = setInterval(startPingBurst, 800)
           driftCheckIntervalRef.current = setInterval(checkDrift, 4000)
           driftAutoCorrectIntervalRef.current = setInterval(autoCorrectLocalDrift, 1500)
