@@ -24,8 +24,7 @@
     "@vercel/speed-insights": "^1.2.0",
     "datetime": "^0.0.3",
     "express": "^5.1.0",
-    "prisma": "^6.19.0",
-    "sockets": "^0.4.2"
+    "prisma": "^6.19.0"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
