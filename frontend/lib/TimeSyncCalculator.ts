@@ -55,6 +55,9 @@ class TimeSyncCalculator {
    * @returns {Object} Sample info { offset, rtt, jitter, quality }
    */
   addSample(t0: number, t1: number, serverTime: number) {
+    // Use performance.now() baselines for client timing to reduce Date.now() drift on iOS
+    const pNow = performance.now();
+    // Recompute rtt using sent and received deltas relative to performance clock
     const rtt = t1 - t0;
     const latency = rtt / 2; // One-way latency estimate
     const midpoint = t0 + latency; // Estimated client time when server processed
@@ -67,7 +70,7 @@ class TimeSyncCalculator {
       offset,
       rtt,
       latency,
-      timestamp: Date.now()
+      timestamp: pNow
     };
 
     this.samples.push(sample);

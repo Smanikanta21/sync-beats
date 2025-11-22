@@ -1,82 +1,29 @@
 const { WebSocketServer } = require("ws");
-const { createLogger } = require("./lib/logger");
-const BackupManager = require("./managers/BackupManager");
 const PrecisionClock = require("./lib/PrecisionClock");
+const SyncRoom = require("./core/SyncRoom");
+const DeviceReadinessTracker = require("./core/DeviceReadinessTracker");
+const { TYPES, CONSTANTS } = require("./core/MessageTypes");
+const handlePlay = require("./core/handlers/play");
+const handlePause = require("./core/handlers/pause");
+const handleResume = require("./core/handlers/resume");
+const handleSeek = require("./core/handlers/seek");
 
-const logger = createLogger("SyncEngine");
+
+const logger = {
+  debug: (...args) => { if (process.env.SYNC_DEBUG) console.debug(...args); },
+  info: (...args) => console.log(...args),
+  warn: (...args) => console.warn(...args),
+  error: (...args) => console.error(...args)
+};
 
 module.exports = function createSyncEngine(server) {
   const wss = new WebSocketServer({ server });
   const liveRooms = new Map();
-
-  class Room {
-    constructor(roomCode, hostId) {
-      this.roomCode = roomCode;
-      this.clients = new Set();
-      this.hostUserId = hostId;
-      this.currentTrack = null;
-      this.startedAtServer = null;
-      this.duration = null;
-      this.isPaused = false;
-      this.pausedAt = null;
-      this.createdAt = Date.now();
-      this.pendingPlayHandshake = null;
-      logger.debug(`📦 Room created: ${roomCode}`, { hostId });
-    }
-
-    getPlaybackPosition() {
-      if (!this.startedAtServer || this.isPaused) {
-        return this.pausedAt ? this.pausedAt : 0;
-      }
-      return PrecisionClock.now() - this.startedAtServer;
-    }
-
-    isTrackActive() {
-      return this.currentTrack !== null && !this.isPaused;
-    }
-  }
-
-  class DeviceReadinessTracker {
-    constructor() {
-      this.deviceStatus = new Map();
-    }
-    markReady(wsId) {
-      const status = this.deviceStatus.get(wsId) || { ready: false, loadedTracks: new Set(), lastCheck: 0 };
-      status.ready = true;
-      status.lastCheck = Date.now();
-      this.deviceStatus.set(wsId, status);
-    }
-    markLoading(wsId) {
-      const status = this.deviceStatus.get(wsId) || { ready: false, loadedTracks: new Set(), lastCheck: 0 };
-      status.ready = false;
-      this.deviceStatus.set(wsId, status);
-    }
-    trackLoaded(wsId, trackUrl) {
-      const status = this.deviceStatus.get(wsId) || { ready: false, loadedTracks: new Set(), lastCheck: 0 };
-      status.loadedTracks.add(trackUrl);
-      this.deviceStatus.set(wsId, status);
-    }
-    isReady(wsId) {
-      const status = this.deviceStatus.get(wsId);
-      return !!(status && status.ready);
-    }
-    removeDevice(wsId) {
-      this.deviceStatus.delete(wsId);
-    }
-    allReady(room) {
-      for (const client of room.clients) {
-        if (!this.isReady(client._id)) return false;
-      }
-      return true;
-    }
-  }
-
   const deviceReadiness = new DeviceReadinessTracker();
 
   function sendDeviceHealthCheck(room) {
     const checkId = Math.random().toString(36).slice(2, 9);
-    logger.debug(`🏥 Sending health check to all devices`, { roomCode: room.roomCode, checkId, deviceCount: room.clients.size });
-    broadcast(room, { type: "device_health_check", checkId, timestamp: Date.now() });
+    broadcast(room, { type: TYPES.DEVICE_HEALTH_CHECK, checkId, timestamp: Date.now() });
     return checkId;
   }
 
@@ -93,7 +40,7 @@ module.exports = function createSyncEngine(server) {
     const timeOffset = calculateTimeOffset(msg.t0, serverTimeUnix, t1);
     
     ws.send(JSON.stringify({
-      type: "time_pong",
+      type: TYPES.TIME_PONG,
       id: msg.id,
       t0: msg.t0,
       serverTimeUnix: serverTimeUnix,
@@ -123,7 +70,6 @@ module.exports = function createSyncEngine(server) {
         }
       }
     }
-    logger.debug(`📤 Broadcast sent`, { roomCode: room.roomCode, type: data.type, clientsNotified: sent })
     return sent;
   }
 
@@ -139,45 +85,30 @@ module.exports = function createSyncEngine(server) {
   }
 
   function joinLiveRoom(ws, roomCode, userId, hostId) {
-    if (!liveRooms.has(roomCode)) {
-      liveRooms.set(roomCode, new Room(roomCode, hostId));
-      logger.info(`✨ New room created`, { roomCode, hostId })
-    }
-
+    if (!liveRooms.has(roomCode)) liveRooms.set(roomCode, new SyncRoom(roomCode, hostId));
     const room = liveRooms.get(roomCode);
     room.clients.add(ws);
     room.hostUserId = hostId;
-    
     ws._userId = userId;
     ws._wsId = ws._id;
     ws._room = roomCode;
-
-    logger.info(`👤 User joined room`, { roomCode, userId, totalClients: room.clients.size })
-
     sendToClient(ws, {
-      type: "joined",
+      type: TYPES.JOINED,
       roomCode,
       wsId: ws._id,
       hostUserId: room.hostUserId,
       isHost: userId === room.hostUserId,
       timestamp: Date.now()
     });
-
-    if (room.isTrackActive()) {
-      const playbackPosition = room.getPlaybackPosition();
-      logger.debug(`🎵 Syncing new client with current playback`, { roomCode, playbackPosition })
-      sendToClient(ws, {
-        type: "PLAY_SYNC",
-        audioUrl: room.currentTrack,
-        duration: room.duration,
-        playbackPosition: playbackPosition,
-        masterClockMs: PrecisionClock.now(),
-        masterClockLatencyMs: 0
-      });
+    // Immediately send authoritative snapshot so reconnecting clients sync state
+    try {
+      const snapshot = room.syncSnapshot();
+      sendToClient(ws, snapshot);
+    } catch (e) {
+      logger.warn('Failed to send join snapshot', e.message);
     }
-
     broadcast(room, {
-      type: "user_joined",
+      type: TYPES.USER_JOINED,
       userId,
       wsId: ws._id,
       totalClients: room.clients.size,
@@ -185,110 +116,6 @@ module.exports = function createSyncEngine(server) {
     }, ws);
   }
 
-  function finalizePlay(room, audioUrl, duration, latencyHintMs = 0, startDelayMs = 500) {
-    const startServerMonotonic = PrecisionClock.now() + startDelayMs;
-    room.currentTrack = audioUrl;
-    room.startedAtServer = startServerMonotonic;
-    room.duration = duration;
-    room.isPaused = false;
-    room.pausedAt = null;
-    room.pendingPlayHandshake = null;
-    logger.info(`▶️ Playback starting`, { roomCode: room.roomCode, trackUrl: audioUrl.substring(0, 40), duration, startDelayMs, deviceCount: room.clients.size });
-    broadcast(room, {
-      type: "PLAY",
-      audioUrl,
-      duration,
-      masterClockMs: startServerMonotonic,
-      masterClockLatencyMs: latencyHintMs,
-      startDelayMs,
-      timestamp: Date.now()
-    });
-  }
-
-  function handlePlayCommand(ws, msg, room) {
-    const startDelayMs = msg.startDelayMs || 800; // Allow buffer for loading
-    
-    const checkId = sendDeviceHealthCheck(room);
-    room.pendingPlayHandshake = {
-      checkId,
-      trackUrl: msg.audioUrl,
-      duration: msg.duration,
-      startDelayMs,
-      responses: new Set(),
-      initiatedAt: Date.now()
-    };
-    
-    for (const client of room.clients) deviceReadiness.markLoading(client._id);
-    logger.info(`🕒 Play handshake initiated`, { roomCode: room.roomCode, trackUrl: msg.audioUrl.substring(0,40), checkId, deviceCount: room.clients.size });
-    
-    broadcast(room, {
-      type: "PREPARE_TRACK",
-      audioUrl: msg.audioUrl,
-      duration: msg.duration,
-      checkId,
-      timestamp: Date.now()
-    });
-    
-    setTimeout(() => {
-      if (!room.pendingPlayHandshake) return;
-      const readyCount = room.pendingPlayHandshake.responses.size;
-      logger.warn(`⏰ Play handshake timeout`, { roomCode: room.roomCode, readyCount, total: room.clients.size });
-      finalizePlay(room, msg.audioUrl, msg.duration, msg.rttMs ? msg.rttMs / 2 : 0, startDelayMs);
-    }, 5000);
-  }
-
-  function handlePauseCommand(ws, msg, room) {
-    const pausePosition = room.getPlaybackPosition();
-    room.isPaused = true;
-    room.pausedAt = pausePosition;
-
-    logger.info(`⏸️ Playback paused`, { 
-      roomCode: room.roomCode, 
-      position: pausePosition,
-      deviceCount: room.clients.size
-    })
-
-    broadcast(room, {
-      type: "PAUSE",
-      pausedAtMs: pausePosition,
-      masterClockMs: PrecisionClock.now(),
-      timestamp: Date.now()
-    });
-  }
-
-  function handleResumeCommand(ws, msg, room) {
-    const resumeDelayMs = msg.startDelayMs || 400;
-    const resumeServerMonotonic = PrecisionClock.now() + resumeDelayMs;
-    const pausedAt = room.pausedAt || 0;
-    room.isPaused = false;
-    room.startedAtServer = resumeServerMonotonic - pausedAt;
-    room.pausedAt = null;
-    const playbackPosition = pausedAt;
-    logger.info(`▶️ Playback resumed`, { roomCode: room.roomCode, playbackPosition, deviceCount: room.clients.size });
-    broadcast(room, {
-      type: "RESUME",
-      masterClockMs: resumeServerMonotonic,
-      resumeDelayMs,
-      playbackPositionMs: playbackPosition,
-      timestamp: Date.now()
-    });
-  }
-
-  function handleSeekCommand(ws, msg, room) {
-    const seekPosition = msg.seekPositionMs || 0;
-    const seekDelayMs = 300;
-    const seekServerMonotonic = PrecisionClock.now() + seekDelayMs;
-    room.startedAtServer = seekServerMonotonic - seekPosition;
-    room.pausedAt = null;
-    logger.info(`⏩ Seek command`, { roomCode: room.roomCode, seekPosition: `${(seekPosition / 1000).toFixed(2)}s`, deviceCount: room.clients.size });
-    broadcast(room, {
-      type: "SEEK",
-      seekPositionMs: seekPosition,
-      masterClockMs: seekServerMonotonic,
-      seekDelayMs,
-      timestamp: Date.now()
-    });
-  }
 
   wss.on("connection", (ws) => {
     ws._id = Math.random().toString(36).slice(2, 9);
@@ -304,52 +131,91 @@ module.exports = function createSyncEngine(server) {
 
       const room = liveRooms.get(msg.roomCode);
 
-      if (msg.type === "join") {
-        joinLiveRoom(ws, msg.roomCode, msg.userId, msg.hostId);
-      }
+      if (msg.type === "join") joinLiveRoom(ws, msg.roomCode, msg.userId, msg.hostId);
 
-      if (msg.type === "time_ping") {
-        sendTimePong(ws, msg, room);
-      }
+      if (msg.type === TYPES.TIME_PING) sendTimePong(ws, msg, room);
 
-      if (msg.type === "PLAY" && room) {
-        handlePlayCommand(ws, msg, room);
-      }
+      if (msg.type === TYPES.PLAY && room) handlePlay({ ws, msg, room, readiness: deviceReadiness });
 
-      if (msg.type === "PAUSE" && room) {
-        handlePauseCommand(ws, msg, room);
-      }
+      if (msg.type === TYPES.PAUSE && room) handlePause({ ws, msg, room });
 
-      if (msg.type === "RESUME" && room) {
-        handleResumeCommand(ws, msg, room);
-      }
+      if (msg.type === TYPES.RESUME && room) handleResume({ ws, msg, room });
 
-      if (msg.type === "SEEK" && room) {
-        handleSeekCommand(ws, msg, room);
-      }
+      if (msg.type === TYPES.SEEK && room) handleSeek({ ws, msg, room });
 
-      if (msg.type === "TRACK_CHANGE" && room) {
+      if (msg.type === TYPES.TRACK_CHANGE && room) {
         logger.info(`🎵 Track changed`, { roomCode: room.roomCode, title: msg.trackData?.title })
+        // Persist metadata in room for late joiners
+        try { room.setTrackMetadata(msg.trackData); } catch {}
         broadcast(room, {
-          type: "TRACK_CHANGE",
+          type: TYPES.TRACK_CHANGE,
           trackData: msg.trackData,
           timestamp: Date.now()
         });
       }
 
-      if (msg.type === "get_playback_state" && room) {
-        sendToClient(ws, {
-          type: "playback_state",
-          currentTrack: room.currentTrack,
-          playbackPosition: room.getPlaybackPosition(),
-          isPlaying: room.isTrackActive(),
-          duration: room.duration,
-          serverNow: Date.now(),
-          timestamp: Date.now()
-        });
+      if (msg.type === TYPES.GET_PLAYBACK_STATE && room) {
+        const scheduleLeadMs = 700;
+        const nowMono = PrecisionClock.now();
+        const currentPos = room.getPlaybackPosition();
+        if (room.currentTrack) {
+          if (room.isTrackActive()) {
+            // Provide a PLAY_SYNC style response for late join
+            sendToClient(ws, {
+              type: TYPES.PLAY_SYNC,
+              audioUrl: room.currentTrack,
+              duration: room.duration,
+              playbackPosition: currentPos + scheduleLeadMs,
+              masterClockMs: nowMono + scheduleLeadMs,
+              masterClockLatencyMs: 0,
+              isPlaying: true,
+              timestamp: Date.now()
+            });
+          } else {
+            // Paused state snapshot
+            sendToClient(ws, {
+              type: TYPES.PAUSE_STATE,
+              audioUrl: room.currentTrack,
+              duration: room.duration,
+              pausedPositionMs: currentPos,
+              isPlaying: false,
+              masterClockMs: nowMono,
+              startedAtServer: room.startedAtServer,
+              timestamp: Date.now()
+            });
+          }
+        } else {
+          sendToClient(ws, {
+            type: "playback_state",
+            currentTrack: null,
+            isPlaying: false,
+            playbackPosition: 0,
+            duration: null,
+            serverNow: Date.now(),
+            timestamp: Date.now()
+          });
+        }
+      }
+      if (msg.type === TYPES.REQUEST_SYNC && room) {
+        // Alias for get_playback_state
+        const scheduleLeadMs = 700;
+        const nowMono = PrecisionClock.now();
+        const currentPos = room.getPlaybackPosition();
+        if (room.currentTrack && room.isTrackActive()) {
+          sendToClient(ws, {
+            type: TYPES.PLAY_SYNC,
+            audioUrl: room.currentTrack,
+            duration: room.duration,
+            playbackPosition: currentPos + scheduleLeadMs,
+            masterClockMs: nowMono + scheduleLeadMs,
+            masterClockLatencyMs: 0,
+            isPlaying: true,
+            timestamp: Date.now()
+          });
+        }
       }
 
-      if (msg.type === "sync_check" && room) {
+      if (msg.type === TYPES.SYNC_CHECK && room) {
         const clientReportedPosition = msg.clientPosition;
         const actualServerPosition = room.getPlaybackPosition();
         const drift = Math.abs(clientReportedPosition - actualServerPosition);
@@ -363,10 +229,10 @@ module.exports = function createSyncEngine(server) {
         })
 
         
-        if (drift > 1000) {
+        if (drift > CONSTANTS.LARGE_DRIFT_MS) {
           logger.warn(`🔄 Large drift detected, resyncing`, { roomCode: room.roomCode, drift: `${drift.toFixed(0)}ms` })
           sendToClient(ws, {
-            type: "RESYNC",
+            type: TYPES.RESYNC,
             correctPositionMs: actualServerPosition,
             masterClockMs: PrecisionClock.now(),
             timestamp: Date.now()
@@ -375,31 +241,38 @@ module.exports = function createSyncEngine(server) {
       }
       if (msg.type === "device_health_check_response" && room) {
         const { checkId, audioLoaded, deviceReady } = msg;
-        logger.debug(`✅ Device health check response`, { checkId, wsId: ws._id, audioLoaded, deviceReady });
+        logger.debug(`Device health check response`, { checkId, wsId: ws._id, audioLoaded, deviceReady });
         if (deviceReady && audioLoaded) {
           deviceReadiness.markReady(ws._id);
           if (room.pendingPlayHandshake && room.pendingPlayHandshake.checkId === checkId) {
             room.pendingPlayHandshake.responses.add(ws._id);
             logger.debug(`📝 Play handshake response recorded`, { roomCode: room.roomCode, readyCount: room.pendingPlayHandshake.responses.size, total: room.clients.size });
             if (deviceReadiness.allReady(room)) {
-              logger.info(`✅ All devices ready for playback`, { roomCode: room.roomCode });
-              finalizePlay(room, room.pendingPlayHandshake.trackUrl, room.pendingPlayHandshake.duration, msg.rttMs ? msg.rttMs / 2 : 0, room.pendingPlayHandshake.startDelayMs);
+              logger.info(`All devices ready for playback`, { roomCode: room.roomCode });
+              // Small extra lead for scheduling across devices
+              const lead = 800;
+              const latencyHintMs = msg.rttMs ? msg.rttMs / 2 : 0;
+              const playPayload = room.finalizePlay(latencyHintMs, (room.pendingPlayHandshake.startDelayMs || CONSTANTS.DEFAULT_PLAY_LEAD_MS) + lead);
+              broadcast(room, playPayload);
             }
           }
-          broadcast(room, { type: "device_ready", wsId: ws._id, timestamp: Date.now() }, ws);
+          broadcast(room, { type: TYPES.DEVICE_READY, wsId: ws._id, timestamp: Date.now() }, ws);
+
+          // If playback already active and this is a late readiness after finalize, fast-sync this device
+          if (!room.pendingPlayHandshake && room.isTrackActive()) {
+            const playbackPosition = room.getPlaybackPosition();
+            sendToClient(ws, {
+              type: TYPES.PLAY_SYNC,
+              audioUrl: room.currentTrack,
+              duration: room.duration,
+              playbackPosition: playbackPosition,
+              masterClockMs: PrecisionClock.now(),
+              masterClockLatencyMs: 0
+            });
+          }
         }
       }
-      if (msg.type === "track_prepared" && room) {
-        
-        logger.debug(`🎬 Track prepared acknowledged`, { wsId: ws._id, roomCode: room.roomCode });
-      }
-      if (msg.type === "audio_loading_status" && room) {
-        const { trackUrl, isLoaded } = msg;
-        if (isLoaded) {
-          deviceReadiness.trackLoaded(ws._id, trackUrl);
-          logger.debug(`📦 Audio loaded on device`, { wsId: ws._id, trackUrl: trackUrl.substring(0, 40) });
-        }
-      }
+      // Removed legacy track_prepared & audio_loading_status handling
     });
 
     ws.on("close", () => {
@@ -407,14 +280,11 @@ module.exports = function createSyncEngine(server) {
       if (!room) return;
 
       room.clients.delete(ws);
-      logger.info(`👋 User disconnected`, { roomCode: ws._room, userId: ws._userId, remainingClients: room.clients.size })
-
       if (room.clients.size === 0) {
         liveRooms.delete(ws._room);
-        logger.info(`🗑️ Empty room deleted`, { roomCode: ws._room })
       } else {
         broadcast(room, {
-          type: "user_left",
+          type: TYPES.USER_LEFT,
           userId: ws._userId,
           wsId: ws._id,
           totalClients: room.clients.size
@@ -423,7 +293,7 @@ module.exports = function createSyncEngine(server) {
     });
 
     ws.on("error", (error) => {
-      logger.error(`❌ WebSocket error`, error)
+      logger.error(`WebSocket error`, error)
       try {
         ws.close(1011, 'Server error')
       } catch (e) {
@@ -432,8 +302,8 @@ module.exports = function createSyncEngine(server) {
     });
   });
 
-  logger.info("🟢 WebSocket server initialized");
+  logger.info("🟢 WebSocket server initialized (modular sync)");
 
-  return wss;
+  return { wss, getRooms: () => liveRooms };
 };
 

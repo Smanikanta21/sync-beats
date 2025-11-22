@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import TimeSyncCalculator from "@/lib/TimeSyncCalculator"
-import WebAudioScheduler from "@/lib/WebAudioScheduler"
-import { url } from "inspector"
+import { SyncOptimization } from "@/lib/SyncOptimization"
+import { SYNC_TYPES } from "@/lib/SyncMessageTypes"
+import { audioContextManager } from "@/lib/audioContextManager"
+import { scheduleWebAudio, stopSource } from "@/lib/WebAudioScheduler"
+//
 
 interface SyncConfig {
   roomCode: string
@@ -22,6 +25,8 @@ interface PlaybackState {
   drift: number
   rttMs: number
   latencyMs: number
+  audioDriftMs?: number
+  isSynced?: boolean
 }
 
 interface PlaySyncMessage {
@@ -125,7 +130,7 @@ export function useSyncPlayback({
 }: SyncConfig) {
   const isMobile = isMobileDevice()
   const devMode = isDevelopment()
-  
+
   const log = (message: string, data?: Record<string, any>): void => {
     if (devMode) {
       if (data) {
@@ -135,27 +140,38 @@ export function useSyncPlayback({
       }
     }
   }
-  
+
   const wsRef = useRef<WebSocket | null>(null)
+  const commandQueueRef = useRef<any[]>([])
+  const joinedRef = useRef<boolean>(false)
   const onSyncRef = useRef(onSync)
   const onErrorRef = useRef(onError)
   const onPositionUpdateRef = useRef(onPositionUpdate)
-  
-  
+
+
   const timeSyncCalcRef = useRef<TimeSyncCalculator>(new TimeSyncCalculator(8))
-  const schedulerRef = useRef<WebAudioScheduler | null>(null)
-  const webAudioDisabledRef = useRef<boolean>(false)
-  
+  const offsetSmootherRef = useRef(new SyncOptimization.OffsetSmoother(16))
+  const scheduledMasterClockMsRef = useRef<number | null>(null)
+  const scheduledStartPositionMsRef = useRef<number>(0)
+  const monotonicToUnixDeltaRef = useRef<number>(0)
+  const lastFilteredOffsetRef = useRef<number>(0)
+
   const [playbackState, setPlaybackState] = useState<PlaybackState>({
     isPlaying: false,
     currentPosition: 0,
     serverOffsetMs: 0,
     drift: 0,
     rttMs: 0,
-    latencyMs: 0
+    latencyMs: 0,
+    audioDriftMs: 0,
+    isSynced: false
   })
 
-  
+  // Track pending autoplay attempt (mobile gesture lock) and whether user gesture required.
+  const awaitingGestureRef = useRef<boolean>(false)
+  const pendingPlayParamsRef = useRef<null | { audioUrl: string; masterClockMs: number; duration: number; latencyMs: number; startPositionMs: number }>(null)
+
+
 
   useEffect(() => {
     onSyncRef.current = onSync
@@ -167,9 +183,23 @@ export function useSyncPlayback({
   const timeSyncIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const driftCheckIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const driftAutoCorrectIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const lastRateAdjustmentAtRef = useRef<number>(0)
+  const rateAdjustmentActiveRef = useRef<boolean>(false)
+  const webAudioEnabledRef = useRef<boolean>(false)
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null)
   const positionRafRef = useRef<number | null>(null)
-  const lastPositionPushRef = useRef<number>(0)
+  const lastPositionBroadcastRef = useRef<number>(0)
+  const lastSeekOrResumeAtRef = useRef<number>(0)
   const trackDurationRef = useRef<number>(0)
+  const stateFetchAttemptsRef = useRef<number>(0)
+  const stateFetchTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const scheduledOrPlayingRef = useRef<boolean>(false)
+  const scheduledOnceRef = useRef<boolean>(false)
+  const unlockedRef = useRef<boolean>(false)
+  const [joiningSync, setJoiningSync] = useState<boolean>(false)
+  const pendingPreloadRef = useRef<null | { audioUrl: string; duration: number; checkId: string }>(null)
+  const processedPrepareIdsRef = useRef<Set<string>>(new Set())
+  const respondedHealthCheckIdsRef = useRef<Set<string>>(new Set())
 
   const syncClientTime = useCallback(() => {
     const ws = wsRef.current
@@ -178,7 +208,7 @@ export function useSyncPlayback({
     try {
       const t0 = Date.now()
       const pingId = Math.random().toString(36)
-      ws.send(JSON.stringify({ type: "time_ping", id: pingId, t0 }))
+      ws.send(JSON.stringify({ type: SYNC_TYPES.TIME_PING, id: pingId, t0 }))
     } catch (e) {
       if (devMode) console.warn('⚠️ time_ping send failed', e)
     }
@@ -204,18 +234,52 @@ export function useSyncPlayback({
     const serverTimeUnix = msg.serverTimeUnix as number
     const serverTimeMonotonic = msg.serverTimeMonotonic as number | undefined
     const sample = timeSyncCalcRef.current.addSample(t0, t1, serverTimeUnix)
+    const smoother = offsetSmootherRef.current.add(t0, t1, serverTimeUnix)
     if (typeof serverTimeMonotonic === 'number') {
-      ;(timeSyncCalcRef.current as any)._monotonicToUnixDelta = serverTimeUnix - serverTimeMonotonic
+      ; (timeSyncCalcRef.current as any)._monotonicToUnixDelta = serverTimeUnix - serverTimeMonotonic
+      monotonicToUnixDeltaRef.current = serverTimeUnix - serverTimeMonotonic
     }
     const rtt = sample.rtt
     const latency = sample.latency
-    setPlaybackState(prev => ({
-      ...prev,
-      serverOffsetMs: sample.filteredOffset ?? sample.offset,
-      drift: sample.jitter,
-      rttMs: rtt,
-      latencyMs: latency
-    }))
+    const effectiveOffset = sample.filteredOffset ?? smoother?.averageOffset ?? sample.offset
+    const jitter = sample.jitter
+    // Passive playback position correction using authoritative playbackPosition + masterClock mapping from time pong
+    try {
+      const reportedPlaybackPosition = (msg.playbackPosition as number) || 0
+      const serverMonotonicReported = serverTimeMonotonic || 0
+      const monoDelta = monotonicToUnixDeltaRef.current || (timeSyncCalcRef.current as any)._monotonicToUnixDelta || 0
+      // Estimate server monotonic now at receipt time
+      const serverMonotonicNowEst = (Date.now() + effectiveOffset) - monoDelta
+      const elapsedSinceReport = serverMonotonicNowEst - serverMonotonicReported
+      const expectedPositionNow = reportedPlaybackPosition + (elapsedSinceReport > 0 ? elapsedSinceReport : 0)
+      const el = audioRef.current
+      if (el && playbackState.isPlaying && scheduledMasterClockMsRef.current) {
+        const actual = (el.currentTime || 0) * 1000
+        const passiveDrift = expectedPositionNow - actual
+        const passiveDriftAbs = Math.abs(passiveDrift)
+        // Only perform gentle passive correction if not within recent seek/resume window
+        if (passiveDriftAbs > 150 && passiveDriftAbs < 800 && (performance.now() - lastSeekOrResumeAtRef.current) > 1500) {
+          // Nudge currentTime directly (single correction) when drift moderate
+          try { el.currentTime = Math.max(0, expectedPositionNow) / 1000 } catch {}
+          lastSeekOrResumeAtRef.current = performance.now() // prevent immediate subsequent corrections
+        }
+      }
+      setPlaybackState(prev => ({
+        ...prev,
+        serverOffsetMs: effectiveOffset,
+        drift: jitter,
+        rttMs: rtt,
+        latencyMs: latency
+      }))
+    } catch {
+      setPlaybackState(prev => ({
+        ...prev,
+        serverOffsetMs: effectiveOffset,
+        drift: jitter,
+        rttMs: rtt,
+        latencyMs: latency
+      }))
+    }
   }, [log])
 
   const scheduleSync = useCallback(async (
@@ -225,61 +289,80 @@ export function useSyncPlayback({
     masterClockLatencyMs: number,
     playbackPosition: number = 0
   ) => {
-    if (!schedulerRef.current) {
-      console.error("❌ Scheduler not initialized")
-      return
-    }
-
+    const el = audioRef.current
+    if (!el) return
     try {
-      console.log("📱 Scheduling playback with Web Audio API:", { 
-        audioUrl: audioUrl.substring(0, 40), 
-        masterClockMs, 
-        masterClockLatencyMs,
-        playbackPosition,
-        isMobile 
-      })
-
-      await schedulerRef.current.schedule({
-        audioUrl,
-        playbackPosition,
-        masterClockMs,
-        masterClockLatencyMs,
-        durationMs: duration,
-        monotonicToUnixDelta: (timeSyncCalcRef.current as any)._monotonicToUnixDelta || 0,
-        filteredOffset: timeSyncCalcRef.current.getFilteredOffset?.() ?? timeSyncCalcRef.current.getOffset()
-      })
-      trackDurationRef.current = duration
-      if (positionRafRef.current === null) {
-        const loop = () => {
-          positionRafRef.current = requestAnimationFrame(loop)
-          if (!schedulerRef.current || !playbackState.isPlaying) return
-          const rawPos = schedulerRef.current.getCurrentPosition()
-          const clamped = Math.min(rawPos, trackDurationRef.current)
-          const now = performance.now()
-          if (now - lastPositionPushRef.current > 33) {
-            lastPositionPushRef.current = now
-            setPlaybackState(prev => ({ ...prev, currentPosition: clamped }))
-            if (onPositionUpdateRef.current) {
-              onPositionUpdateRef.current({ positionMs: rawPos, clampedMs: clamped, durationMs: trackDurationRef.current, playing: playbackState.isPlaying })
-            }
-            const el = audioRef.current
-            if (el && !el.paused) {
-              const desiredSeconds = clamped / 1000
-              if (Math.abs(el.currentTime - desiredSeconds) > 0.25) {
-                try { el.currentTime = desiredSeconds } catch {}
-              }
-            }
-          }
-        }
-        positionRafRef.current = requestAnimationFrame(loop)
+      // Ensure source
+      if (el.src !== audioUrl) {
+        el.src = audioUrl
+        el.load()
       }
-
-      setPlaybackState(prev => ({ ...prev, isPlaying: true }))
+      // Wait for metadata ALWAYS before touching currentTime (Safari negative currentTime bug)
+      if (el.readyState < 1) {
+        await new Promise<void>((resolve) => {
+          const onMeta = () => { el.removeEventListener('loadedmetadata', onMeta); resolve() }
+          el.addEventListener('loadedmetadata', onMeta, { once: true })
+        })
+      }
+      // Reset playback rate to neutral before any scheduling
+      try { el.playbackRate = 1.0 } catch {}
+      const durationMs = duration > 1000 ? duration : Math.round(duration * 1000)
+      trackDurationRef.current = durationMs
+      // Mapping
+      const filteredOffset = timeSyncCalcRef.current.getFilteredOffset?.() ?? timeSyncCalcRef.current.getOffset()
+      lastFilteredOffsetRef.current = filteredOffset
+      const monoDelta = monotonicToUnixDeltaRef.current || (timeSyncCalcRef.current as any)._monotonicToUnixDelta || 0
+      // Estimate server monotonic now from client unix + offset - delta
+      const serverMonotonicNowEst = (Date.now() + filteredOffset) - monoDelta
+      let delayMs = masterClockMs - serverMonotonicNowEst + masterClockLatencyMs
+      let startPositionMs = playbackPosition
+      if (delayMs < 0) {
+        startPositionMs += (-delayMs)
+        delayMs = 0
+      }
+      if (startPositionMs < 0) startPositionMs = 0
+      try { el.currentTime = startPositionMs / 1000 } catch {}
+      scheduledMasterClockMsRef.current = masterClockMs
+      scheduledStartPositionMsRef.current = startPositionMs
+      // Mark playing only after play resolves
+      // On Safari, ensure we have some data buffered before playing
+      if (el.readyState < 2) {
+        await new Promise<void>((resolve) => {
+          let settled = false
+          const onCanPlay = () => { if (!settled) { settled = true; el.removeEventListener('canplay', onCanPlay); resolve() } }
+          el.addEventListener('canplay', onCanPlay, { once: true })
+          setTimeout(() => { if (!settled) { settled = true; el.removeEventListener('canplay', onCanPlay); resolve() } }, 500)
+        })
+      }
+      // Start playback at the intended wall-clock time
+      await new Promise<void>((resolve) => setTimeout(resolve, Math.max(0, Math.floor(delayMs))))
+      const playPromise = el.play()
+      if (playPromise && typeof playPromise.then === 'function') {
+        try {
+          await playPromise
+          setPlaybackState(prev => ({ ...prev, isPlaying: true }))
+        } catch (err) {
+          // Autoplay gesture lock handling
+          const message = (err as any)?.message || ''
+          if ((err as any)?.name === 'NotAllowedError' || /gesture|user/i.test(message)) {
+            awaitingGestureRef.current = true
+            pendingPlayParamsRef.current = { audioUrl, masterClockMs, duration: durationMs, latencyMs: masterClockLatencyMs, startPositionMs }
+            if (devMode) console.warn('Autoplay blocked; awaiting user gesture to start playback')
+          } else {
+            if (devMode) console.warn('HTMLAudio play() failed', err)
+          }
+          setPlaybackState(prev => ({ ...prev, isPlaying: false }))
+        }
+      } else {
+        setPlaybackState(prev => ({ ...prev, isPlaying: !el.paused }))
+      }
+      lastSeekOrResumeAtRef.current = performance.now()
+      // Removed per-frame state updates to avoid Safari timer throttling
     } catch (err) {
-      console.error("❌ Failed to schedule playback:", err)
-      onErrorRef.current?.(`Playback scheduling failed: ${err}`)
+      console.error('Failed to schedule HTML5 audio', err)
+      onErrorRef.current?.('Playback scheduling failed')
     }
-  }, [])
+  }, [audioRef])
 
   const audioHelpers = useRef({
     ensureSrc: (src: string) => {
@@ -295,23 +378,8 @@ export function useSyncPlayback({
       }
     },
     play: async () => {
-      const el = audioRef.current;
-      if (!el) return;
-      if (el.readyState < 2) {
-        await new Promise<void>(resolve => {
-          const onCanPlay = () => { el.removeEventListener('canplay', onCanPlay); resolve(); };
-          el.addEventListener('canplay', onCanPlay, { once: true });
-          setTimeout(resolve, 1500);
-        });
-      }
-      try {
-        const p = el.play();
-        if (p && typeof p.then === 'function') await p.catch(err => {
-          console.warn('HTMLAudio play failed', err);
-        });
-      } catch (e:any) {
-        console.warn('Safe play caught', e?.name || e);
-      }
+      const el = audioRef.current; if (!el) return;
+      try { await el.play() } catch (e) { console.warn('HTMLAudio play failed', e) }
     },
     pause: () => {
       const el = audioRef.current;
@@ -326,119 +394,122 @@ export function useSyncPlayback({
   });
 
   useEffect(() => {
-    const unlock = async () => {
-      if (schedulerRef.current) {
-        try {
-          await schedulerRef.current.initialize();
-          await schedulerRef.current.resumeContext();
-        } catch (e) {
-          console.warn("AudioContext unlock attempt failed", e);
-        }
+    // Single user interaction unlock for iOS/Safari + attempt WebAudio resume
+    const unlock = () => {
+      if (unlockedRef.current) return
+      const el = audioRef.current
+      if (!el) return
+      el.muted = true
+      const p = el.play()
+      if (p && typeof p.then === 'function') {
+        p.then(() => { try { el.pause() } catch {}; unlockedRef.current = true }).catch(() => { unlockedRef.current = true })
+      } else {
+        unlockedRef.current = true
       }
-    };
-    const handler = () => {
-      unlock();
-      window.removeEventListener('touchstart', handler);
-      window.removeEventListener('click', handler);
-    };
-    window.addEventListener('touchstart', handler, { passive: true });
-    window.addEventListener('click', handler);
-    return () => {
-      window.removeEventListener('touchstart', handler);
-      window.removeEventListener('click', handler);
-    };
-  }, []);
-
-  const play = useCallback((
-    audioUrl: string,
-    duration: number,
-    startDelayMs: number = 200
-  ) => {
-    if (!wsRef.current) {
-      console.log("WebSocket not connected")
-      return
+      try {
+        audioContextManager.getContext()
+        audioContextManager.resume().then(() => {
+          webAudioEnabledRef.current = audioContextManager.isReady()
+        }).catch(()=>{})
+      } catch {}
+      // Retry pending autoplay after successful gesture unlock
+      if (awaitingGestureRef.current && pendingPlayParamsRef.current) {
+        const params = pendingPlayParamsRef.current
+        awaitingGestureRef.current = false
+        pendingPlayParamsRef.current = null
+        // Minor re-schedule lead to align with current master clock estimation
+        const monoDelta = monotonicToUnixDeltaRef.current || (timeSyncCalcRef.current as any)._monotonicToUnixDelta || 0
+        const filteredOffset = timeSyncCalcRef.current.getFilteredOffset?.() || timeSyncCalcRef.current.getOffset()
+        const serverMonotonicNowEst = (Date.now() + filteredOffset) - monoDelta
+        const adjustedMasterClock = serverMonotonicNowEst + 250
+        scheduleSync(params.audioUrl, adjustedMasterClock, params.duration, params.latencyMs, params.startPositionMs).catch(()=>{})
+      }
     }
+    window.addEventListener('touchstart', unlock, { passive: true })
+    window.addEventListener('click', unlock)
+    return () => {
+      window.removeEventListener('touchstart', unlock)
+      window.removeEventListener('click', unlock)
+    }
+  }, [audioRef])
 
-    console.log("▶️ PLAY command sent:", { audioUrl: audioUrl.substring(0, 40), duration, startDelayMs })
-    wsRef.current.send(JSON.stringify({
-      type: "PLAY",
-      roomCode,
-      audioUrl,
-      duration,
-      startDelayMs,
-      rttMs: playbackState.rttMs,
-      timestamp: Date.now()
-    }))
-
-    setPlaybackState(prev => ({ ...prev, isPlaying: true }))
+  const play = useCallback((audioUrl: string, duration: number, startDelayMs: number = 200) => {
+    // Host initiates; rely on server PLAY/PLAY_SYNC for actual start — no local immediate play to avoid glitch.
+    let effectiveStartDelayMs = startDelayMs
+    const smootherCurrent = offsetSmootherRef.current.getCurrent()
+    if (smootherCurrent) {
+      const targetServerTime = Date.now() + (smootherCurrent.averageOffset || 0) + startDelayMs
+      const waitMs = SyncOptimization.calcWaitMs(targetServerTime, smootherCurrent.averageOffset || 0)
+      if (SyncOptimization.isLateSchedule(waitMs, playbackState.rttMs)) effectiveStartDelayMs += 150
+    }
+    const msg = { type: "PLAY", roomCode, audioUrl, duration, startDelayMs: effectiveStartDelayMs, rttMs: playbackState.rttMs, timestamp: Date.now() }
+    if (wsRef.current?.readyState === 1) {
+      if (devMode) console.log("▶️ PLAY command sent:", { audioUrl: audioUrl.substring(0,40), duration, startDelayMs: effectiveStartDelayMs })
+      wsRef.current.send(JSON.stringify(msg))
+    } else {
+      commandQueueRef.current.push(msg)
+    }
   }, [roomCode, playbackState.rttMs])
 
   const pause = useCallback(() => {
-    if (!wsRef.current) {
-      console.log("WebSocket not connected")
-      return
-    }
-
-    const currentPosition = schedulerRef.current?.getCurrentPosition() || 0
-    console.log("⏸️ PAUSE command sent:", { currentPosition: currentPosition.toFixed(0) })
-    
-    if (schedulerRef.current) {
-      schedulerRef.current.pause()
-    }
-
-    wsRef.current.send(JSON.stringify({
-      type: "PAUSE",
-      roomCode,
-      currentTime: currentPosition / 1000,
-      timestamp: Date.now()
-    }))
-
-    setPlaybackState(prev => ({ ...prev, isPlaying: false }))
+    // Optimistic local stop; let server broadcast authoritative PAUSE.
+    const currentPosition = (audioRef.current?.currentTime || 0) * 1000
+    if (devMode) console.log("⏸️ PAUSE command sent:", { currentPosition: currentPosition.toFixed(0) })
+    if (currentSourceRef.current) { stopSource(currentSourceRef.current); currentSourceRef.current = null }
+    audioHelpers.current.pause()
+    const msg = { type: "PAUSE", roomCode, currentTime: currentPosition / 1000, timestamp: Date.now() }
+    if (wsRef.current?.readyState === 1) wsRef.current.send(JSON.stringify(msg)); else commandQueueRef.current.push(msg)
   }, [roomCode])
 
   const resume = useCallback(() => {
-    if (!wsRef.current) {
-      console.log("WebSocket not connected")
-      return
-    }
-
-    const currentPosition = schedulerRef.current?.getCurrentPosition() || 0
-    console.log("▶️ RESUME command requested:", { currentPosition: currentPosition.toFixed(0) })
-
-    wsRef.current.send(JSON.stringify({
+    const currentPosition = (audioRef.current?.currentTime || 0) * 1000
+    if (devMode) console.log("▶️ RESUME command requested:", { currentPosition: currentPosition.toFixed(0) })
+    const smootherCurrent = offsetSmootherRef.current.getCurrent()
+    const baseDelay = 200
+    const adaptiveExtra = smootherCurrent && playbackState.rttMs > 250 ? 120 : 0
+    const msg = {
       type: "RESUME",
       roomCode,
       currentTime: currentPosition / 1000,
-      startDelayMs: 200,
+      startDelayMs: baseDelay + adaptiveExtra,
       timestamp: Date.now()
-    }))
-  }, [roomCode])
+    }
+    if (wsRef.current && wsRef.current.readyState === 1) {
+      wsRef.current.send(JSON.stringify(msg))
+    } else {
+      if (devMode) console.log("WS not ready, queuing RESUME")
+      commandQueueRef.current.push(msg)
+    }
+  }, [roomCode, playbackState.rttMs])
 
   const seek = useCallback((positionMs: number) => {
-    if (!wsRef.current) {
-      console.log("WebSocket not connected")
-      return
-    }
-
-    console.log("⏩ SEEK command sent:", { positionMs, positionSeconds: (positionMs / 1000).toFixed(2) })
-
-    wsRef.current.send(JSON.stringify({
+    if (devMode) console.log("⏩ SEEK command sent:", { positionMs, positionSeconds: (positionMs / 1000).toFixed(2) })
+    // Reset any active playbackRate nudge for fresh seek mapping
+    try { if (rateAdjustmentActiveRef.current && audioRef.current) { audioRef.current.playbackRate = 1 } } catch {}
+    rateAdjustmentActiveRef.current = false
+    const msg = {
       type: "SEEK",
       roomCode,
       seekPositionMs: positionMs,
       timestamp: Date.now()
-    }))
+    }
+    if (wsRef.current && wsRef.current.readyState === 1) {
+      wsRef.current.send(JSON.stringify(msg))
+    } else {
+      if (devMode) console.log("WS not ready, queuing SEEK")
+      commandQueueRef.current.push(msg)
+    }
   }, [roomCode])
 
   const checkDrift = useCallback(() => {
-    if (!schedulerRef.current || !playbackState.isPlaying) return
+    if (!audioRef.current || audioRef.current.paused || !playbackState.isPlaying) return
 
-    const clientPosition = schedulerRef.current.getCurrentPosition()
+    const clientPosition = (audioRef.current.currentTime || 0) * 1000
 
     if (!wsRef.current) return
 
     if (devMode) {
-      console.log(`⏱️ Drift check - Web Audio position: ${clientPosition.toFixed(0)}ms`)
+      console.log(`⏱️ Drift check - HTMLAudio position: ${clientPosition.toFixed(0)}ms`)
     }
 
     wsRef.current.send(JSON.stringify({
@@ -450,12 +521,94 @@ export function useSyncPlayback({
   }, [devMode, roomCode, playbackState.isPlaying])
 
   const autoCorrectLocalDrift = useCallback(() => {
-    if (!schedulerRef.current || !playbackState.isPlaying) return
+    const el = audioRef.current
+    if (!el || el.paused || !playbackState.isPlaying) return
+    // Skip corrections briefly after seeks/resumes to avoid oscillation
+    const now = performance.now()
+    if (now - lastSeekOrResumeAtRef.current < 1200) return
     const filteredOffset = timeSyncCalcRef.current.getFilteredOffset?.() ?? timeSyncCalcRef.current.getOffset()
-    const monotonicDelta = (timeSyncCalcRef.current as any)._monotonicToUnixDelta
-    if (typeof monotonicDelta !== 'number') return
-    schedulerRef.current.autoCorrectDrift(filteredOffset, monotonicDelta)
-  }, [playbackState.isPlaying])
+    const monoDelta = monotonicToUnixDeltaRef.current
+    if (typeof monoDelta !== 'number') return
+    const masterStart = scheduledMasterClockMsRef.current
+    if (masterStart == null) return
+    // expected position from master clock mapping
+    const serverUnixNowEst = Date.now() + filteredOffset
+    const serverMonotonicNowEst = serverUnixNowEst - monoDelta
+    const elapsedSinceMaster = serverMonotonicNowEst - masterStart
+    const expected = scheduledStartPositionMsRef.current + elapsedSinceMaster
+    const actual = (el.currentTime || 0) * 1000
+    const drift = expected - actual
+    const driftAbs = Math.abs(drift)
+    // Apply simplified correction: only hard seek if large drift
+    if (driftAbs > 400) {
+      try { el.currentTime = Math.max(0, expected) / 1000 } catch {}
+      lastSeekOrResumeAtRef.current = performance.now()
+      // Reset any rate adjustment after hard correction
+      try { el.playbackRate = 1 } catch {}
+      rateAdjustmentActiveRef.current = false
+    }
+    else if (driftAbs > 25) {
+      // Use gentle rate nudging similar to beatsync WebAudio approach
+      // Limit how often we start a new nudge window
+      const sinceLastAdj = now - lastRateAdjustmentAtRef.current
+      if (!rateAdjustmentActiveRef.current || sinceLastAdj > 2500) {
+        rateAdjustmentActiveRef.current = true
+        lastRateAdjustmentAtRef.current = now
+      }
+      if (rateAdjustmentActiveRef.current) {
+        // Target fractional correction over a short window
+        const windowMs = 1500
+        const fractional = Math.min(Math.max(drift / windowMs, -0.02), 0.02)
+        const targetRate = 1 + fractional
+        try { el.playbackRate = targetRate } catch {}
+        // If drift nearly gone, restore
+        if (driftAbs < 10) {
+          try { el.playbackRate = 1 } catch {}
+          rateAdjustmentActiveRef.current = false
+        }
+        // Auto restore after window
+        if (sinceLastAdj > windowMs) {
+          try { el.playbackRate = 1 } catch {}
+          rateAdjustmentActiveRef.current = false
+        }
+      }
+    } else {
+      // In tight sync range, ensure rate normalized
+      if (rateAdjustmentActiveRef.current) {
+        try { el.playbackRate = 1 } catch {}
+        rateAdjustmentActiveRef.current = false
+      }
+    }
+    setPlaybackState(prev => ({ ...prev, audioDriftMs: driftAbs, isSynced: driftAbs < 40 }))
+  }, [audioRef, playbackState.isPlaying])
+
+  // Lightweight position update loop for progress UI
+  const startPositionLoop = useCallback(() => {
+    if (positionRafRef.current !== null) return
+    const tick = () => {
+      const el = audioRef.current
+      if (el) {
+        const nowMs = (el.currentTime || 0) * 1000
+        const t = performance.now()
+        // Throttle state updates to ~5/sec
+        if (t - lastPositionBroadcastRef.current > 180) {
+          lastPositionBroadcastRef.current = t
+          setPlaybackState(prev => ({
+            ...prev,
+            currentPosition: nowMs
+          }))
+          onPositionUpdateRef.current?.({
+            positionMs: nowMs,
+            clampedMs: Math.max(0, Math.min(trackDurationRef.current || nowMs, nowMs)),
+            durationMs: trackDurationRef.current || 0,
+            playing: !el.paused
+          })
+        }
+      }
+      positionRafRef.current = requestAnimationFrame(tick)
+    }
+    positionRafRef.current = requestAnimationFrame(tick)
+  }, [audioRef])
 
   const trackChange = useCallback((trackData: {
     id: string
@@ -464,57 +617,57 @@ export function useSyncPlayback({
     duration: number
     audioUrl: string
   }) => {
-    if (!wsRef.current) {
-      console.log("WebSocket not connected")
-      return
+    if (devMode) console.log("TRACK_CHANGE command sent:", { title: trackData.title, artist: trackData.artist })
+    const msg = { type: "TRACK_CHANGE", roomCode, trackData, timestamp: Date.now() }
+    if (wsRef.current && wsRef.current.readyState === 1) {
+      wsRef.current.send(JSON.stringify(msg))
+    } else {
+      console.log("WS not ready, queuing TRACK_CHANGE")
+      commandQueueRef.current.push(msg)
     }
-
-    console.log("TRACK_CHANGE command sent:", { title: trackData.title, artist: trackData.artist })
-    wsRef.current.send(JSON.stringify({
-      type: "TRACK_CHANGE",
-      roomCode,
-      trackData,
-      timestamp: Date.now()
-    }))
   }, [isHost])
 
   useEffect(() => {
     let isMounted = true
     let reconnectTimeout: NodeJS.Timeout | null = null
     let reconnectAttempts = 0
-    const maxReconnectAttempts = 5
+    const maxReconnectAttempts = Number.POSITIVE_INFINITY
 
     if (!roomCode || !userId || !hostId) {
       if (devMode) console.log('[SyncPlayback] Deferring WS connect until identifiers ready', { roomCode, userId, hostId })
-      return () => {}
+      return () => { }
     }
 
     const connect = () => {
-  
       if (!isMounted) return
       let url: string
-      url = `${process.env.NEXT_PUBLIC_SOCKET_HOST}/ws/sync?roomCode=${roomCode}&userId=${userId}`
+      try {
+        const raw = process.env.NEXT_PUBLIC_SOCKET_HOST
+        if (raw && raw.trim()) {
+          const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:'
+          // If page is https and env uses ws://, upgrade to wss:// to avoid mixed content
+          const upgraded = isHttps && raw.startsWith('ws://') ? raw.replace(/^ws:\/\//, 'wss://') : raw
+          url = `${upgraded}/ws/sync?roomCode=${roomCode}&userId=${userId}`
+        } else {
+          const loc = typeof window !== 'undefined' ? window.location : { protocol: 'http:', host: 'localhost:3000' } as any
+          const proto = loc.protocol === 'https:' ? 'wss' : 'ws'
+          // Default sockets dev port 6001 on same host
+          const host = loc.host.includes(':') ? loc.host.split(':')[0] : loc.host
+          url = `${proto}://${host}:6001/ws/sync?roomCode=${roomCode}&userId=${userId}`
+        }
+      } catch {
+        url = `${process.env.NEXT_PUBLIC_SOCKET_HOST}/ws/sync?roomCode=${roomCode}&userId=${userId}`
+      }
 
       try {
         const ws = new WebSocket(url)
         wsRef.current = ws
 
         ws.onopen = () => {
-          console.log("Sync WebSocket connected")
-          console.log("Mobile Connection:", { isMobile, roomCode, userId, isHost })
+          if (devMode) console.log("Sync WebSocket connected")
+          if (devMode) console.log("Mobile Connection:", { isMobile, roomCode, userId, isHost })
           reconnectAttempts = 0
-          if (!schedulerRef.current) {
-            try {
-              schedulerRef.current = new WebAudioScheduler(timeSyncCalcRef.current)
-              schedulerRef.current.initialize().then(() => {
-                console.log("Web Audio Scheduler initialized")
-              }).catch(err => {
-                console.warn("Web Audio initialization deferred (needs user interaction):", err)
-              })
-            } catch (err) {
-              console.error("Failed to create scheduler:", err)
-            }
-          }
+          // No WebAudio scheduler; HTMLAudio is used
 
           ws.send(JSON.stringify({
             type: "join",
@@ -522,84 +675,145 @@ export function useSyncPlayback({
             userId,
             hostId
           }))
+          joinedRef.current = false
           startPingBurst();
-          timeSyncIntervalRef.current = setInterval(startPingBurst, 800)
-          driftCheckIntervalRef.current = setInterval(checkDrift, 4000)
-          driftAutoCorrectIntervalRef.current = setInterval(autoCorrectLocalDrift, 1500)
+          timeSyncIntervalRef.current = setInterval(startPingBurst, 1500)
+          driftCheckIntervalRef.current = setInterval(checkDrift, 5000)
+          driftAutoCorrectIntervalRef.current = setInterval(autoCorrectLocalDrift, 1200)
+          startPositionLoop()
+          const requestState = () => {
+            if (!wsRef.current || wsRef.current.readyState !== 1) return
+            try {
+              wsRef.current.send(JSON.stringify({ type: 'get_playback_state', roomCode, timestamp: Date.now() }))
+            } catch {}
+          }
+          stateFetchAttemptsRef.current = 0
+          if (stateFetchTimerRef.current) clearTimeout(stateFetchTimerRef.current)
+          setJoiningSync(true)
+          requestState()
+          stateFetchTimerRef.current = setTimeout(function poll(){
+            if (scheduledOrPlayingRef.current) return
+            if (stateFetchAttemptsRef.current >= 6) return
+            stateFetchAttemptsRef.current += 1
+            requestState()
+            stateFetchTimerRef.current = setTimeout(poll, 600)
+          }, 600)
         }
 
         ws.onmessage = (event) => {
-          const msg = JSON.parse(event.data) as SyncMessage
-
-          if (msg.type === "device_health_check") {
-            const { checkId } = msg as any
-            console.log("🏥 Received device health check", { checkId })
-            const audioLoaded = schedulerRef.current?.hasBuffer() || false
-            const deviceReady = audioLoaded
-            wsRef.current?.send(JSON.stringify({
-              type: "device_health_check_response",
-              checkId,
-              audioLoaded,
-              deviceReady,
-              timestamp: Date.now()
-            }))
+          let msg: SyncMessage
+          try {
+            msg = JSON.parse(event.data) as SyncMessage
+          } catch (e) {
+            if (devMode) console.warn('⚠️ Invalid JSON from server', e)
+            return
           }
 
-          if (msg.type === "PREPARE_TRACK") {
+          if ((msg as any).type === 'joined') { // server emits lowercase 'joined'
+            joinedRef.current = true
+            if (commandQueueRef.current.length) {
+              if (devMode) console.log(`📤 Flushing ${commandQueueRef.current.length} queued command(s) after join`)
+              for (const m of commandQueueRef.current) {
+                try { ws.send(JSON.stringify(m)) } catch {}
+              }
+              commandQueueRef.current = []
+            }
+          }
+
+          if (msg.type === SYNC_TYPES.DEVICE_HEALTH_CHECK) {
+            const { checkId } = msg as any
+            if (devMode) console.log("🏥 Received device health check", { checkId })
+            const el = audioRef.current
+            const audioLoaded = !!el && el.readyState >= 1
+            const deviceReady = audioLoaded
+            if (!respondedHealthCheckIdsRef.current.has(checkId)) {
+              wsRef.current?.send(JSON.stringify({
+                type: "device_health_check_response",
+                checkId,
+                audioLoaded,
+                deviceReady,
+                timestamp: Date.now()
+              }))
+              respondedHealthCheckIdsRef.current.add(checkId)
+            }
+          }
+
+          if (msg.type === SYNC_TYPES.PREPARE_TRACK) {
             const prepMsg = msg as PrepareTrackMessage
-            console.log("🎬 PREPARE_TRACK received, preloading:", { url: prepMsg.audioUrl.substring(0,40), duration: prepMsg.duration })
+            if (processedPrepareIdsRef.current.has(prepMsg.checkId)) {
+              if (devMode) console.log('🔁 PREPARE_TRACK duplicate ignored', prepMsg.checkId)
+              return
+            }
+            processedPrepareIdsRef.current.add(prepMsg.checkId)
             ;(async () => {
               try {
-                // Initialize scheduler if needed
-                if (!schedulerRef.current) {
-                  schedulerRef.current = new WebAudioScheduler(timeSyncCalcRef.current)
-                  await schedulerRef.current.initialize()
+                const el = audioRef.current
+                if (!el) return
+                if (el.src !== prepMsg.audioUrl) {
+                  el.src = prepMsg.audioUrl
+                  el.load()
                 }
-                audioHelpers.current.ensureSrc(prepMsg.audioUrl)
-                await schedulerRef.current.loadAudio(prepMsg.audioUrl)
-                if (wsRef.current) {
-                  // Inform server track buffered & device is ready
-                  wsRef.current.send(JSON.stringify({
+                // Send NOT READY (without marking responded set) if metadata not loaded
+                if (el.readyState < 1) {
+                  wsRef.current?.send(JSON.stringify({
                     type: 'device_health_check_response',
                     roomCode,
                     checkId: prepMsg.checkId,
-                    audioLoaded: true,
-                    deviceReady: true,
+                    audioLoaded: false,
+                    deviceReady: false,
                     rttMs: playbackState.rttMs,
                     timestamp: Date.now()
                   }))
-                  // Optional: still send track_prepared for legacy observers
-                  wsRef.current.send(JSON.stringify({
-                    type: 'track_prepared',
-                    roomCode,
-                    checkId: prepMsg.checkId,
-                    audioUrl: prepMsg.audioUrl,
-                    timestamp: Date.now()
-                  }))
+                  await new Promise<void>((resolve) => {
+                    const onMeta = () => { el.removeEventListener('loadedmetadata', onMeta); resolve() }
+                    el.addEventListener('loadedmetadata', onMeta, { once: true })
+                  })
                 }
-                console.log("✅ Track preloaded")
+                // Now READY
+                wsRef.current?.send(JSON.stringify({
+                  type: 'device_health_check_response',
+                  roomCode,
+                  checkId: prepMsg.checkId,
+                  audioLoaded: true,
+                  deviceReady: true,
+                  rttMs: playbackState.rttMs,
+                  timestamp: Date.now()
+                }))
+                wsRef.current?.send(JSON.stringify({
+                  type: 'track_prepared',
+                  roomCode,
+                  checkId: prepMsg.checkId,
+                  audioUrl: prepMsg.audioUrl,
+                  timestamp: Date.now()
+                }))
+                if (devMode) console.log('✅ Track metadata prepared', { checkId: prepMsg.checkId })
               } catch (e) {
-                console.error("❌ Failed to preload track", e)
-                onErrorRef.current?.("Failed to preload track")
+                console.error('Failed to preload track', e)
+                onErrorRef.current?.('Failed to preload track')
               }
             })()
           }
 
-          if (msg.type === "time_pong") {
+          if (msg.type === SYNC_TYPES.TIME_PONG) {
             handleTimePong(msg as Record<string, unknown>)
           }
 
-          if (msg.type === "PLAY_SYNC") {
+          if (msg.type === SYNC_TYPES.PLAY_SYNC) {
             const playSyncMsg = msg as PlaySyncMessage
-            console.log("🎵 PLAY_SYNC message received (late join):", { 
-              audioUrl: playSyncMsg.audioUrl?.substring(0, 40), 
-              playbackPosition: playSyncMsg.playbackPosition, 
+            if (scheduledOnceRef.current) {
+              if (devMode) console.log('🛑 Ignoring PLAY_SYNC (already scheduled)')
+              return
+            }
+            if (devMode) console.log("🎵 PLAY_SYNC schedule:", {
+              audioUrl: playSyncMsg.audioUrl?.substring(0, 40),
+              playbackPosition: playSyncMsg.playbackPosition,
               masterClockMs: playSyncMsg.masterClockMs,
-              duration: playSyncMsg.duration 
+              duration: playSyncMsg.duration
             })
-
-            // Use scheduler with master clock for precise sync
             const latencyMs = playbackState.latencyMs || 20
+            if (playSyncMsg.audioUrl) {
+              audioHelpers.current.ensureSrc(playSyncMsg.audioUrl)
+            }
             scheduleSync(
               playSyncMsg.audioUrl,
               playSyncMsg.masterClockMs,
@@ -609,132 +823,231 @@ export function useSyncPlayback({
             ).catch(err => {
               console.error("Failed to schedule PLAY_SYNC:", err)
             })
-
-            setPlaybackState(prev => ({ ...prev, isPlaying: playSyncMsg.isPlaying || false }))
+            scheduledOrPlayingRef.current = true
+            scheduledOnceRef.current = true
+            setJoiningSync(false)
+            setPlaybackState(prev => ({ ...prev, isPlaying: !!playSyncMsg.isPlaying }))
             onSyncRef.current?.(msg)
           }
+          if ((msg as any).type === SYNC_TYPES.PAUSE_STATE) {
+            const p = msg as any
+            if (devMode) console.log('⏸️ PAUSE_STATE received', { pausedPositionMs: p.pausedPositionMs })
+            const el = audioRef.current
+            if (el && typeof p.pausedPositionMs === 'number') {
+              try { el.currentTime = p.pausedPositionMs / 1000 } catch {}
+            }
+            scheduledMasterClockMsRef.current = p.masterClockMs
+            scheduledStartPositionMsRef.current = p.pausedPositionMs || 0
+            setPlaybackState(prev => ({ ...prev, isPlaying: false }))
+            scheduledOrPlayingRef.current = true
+            scheduledOnceRef.current = true
+            setJoiningSync(false)
+          }
 
-          if (msg.type === "PLAY") {
+          if (msg.type === "playback_state") { // initial empty snapshot when no track active
+            const state = msg as any
+            // Removed console log to reduce noise; keep logic for late join scheduling
+            if (state.currentTrack) {
+              if (scheduledOnceRef.current) {
+                if (devMode) console.log('🔁 Ignoring playback_state (already scheduled)')
+                return
+              }
+              const filteredOffset = timeSyncCalcRef.current.getFilteredOffset?.() ?? timeSyncCalcRef.current.getOffset()
+              const monoDelta = (timeSyncCalcRef.current as any)._monotonicToUnixDelta || 0
+              const serverUnixNow = state.serverNow || Date.now()
+              const serverMonotonicNow = serverUnixNow - monoDelta
+              const startDelayMs = 800
+              const targetMasterClockMs = serverMonotonicNow + startDelayMs
+              const startPlaybackPosition = (state.playbackPosition || 0)
+              audioHelpers.current.ensureSrc(state.currentTrack)
+              const latencyMs = playbackState.latencyMs || 20
+              scheduleSync(
+                state.currentTrack,
+                targetMasterClockMs,
+                state.duration || 0,
+                latencyMs,
+                startPlaybackPosition
+              ).catch(err => console.error("Failed to schedule from playback_state:", err))
+              setPlaybackState(prev => ({ ...prev, isPlaying: !!state.isPlaying }))
+              scheduledOrPlayingRef.current = true
+              scheduledOnceRef.current = true
+              setJoiningSync(false)
+            } else {
+              if (!scheduledOrPlayingRef.current && stateFetchAttemptsRef.current < 6) {
+                try { wsRef.current?.send(JSON.stringify({ type: 'get_playback_state', roomCode, timestamp: Date.now() })) } catch {}
+                stateFetchAttemptsRef.current += 1
+              }
+            }
+          }
+
+          if (msg.type === SYNC_TYPES.PLAY) {
             const playMsg = msg as PlayMessage
-            console.log("🎵 PLAY message received:", { audioUrl: playMsg.audioUrl?.substring(0, 40), masterClockMs: playMsg.masterClockMs, masterClockLatencyMs: playMsg.masterClockLatencyMs, duration: playMsg.duration })
-            audioHelpers.current.ensureSrc(playMsg.audioUrl)
-            scheduleSync(playMsg.audioUrl, playMsg.masterClockMs, playMsg.duration, playMsg.masterClockLatencyMs, 0).catch(err => console.error("Failed to schedule PLAY:", err))
-            // Attempt HTML element play for UI alignment
-            audioHelpers.current.play();
-            setPlaybackState(prev => ({ ...prev, isPlaying: true }))
+            if (devMode) console.log("🎵 PLAY message received:", { audioUrl: playMsg.audioUrl?.substring(0, 40), masterClockMs: playMsg.masterClockMs, masterClockLatencyMs: playMsg.masterClockLatencyMs, duration: playMsg.duration })
+            if (webAudioEnabledRef.current) {
+              scheduleWebAudio({
+                audioUrl: playMsg.audioUrl,
+                offsetSeconds: 0,
+                targetServerTimeMs: playMsg.masterClockMs,
+                serverOffsetMs: playbackState.serverOffsetMs
+              }).then(r => {
+                if (!r.started) {
+                  if (devMode) console.warn('Late schedule; requesting state')
+                  wsRef.current?.send(JSON.stringify({ type: 'get_playback_state', roomCode, timestamp: Date.now() }))
+                  return
+                }
+                currentSourceRef.current = r.source
+                setPlaybackState(prev => ({ ...prev, isPlaying: true, currentPosition: 0 }))
+              }).catch(err => {
+                console.error('WebAudio PLAY failed, fallback', err)
+                audioHelpers.current.ensureSrc(playMsg.audioUrl)
+                scheduleSync(playMsg.audioUrl, playMsg.masterClockMs, playMsg.duration, playMsg.masterClockLatencyMs, 0).catch(e => console.error('Fallback PLAY error', e))
+                setPlaybackState(prev => ({ ...prev, isPlaying: true, currentPosition: 0 }))
+              })
+            } else {
+              audioHelpers.current.ensureSrc(playMsg.audioUrl)
+              scheduleSync(playMsg.audioUrl, playMsg.masterClockMs, playMsg.duration, playMsg.masterClockLatencyMs, 0).catch(err => console.error("Failed to schedule PLAY:", err))
+              setPlaybackState(prev => ({ ...prev, isPlaying: true, currentPosition: 0 }))
+            }
+            setJoiningSync(false)
             onSyncRef.current?.(playMsg)
           }
 
-          if (msg.type === "device_ready") {
+          if (msg.type === SYNC_TYPES.DEVICE_READY) {
             const { wsId } = msg as any
-            console.log("✅ Device is ready:", wsId)
+            if (devMode) console.log("Device is ready:", wsId)
           }
 
-          if (msg.type === "PAUSE") {
+          if (msg.type === SYNC_TYPES.PAUSE) {
             const pauseMsg = msg as PauseMessage
-            console.log("⏸️ PAUSE message received:", { pausedAtMs: pauseMsg.pausedAtMs })
-
-            if (schedulerRef.current) {
-              schedulerRef.current.pause()
-            }
-            audioHelpers.current.pause();
-            
-            setPlaybackState(prev => ({ ...prev, isPlaying: false }))
+            if (devMode) console.log("⏸️ PAUSE message received:", { pausedAtMs: pauseMsg.pausedAtMs })
+            if (currentSourceRef.current) { stopSource(currentSourceRef.current); currentSourceRef.current = null }
+            audioHelpers.current.pause()
+            setPlaybackState(prev => ({ ...prev, isPlaying: false, currentPosition: pauseMsg.pausedAtMs || prev.currentPosition }))
             onSyncRef.current?.(msg)
           }
 
-          if (msg.type === "RESUME") {
+          if (msg.type === SYNC_TYPES.RESUME) {
             const resumeMsg = msg as ResumeMessage
-            console.log("▶️ RESUME message received:", { masterClockMs: resumeMsg.masterClockMs, playbackPositionMs: resumeMsg.playbackPositionMs })
+            if (devMode) console.log("▶️ RESUME message received:", { masterClockMs: resumeMsg.masterClockMs, playbackPositionMs: resumeMsg.playbackPositionMs })
             // Align paused position to authoritative server position before resuming
-            if (schedulerRef.current && typeof resumeMsg.playbackPositionMs === 'number') {
-              schedulerRef.current.setPausedPosition(resumeMsg.playbackPositionMs)
-            }
-            if (!webAudioDisabledRef.current) {
-              schedulerRef.current?.resume()
-              audioHelpers.current.play();
-            } else {
-              // Fallback: seek and play via HTMLAudio
-              if (typeof resumeMsg.playbackPositionMs === 'number') {
-                audioHelpers.current.seek(resumeMsg.playbackPositionMs)
+            ;(async () => {
+              const el = audioRef.current
+              if (!el) return
+              const pos = typeof resumeMsg.playbackPositionMs === 'number' ? resumeMsg.playbackPositionMs : 0
+              if (el.readyState < 1) {
+                await new Promise<void>((resolve) => {
+                  const onMeta = () => { el.removeEventListener('loadedmetadata', onMeta); resolve() }
+                  el.addEventListener('loadedmetadata', onMeta, { once: true })
+                  el.load()
+                })
               }
-              audioHelpers.current.play()
-            }
-            setPlaybackState(prev => ({ ...prev, isPlaying: true }))
+              try { el.currentTime = pos / 1000 } catch {}
+              if (el.readyState < 2) {
+                await new Promise<void>((resolve) => {
+                  let settled = false
+                  const onCanPlay = () => { if (!settled) { settled = true; el.removeEventListener('canplay', onCanPlay); resolve() } }
+                  el.addEventListener('canplay', onCanPlay, { once: true })
+                  setTimeout(() => { if (!settled) { settled = true; el.removeEventListener('canplay', onCanPlay); resolve() } }, 500)
+                })
+              }
+              if (webAudioEnabledRef.current) {
+                scheduleWebAudio({
+                  audioUrl: el.src,
+                  offsetSeconds: pos / 1000,
+                  targetServerTimeMs: resumeMsg.masterClockMs,
+                  serverOffsetMs: playbackState.serverOffsetMs
+                }).then(r => { if (r.started) currentSourceRef.current = r.source; else el.play().catch(()=>{}) })
+                  .catch(()=>{ el.play().catch(()=>{}) })
+              } else {
+                el.play().catch(()=>{})
+              }
+              scheduledStartPositionMsRef.current = pos
+              scheduledMasterClockMsRef.current = resumeMsg.masterClockMs
+              lastSeekOrResumeAtRef.current = performance.now()
+            })()
+            setPlaybackState(prev => ({ ...prev, isPlaying: true, currentPosition: resumeMsg.playbackPositionMs || prev.currentPosition }))
             onSyncRef.current?.(resumeMsg)
           }
 
-          if (msg.type === "SEEK") {
+          if (msg.type === SYNC_TYPES.SEEK) {
             const seekMsg = msg as SeekMessage
-            console.log("⏩ SEEK message received:", { seekPositionMs: seekMsg.seekPositionMs })
-            if (!webAudioDisabledRef.current) {
-              if (schedulerRef.current && seekMsg.seekPositionMs !== undefined) {
-                schedulerRef.current.seek(seekMsg.seekPositionMs).catch(err => console.error("Seek error", err))
+            if (devMode) console.log("⏩ SEEK message received:", { seekPositionMs: seekMsg.seekPositionMs })
+            ;(async () => {
+              const el = audioRef.current
+              if (!el) return
+              if (el.readyState < 1) {
+                await new Promise<void>((resolve) => {
+                  const onMeta = () => { el.removeEventListener('loadedmetadata', onMeta); resolve() }
+                  el.addEventListener('loadedmetadata', onMeta, { once: true })
+                  el.load()
+                })
               }
-              audioHelpers.current.seek(seekMsg.seekPositionMs)
-            } else {
-              audioHelpers.current.seek(seekMsg.seekPositionMs)
-            }
+              try { el.currentTime = (seekMsg.seekPositionMs || 0) / 1000 } catch {}
+              // Update our expected mapping to avoid immediate drift corrections
+              const filteredOffset = timeSyncCalcRef.current.getFilteredOffset?.() ?? timeSyncCalcRef.current.getOffset()
+              const monoDelta = monotonicToUnixDeltaRef.current || (timeSyncCalcRef.current as any)._monotonicToUnixDelta || 0
+              const serverUnixNow = (seekMsg.serverNow as number) || (Date.now() + filteredOffset)
+              const serverMonotonicNow = serverUnixNow - monoDelta
+              scheduledMasterClockMsRef.current = serverMonotonicNow
+              scheduledStartPositionMsRef.current = seekMsg.seekPositionMs || 0
+              lastSeekOrResumeAtRef.current = performance.now()
+            })()
             setPlaybackState(prev => ({ ...prev, currentPosition: seekMsg.seekPositionMs || 0, isPlaying: true }))
             onSyncRef.current?.(seekMsg)
           }
 
-          if (msg.type === "TRACK_CHANGE") {
+          if (msg.type === SYNC_TYPES.TRACK_CHANGE) {
             const trackChangeMsg = msg as TrackChangeMessage
-            console.log("🎵 TRACK_CHANGE message received:", trackChangeMsg.trackData)
+            if (devMode) console.log("🎵 TRACK_CHANGE message received:", trackChangeMsg.trackData)
 
-            if (trackChangeMsg.trackData?.audioUrl && schedulerRef.current) {
-              console.log("📱 Loading new track:", trackChangeMsg.trackData.title)
-              
-              scheduleSync(
-                trackChangeMsg.trackData.audioUrl,
-                Date.now(),
-                trackChangeMsg.trackData.duration,
-                0,
-                0
-              ).catch(err => {
-                console.error("Track change scheduling error:", err)
-              })
-              
+            if (trackChangeMsg.trackData?.audioUrl) {
+              if (devMode) console.log("📱 Loading new track:", trackChangeMsg.trackData.title)
+
+              scheduleSync(trackChangeMsg.trackData.audioUrl, Date.now(), trackChangeMsg.trackData.duration, 0, 0)
+                .catch(err => { console.error("Track change scheduling error:", err) })
+
               setPlaybackState(prev => ({ ...prev, isPlaying: true }))
             }
-            
+
             onSyncRef.current?.(msg)
           }
 
-          if (msg.type === "RESYNC") {
+          if (msg.type === SYNC_TYPES.RESYNC) {
             const resyncMsg = msg as ResyncMessage
-            const driftAmount = schedulerRef.current 
-              ? Math.abs(schedulerRef.current.getCurrentPosition() - resyncMsg.correctPositionMs) 
-              : 0
-            console.log("🔄 RESYNC received - Drift correction")
-            console.log(`   Before: ${(schedulerRef.current?.getCurrentPosition() || 0).toFixed(0)}ms`)
-            console.log(`   After: ${resyncMsg.correctPositionMs.toFixed(0)}ms`)
-            console.log(`   Drift: ${driftAmount.toFixed(0)}ms`)
+            const driftAmount = Math.abs(((audioRef.current?.currentTime || 0) * 1000) - (resyncMsg.correctPositionMs || 0))
+            if (devMode) console.log("🔄 RESYNC received - Drift correction")
+            const beforeMs = ((audioRef.current?.currentTime || 0) * 1000)
+            if (devMode) {
+              console.log(`   Before: ${beforeMs.toFixed(0)}ms`)
+              console.log(`   After: ${resyncMsg.correctPositionMs.toFixed(0)}ms`)
+              console.log(`   Drift: ${driftAmount.toFixed(0)}ms`)
+            }
 
-            if (schedulerRef.current && resyncMsg.correctPositionMs !== undefined && resyncMsg.correctPositionMs !== null) {
-              schedulerRef.current.seek(resyncMsg.correctPositionMs).catch(err => {
-                console.error("Resync seek error:", err)
-              })
+            if (resyncMsg.correctPositionMs !== undefined && resyncMsg.correctPositionMs !== null && audioRef.current) {
+              try { audioRef.current.currentTime = resyncMsg.correctPositionMs / 1000 } catch {}
             }
           }
 
         }
 
-        ws.onclose = () => {
-          console.log("🔌 Sync WebSocket disconnected")
+        ws.onclose = (ev) => {
+          if (devMode) console.log("🔌 Sync WebSocket disconnected", { code: ev.code, reason: (ev as any).reason, wasClean: (ev as any).wasClean, attempts: reconnectAttempts })
+          joinedRef.current = false
           if (timeSyncIntervalRef.current) clearInterval(timeSyncIntervalRef.current)
           if (driftCheckIntervalRef.current) clearInterval(driftCheckIntervalRef.current)
+          if (driftAutoCorrectIntervalRef.current) clearInterval(driftAutoCorrectIntervalRef.current)
 
-          if (isMounted && reconnectAttempts < maxReconnectAttempts) {
+          if (isMounted) {
             reconnectAttempts++
-            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000)
-            console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`)
+            const jitter = Math.floor(Math.random() * 400)
+            const delay = Math.min(1000 * Math.pow(1.6, reconnectAttempts - 1), 30000) + jitter
+            if (devMode) console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`)
             reconnectTimeout = setTimeout(connect, delay)
-          } else if (isMounted) {
-            console.error("Max reconnection attempts reached")
-            onErrorRef.current?.("Connection failed. Please refresh the page.")
           }
+        }
+
+        ws.onerror = (err) => {
+          console.warn('⚠️ WebSocket error', err)
         }
       } catch (err) {
         console.error("WebSocket connection error:", err)
@@ -747,6 +1060,7 @@ export function useSyncPlayback({
     return () => {
       isMounted = false
       if (reconnectTimeout) clearTimeout(reconnectTimeout)
+      if (stateFetchTimerRef.current) clearTimeout(stateFetchTimerRef.current)
       if (timeSyncIntervalRef.current) clearInterval(timeSyncIntervalRef.current)
       if (driftCheckIntervalRef.current) clearInterval(driftCheckIntervalRef.current)
       if (driftAutoCorrectIntervalRef.current) clearInterval(driftAutoCorrectIntervalRef.current)
@@ -756,19 +1070,16 @@ export function useSyncPlayback({
         wsRef.current.close()
         wsRef.current = null
       }
-      if (schedulerRef.current) {
-        schedulerRef.current.stop()
-        schedulerRef.current = null
-      }
+      // HTMLAudio cleanup handled by page; no WebAudio scheduler
     }
-  }, [roomCode, userId, hostId]) 
+  }, [roomCode, userId, hostId])
 
   return {
     playbackState,
     commands: { play, pause, resume, seek, trackChange },
     syncClientTime,
     isHost,
-    scheduler: schedulerRef.current,
-    timeSync: timeSyncCalcRef.current
+    timeSync: timeSyncCalcRef.current,
+    joiningSync
   }
 }

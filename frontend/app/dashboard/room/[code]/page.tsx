@@ -105,22 +105,19 @@ export default function RoomPage() {
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL
 
-  const { playbackState, commands } = useSyncPlayback({
+  const { playbackState, commands, joiningSync } = useSyncPlayback({
     roomCode: params.code as string,
     userId: currentUserId || "",
     hostId: roomData?.hostId || "",
     audioRef: audioRef as React.RefObject<HTMLAudioElement>,
     onSync: (msg: SyncMessage) => {
       if (msg.type === "PLAY" || msg.type === "PLAY_SYNC") {
-        console.log("PLAY/PLAY_SYNC received:", msg)
         const audioUrl = (msg as PlayMessage | PlaySyncMessage).audioUrl
         const track = findTrackByAudioUrl(audioUrl)
         if (track) {
           setCurrentTrack(track)
           setCurrentTime(0)
-          console.log("Matched track:", track.title)
         } else {
-          console.warn("No matching track found for url:", audioUrl)
         }
       }
       if (msg.type === "TRACK_CHANGE" && (msg as TrackChangeMessage).trackData) {
@@ -129,18 +126,53 @@ export default function RoomPage() {
         if (track) {
           setCurrentTrack(track)
           setCurrentTime(0)
-          console.log("TRACK_CHANGE matched track:", track.title)
         } else {
-          console.warn("TRACK_CHANGE no local match for:", tc.audioUrl)
         }
       }
     },
-    onError: (error: string) => toast.error(error)
+    onError: (error: string) => toast.error(error),
+    onPositionUpdate: (data) => {
+      // Position updates from sync engine (ms)
+      const seconds = data.positionMs / 1000
+      // Avoid jitter: only update if delta > 50ms or playing state changed
+      if (Math.abs(seconds - currentTime) > 0.05 || isPlaying !== data.playing) {
+        setCurrentTime(seconds)
+        setIsPlaying(data.playing)
+      }
+    }
   })
 
+  // Bind UI time to synced playbackState (avoids relying on timeupdate gaps)
   useEffect(() => {
-    setIsPlaying(playbackState.isPlaying)
-  }, [playbackState.isPlaying])
+    const positionSec = playbackState.currentPosition / 1000
+    // Only update if moving forward or we are playing; prevents clobbering manual seeks while paused
+    if (playbackState.isPlaying && Math.abs(positionSec - currentTime) > 0.03) {
+      setCurrentTime(positionSec)
+    }
+    if (isPlaying !== playbackState.isPlaying) {
+      setIsPlaying(playbackState.isPlaying)
+    }
+  }, [playbackState.currentPosition, playbackState.isPlaying])
+
+  // Replace playbackState-driven updates with native audio events to reduce timers/logging
+  useEffect(() => {
+    const el = audioRef.current
+    if (!el) return
+    const onPlay = () => setIsPlaying(true)
+    const onPause = () => setIsPlaying(false)
+    const onTime = () => setCurrentTime(el.currentTime)
+    const onLoaded = () => setCurrentTime(0)
+    el.addEventListener('play', onPlay)
+    el.addEventListener('pause', onPause)
+    el.addEventListener('timeupdate', onTime)
+    el.addEventListener('loadedmetadata', onLoaded)
+    return () => {
+      el.removeEventListener('play', onPlay)
+      el.removeEventListener('pause', onPause)
+      el.removeEventListener('timeupdate', onTime)
+      el.removeEventListener('loadedmetadata', onLoaded)
+    }
+  }, [])
 
   
   useEffect(() => {
@@ -191,27 +223,7 @@ export default function RoomPage() {
 
 
 
-useEffect(() => {
-  if (!audioRef.current) return
-
-  let lastLoggedSecond = -1
-
-  const interval = setInterval(() => {
-    const audio = audioRef.current
-    if (audio) {
-      setCurrentTime(audio.currentTime)
-      if (!audio.paused && isPlaying) {
-        const currentSecond = Math.floor(audio.currentTime)
-        if (currentSecond !== lastLoggedSecond) {
-          console.log(`⏱️ Playing: ${formatTime(audio.currentTime)} / ${formatTime(audio.duration || 0)} - ${currentTrack?.title}`)
-          lastLoggedSecond = currentSecond
-        }
-      }
-    }
-  }, 20)
-
-  return () => clearInterval(interval)
-}, [isPlaying, currentTrack])
+  // Removed frequent console logs to avoid Safari throttling timers
 
 
   const mockTracks: Track[] = [
@@ -326,40 +338,18 @@ useEffect(() => {
 
   const pausePlaySync = () => {
     console.log("pausePlaySync called")
-    if (audioRef.current) {
-      const pauseTime = audioRef.current.currentTime
-      console.log(`⏸️ Pausing at: ${formatTime(pauseTime)}`)
-      audioRef.current.pause()
-    }
     setIsPlaying(false)
     commands.pause()
   }
 
-  const resumePlaySync = () => {
+  const resumePlaySync = async () => {
     console.log("resumePlaySync called")
+    setIsPlaying(true)
     if (audioRef.current) {
-      const resumeTime = audioRef.current.currentTime
-      console.log(`▶️ Resuming from: ${formatTime(resumeTime)}`)
-      
-      const playPromise = audioRef.current.play()
-      if (playPromise) {
-        playPromise
-          .then(() => {
-            console.log("✅ Resume successful")
-            setIsPlaying(true)
-            commands.resume()
-          })
-          .catch(err => {
-            if (err.name !== 'NotAllowedError') {
-              console.error("Resume error:", err)
-              toast.error("Failed to resume: " + err.message)
-            }
-          })
-      }
-    } else {
-      setIsPlaying(true)
-      commands.resume()
+      audioRef.current.muted = false
+      audioRef.current.volume = Math.max(0, Math.min(1, volume / 100))
     }
+    commands.resume()
   }
 
   useEffect(() => {
@@ -423,64 +413,46 @@ useEffect(() => {
     });
   };
 
-  const startPlaySync = () => {
+  const startPlaySync = async () => {
     if (!currentTrack) return toast.error("Select a song first")
-
     if (isPlaying) { pausePlaySync(); return }
-    if (audioRef.current && audioRef.current.src && audioRef.current.currentTime > 0) { resumePlaySync(); return }
-    if (!audioRef.current) return
-
-    const audio = audioRef.current
-    audio.src = currentTrack.audioUrl || ""
-    audio.currentTime = 0
-    setCurrentTime(0)
-
-    const tryPlay = () => {
-      const rsNames = ['HAVE_NOTHING','HAVE_METADATA','HAVE_CURRENT_DATA','HAVE_FUTURE_DATA','HAVE_ENOUGH_DATA']
-      console.log('Attempting play. readyState=', rsNames[audio.readyState])
-      const playPromise = audio.play()
-      if (playPromise) {
-        playPromise.then(() => {
-          console.log('✅ Local play succeeded; broadcasting PLAY command')
-          setIsPlaying(true)
-          commands.play(currentTrack.audioUrl || '', currentTrack.duration, 0)
-        }).catch(err => {
-          console.warn('Play attempt failed:', err)
-          if (err.name === 'NotAllowedError') {
-            toast.warn('Autoplay blocked. Tap once to unlock.')
-            const oneShot = () => { unlockAudioForMobile(); audio.removeEventListener('click', oneShot); };
-            audio.addEventListener('click', oneShot, { once: true })
-          } else {
-            toast.error('Failed to play: ' + err.message)
-          }
-        })
-      }
+    if (audioRef.current) {
+      audioRef.current.muted = false
+      audioRef.current.volume = Math.max(0, Math.min(1, volume / 100))
     }
-
-    audio.load()
-    toast.info('⏳ Buffering audio...')
-
-    const safetyTimeout = setTimeout(() => {
-      if (audio.readyState >= 2) {
-        tryPlay()
-      } else {
-        toast.error('Audio failed to become ready in time.')
-      }
-    }, 2500)
-
-    const onCanPlayThrough = () => {
-      clearTimeout(safetyTimeout)
-      tryPlay()
-      audio.removeEventListener('canplaythrough', onCanPlayThrough)
+    const localPos = (audioRef.current?.currentTime || 0) * 1000
+    const uiPos = (playbackState.currentPosition || 0)
+    const shouldResume = (localPos > 100) || (uiPos > 100)
+    if (shouldResume) {
+      // Resume from paused position instead of restarting
+      setIsPlaying(true)
+      commands.resume()
+    } else {
+      // Fresh play from start
+      setCurrentTime(0)
+      setIsPlaying(true)
+      commands.play(currentTrack.audioUrl || '', currentTrack.duration, 200)
     }
-    audio.addEventListener('canplaythrough', onCanPlayThrough, { once: true })
+  }
+
+  const handleUnlockAudio = async () => {
+    unlockAudioForMobile()
   }
 
   const findTrackByAudioUrl = (url: string): Track | null => {
-    console.log('Finding track for URL:', url)
-    const normalized = url?.trim()
+    const normalize = (u: string) => {
+      try {
+        const a = document.createElement('a')
+        a.href = u
+        const path = decodeURIComponent(a.pathname || '')
+        return path.trim().toLowerCase()
+      } catch {
+        return (u || '').trim().toLowerCase()
+      }
+    }
+    const target = normalize(url)
     const all = [...mockTracks, ...mockSearchResults, ...queue]
-    return all.find(t => (t.audioUrl || '').trim() === normalized) || null
+    return all.find(t => normalize(t.audioUrl || '') === target) || null
   }
 
 
@@ -552,9 +524,6 @@ useEffect(() => {
     const newTime = percentage * currentTrack.duration
 
     setCurrentTime(newTime)
-    if (audioRef.current) {
-      audioRef.current.currentTime = newTime
-    }
     
     commands.seek(newTime * 1000)
   }
@@ -564,14 +533,20 @@ useEffect(() => {
     setVolume(newVolume)
     setIsMuted(newVolume === 0)
     if (audioRef.current) {
-      audioRef.current.volume = newVolume / 100
+      audioRef.current.volume = Math.max(0, Math.min(1, newVolume / 100))
+      if (newVolume > 0) audioRef.current.muted = false
     }
   }
 
   const toggleMute = () => {
     setIsMuted(!isMuted)
     if (audioRef.current) {
-      audioRef.current.volume = isMuted ? volume / 100 : 0
+      if (isMuted) {
+        audioRef.current.muted = false
+        audioRef.current.volume = Math.max(0, Math.min(1, volume / 100))
+      } else {
+        audioRef.current.muted = true
+      }
     }
   }
 
@@ -581,7 +556,7 @@ useEffect(() => {
     return `${mins}:${secs.toString().padStart(2, "0")}`
   }
 
-  const handlePrevious = () => {
+  const handlePrevious = async () => {
     if (recentTracks.length > 0 && currentTrack) {
       const newRecent: Track[] = [currentTrack, ...recentTracks.slice(1)]
       const prevTrack = recentTracks[0]
@@ -589,11 +564,6 @@ useEffect(() => {
       setRecentTracks(newRecent)
       setCurrentTime(0)
       
-      
-      if (audioRef.current) {
-        audioRef.current.src = prevTrack.audioUrl || ""
-        audioRef.current.currentTime = 0
-      }
       
       // Broadcast track change to other devices
       commands.trackChange({
@@ -606,7 +576,7 @@ useEffect(() => {
     }
   }
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (queue.length > 0) {
       const nextTrack = shuffleMode
         ? queue[Math.floor(Math.random() * queue.length)]
@@ -620,18 +590,6 @@ useEffect(() => {
       setCurrentTrack(nextTrack)
       setCurrentTime(0)
       
-      // Update audio element immediately
-      if (audioRef.current) {
-        audioRef.current.src = nextTrack.audioUrl || ""
-        audioRef.current.currentTime = 0
-        // Continue playing if it was playing
-        if (isPlaying) {
-          const playPromise = audioRef.current.play()
-          if (playPromise) {
-            playPromise.catch(() => {})
-          }
-        }
-      }
       
       if (repeatMode === 'one') {
         setIsPlaying(true)
@@ -650,15 +608,6 @@ useEffect(() => {
       setCurrentTrack(nextTrack)
       setCurrentTime(0)
       
-      // Update audio element immediately
-      if (audioRef.current) {
-        audioRef.current.src = nextTrack.audioUrl || ""
-        audioRef.current.currentTime = 0
-        const playPromise = audioRef.current.play()
-        if (playPromise) {
-          playPromise.catch(() => {})
-        }
-      }
       
       setIsPlaying(true)
       // Broadcast track change to other devices
@@ -679,11 +628,7 @@ useEffect(() => {
       setRecentTracks(newRecent)
       setCurrentTime(0)
       
-      if (audioRef.current && prevTrack) {
-        audioRef.current.src = prevTrack.audioUrl || ""
-        audioRef.current.currentTime = 0
-      }
-
+      
       if (prevTrack) {
         commands.trackChange({
           id: prevTrack.id,
@@ -760,7 +705,7 @@ useEffect(() => {
     })
   }
 
-  const playFromQueue = (queueItem: QueueItem) => {
+  const playFromQueue = async (queueItem: QueueItem) => {
     if (currentTrack) {
       setQueue(prev => [{
         ...currentTrack,
@@ -773,14 +718,6 @@ useEffect(() => {
     }
     setCurrentTrack(queueItem)
     setCurrentTime(0)
-    if (audioRef.current) {
-      audioRef.current.src = queueItem.audioUrl || ""
-      audioRef.current.currentTime = 0
-      const playPromise = audioRef.current.play()
-      if (playPromise) {
-        playPromise.catch(() => {})
-      }
-    }
     
     setIsPlaying(true)
     commands.trackChange({
@@ -865,12 +802,34 @@ useEffect(() => {
 
   const progressPercentage = currentTrack ? (currentTime / currentTrack.duration) * 100 : 0
 
+  const canControl = localIsHost || roomData?.isPublic === false || roomData?.type === 'private'
+
+  // Resync overlay indicator (shows during joiningSync and briefly after)
+  const [showResyncOverlay, setShowResyncOverlay] = useState(false)
+  useEffect(() => {
+    if (joiningSync) {
+      setShowResyncOverlay(true)
+    } else if (showResyncOverlay) {
+      const t = setTimeout(() => setShowResyncOverlay(false), 2200)
+      return () => clearTimeout(t)
+    }
+  }, [joiningSync])
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-black via-gray-900 to-gray-800 text-white">
       <div className="p-6 border-b border-gray-800">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2">{roomData?.name}</h1>
+            <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
+              <span>{roomData?.name}</span>
+              {joiningSync ? (
+                <span className="px-2 py-0.5 text-xs rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">Syncing…</span>
+              ) : playbackState.isSynced ? (
+                <span className="px-2 py-0.5 text-xs rounded bg-green-500/20 text-green-300 border border-green-500/30">Synced</span>
+              ) : (
+                <span className="px-2 py-0.5 text-xs rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">Syncing…</span>
+              )}
+            </h1>
             <p className="text-gray-400 flex items-center gap-2">
               <span>Room Code:</span>
               <span className="text-blue-400 font-mono text-lg">{roomcode}</span>
@@ -944,7 +903,7 @@ useEffect(() => {
                   </div>
                   <div className="flex justify-between text-xs text-gray-400 mt-2">
                     <span>{formatTime(currentTime)}</span>
-                    <span>{audioRef.current?.duration && !isNaN(audioRef.current.duration) ? formatTime(audioRef.current.duration) : (currentTrack ? formatTime(currentTrack.duration) : "0:00")}</span>
+                    <span>{currentTrack ? formatTime(currentTrack.duration) : "0:00"}</span>
                   </div>
                 </div>
 
@@ -970,15 +929,15 @@ useEffect(() => {
                     <button
                       onClick={startPlaySync}
                       className={`p-4 rounded-full transition-all shadow-lg relative group ${
-                        localIsHost
+                        canControl
                           ? "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 shadow-blue-500/25"
                           : "bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 cursor-not-allowed shadow-gray-600/25"
                       }`}
-                      disabled={!localIsHost}
+                      disabled={!canControl}
                       title={isPlaying ? "Pause" : "Play"}
                     >
                       {isPlaying ? <Pause size={32} /> : <Play size={32} className="ml-1" />}
-                      {!localIsHost && (
+                      {!canControl && (
                         <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-xs text-yellow-400 px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                           Host only
                         </span>
@@ -1041,6 +1000,13 @@ useEffect(() => {
                     {isMuted ? 0 : volume}%
                   </span>
                 </div>
+                {isMobileDevice() && (audioRef.current?.muted ?? true) && (
+                  <div className="mt-2">
+                    <button onClick={handleUnlockAudio} className="text-xs text-blue-300 hover:text-blue-200 underline">
+                      Tap to enable audio playback
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1145,7 +1111,7 @@ useEffect(() => {
                   <div
                     key={track.id}
                     className="flex items-center gap-4 p-3 bg-gray-700/30 hover:bg-gray-700/50 rounded-lg transition-colors cursor-pointer group"
-                    onClick={() => {
+                    onClick={async () => {
                       if (currentTrack) {
                         const newRecent = [...recentTracks]
                         newRecent.splice(index, 1)
@@ -1327,7 +1293,7 @@ useEffect(() => {
                   </div>
                   <div className="mt-2 pt-2 border-t border-gray-600">
                     <p className="text-xs text-gray-500">
-                      {playbackState.rttMs < 100 ? "✅ Excellent connection" : playbackState.rttMs < 200 ? "🟢 Good connection" : "🟡 Moderate latency"}
+                      {playbackState.rttMs < 100 ? "Excellent connection" : playbackState.rttMs < 200 ? "🟢 Good connection" : "🟡 Moderate latency"}
                     </p>
                   </div>
                 </div>
@@ -1432,6 +1398,12 @@ useEffect(() => {
           </div>
         </div>
       </div>
+      {showResyncOverlay && (
+        <div className="fixed top-4 right-4 z-50 px-4 py-2 rounded-lg bg-yellow-500/20 text-yellow-200 border border-yellow-600/40 shadow-lg backdrop-blur-md flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"/><path d="M3 22v-6h6"/><path d="M3 16A9 9 0 0 1 12 7h1.5"/><path d="M21 8a9 9 0 0 1-9 9h-1.5"/></svg>
+          <span className="text-sm font-medium">Re-syncing to room state…</span>
+        </div>
+      )}
       {showSearchModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-gray-800 rounded-2xl border border-gray-700 w-full max-w-2xl max-h-[80vh] flex flex-col">
@@ -1555,21 +1527,20 @@ useEffect(() => {
             <div className="text-blue-400 font-semibold mb-2">📊 Room Info</div>
             <div>Room: {roomData?.name || "Loading"}</div>
             <div>Code: {roomcode}</div>
-            <div>Host: {localIsHost ? "✅ YES" : "❌ NO"}</div>
+            <div>Host: {localIsHost ? "YES" : "NO"}</div>
             <div>User ID: {currentUserId || "None"}</div>
             <div className="border-t border-gray-600 mt-2 pt-2 text-purple-400 font-semibold">🎵 Playback</div>
             <div>Track: {currentTrack?.title || "None"}</div>
             <div>Artist: {currentTrack?.artist || "—"}</div>
             <div>Playing: {isPlaying ? "▶️ YES" : "⏸️ NO"}</div>
-            <div>Time: {formatTime(currentTime)} / {formatTime(audioRef.current?.duration || currentTrack?.duration || 0)}</div>
-            <div className="border-t border-gray-600 mt-2 pt-2 text-green-400 font-semibold">🎧 Audio Element</div>
+            <div>Time: {formatTime(currentTime)} / {formatTime(currentTrack?.duration || 0)}</div>
+            <div className="border-t border-gray-600 mt-2 pt-2 text-green-400 font-semibold">🎧 Audio Element (debug only)</div>
             <div>Src: {audioRef.current?.src ? audioRef.current.src.split('/').pop() : "empty"}</div>
             <div>Paused: {audioRef.current?.paused ? "🔴 YES" : "🟢 NO"}</div>
-            <div>Ready: {audioRef.current?.readyState === 4 ? "✅ 4-ENOUGH_DATA" : audioRef.current?.readyState === 3 ? "🟡 3-FUTURE_DATA" : audioRef.current?.readyState === 2 ? "🟠 2-CURRENT_DATA" : audioRef.current?.readyState === 1 ? "🔴 1-METADATA" : "⚪ 0-NOTHING"}</div>
+            <div>Ready: {audioRef.current?.readyState === 4 ? "4-ENOUGH_DATA" : audioRef.current?.readyState === 3 ? "🟡 3-FUTURE_DATA" : audioRef.current?.readyState === 2 ? "🟠 2-CURRENT_DATA" : audioRef.current?.readyState === 1 ? "🔴 1-METADATA" : "⚪ 0-NOTHING"}</div>
             <div>Network: {audioRef.current?.networkState === 0 ? "⚪ EMPTY" : audioRef.current?.networkState === 1 ? "🟢 IDLE" : audioRef.current?.networkState === 2 ? "🔵 LOADING" : "⚪ NO_SOURCE"}</div>
-            <div>Playing: {audioRef.current && !audioRef.current.paused && (audioRef.current.readyState || 0) >= 2 ? "▶️ YES" : "⏸️ NO"}</div>
             <div>Volume: {Math.round((audioRef.current?.volume || 0) * 100)}% {isMuted ? "(Muted)" : ""}</div>
-            <div>Duration: {audioRef.current?.duration ? formatTime(audioRef.current.duration) : "N/A"}</div>
+            <div>Duration: {currentTrack ? formatTime(currentTrack.duration) : "N/A"}</div>
             <div className="border-t border-gray-600 mt-2 pt-2 text-cyan-400 font-semibold">📋 Queue & Recent</div>
             <div>Queue: {queue.length} songs</div>
             <div>Recent: {recentTracks.length} songs</div>
@@ -1595,8 +1566,10 @@ useEffect(() => {
       <audio 
         ref={audioRef}
         crossOrigin="anonymous"
-        preload="auto"
+        preload="metadata"
         playsInline
+        muted
+        style={{ display: 'none' }}
       />
     </div>
   )

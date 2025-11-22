@@ -225,7 +225,7 @@ async function googleAuthCallback(req, res) {
             maxAge: 7 * 24 * 60 * 60 * 1000
         });
 
-        console.log("✅ Google auth successful - Redirecting to dashboard");
+        console.log("Google auth successful - Redirecting to dashboard");
         // Pass token in query param for frontend to store in localStorage
         return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/dashboard?auth=success&token=${encodeURIComponent(token)}`);
 

@@ -9,9 +9,9 @@ const authroutes = require('./routes/routes');
 const router = require('./routes/routes')
 
 const createLogger = (namespace) => ({
-  info: (msg, data) => console.log(`[${namespace}] ℹ️  ${msg}`, data ? data : ''),
-  error: (msg, err) => console.error(`[${namespace}] ❌ ${msg}`, err ? err.message : ''),
-  warn: (msg, data) => console.warn(`[${namespace}] ⚠️  ${msg}`, data ? data : ''),
+  info: (msg, data) => console.log(`[${namespace}]  ${msg}`, data ? data : ''),
+  error: (msg, err) => console.error(`[${namespace}] ${msg}`, err ? err.message : ''),
+  warn: (msg, data) => console.warn(`[${namespace}]  ${msg}`, data ? data : ''),
 })
 
 const logger = createLogger('Express')
@@ -61,7 +61,7 @@ app.use((err, req, res, next) => {
 
 if (process.env.NODE_ENV !== 'production') {
   app.listen(process.env.PORT, () => {
-    logger.info(`✅ Server is running on port ${process.env.PORT}`)
+    logger.info(`Server is running on port ${process.env.PORT}`)
   })
 }
 

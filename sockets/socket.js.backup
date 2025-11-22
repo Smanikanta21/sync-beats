@@ -335,7 +335,7 @@ module.exports = function createSyncEngine(server) {
     });
 
     ws.on("error", (error) => {
-      logger.error(`❌ WebSocket error`, error)
+      logger.error(' WebSocket error`, error)
       try {
         ws.close(1011, 'Server error')
       } catch (e) {

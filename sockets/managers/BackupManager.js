@@ -1,105 +1,74 @@
-const fs = require('fs').promises
-const path = require('path')
-const { createLogger } = require('../lib/logger')
+const fs = require('fs');
+const path = require('path');
 
-const logger = createLogger('BackupManager')
+// Lightweight backup manager: periodically serialize in-memory room state to disk.
+// This is intentionally minimal and non-blocking; writes are atomic via a temp file rename.
+const BACKUP_DIR = process.env.BACKUP_DIR || path.join(process.cwd(), 'backups');
+const BACKUP_FILE = process.env.BACKUP_FILE || path.join(BACKUP_DIR, 'state-backup.json');
 
-const BACKUP_DIR = path.join(process.cwd(), 'backups')
-const BACKUP_FILE = 'room-state.json'
-
-class BackupManager {
-  static async backupState(roomsMap) {
-    try {
-      await fs.mkdir(BACKUP_DIR, { recursive: true })
-
-      const backupData = {
-        timestamp: Date.now(),
-        rooms: {},
-      }
-
-      for (const [roomCode, room] of roomsMap.entries()) {
-        backupData.rooms[roomCode] = {
-          roomCode: room.roomCode,
-          hostUserId: room.hostUserId,
-          currentTrack: room.currentTrack,
-          startedAt: room.startedAt,
-          duration: room.duration,
-          isPaused: room.isPaused,
-          pausedAt: room.pausedAt,
-          createdAt: room.createdAt || Date.now(),
-          clientCount: room.clients.size,
-        }
-      }
-
-      const backupPath = path.join(BACKUP_DIR, BACKUP_FILE)
-      await fs.writeFile(backupPath, JSON.stringify(backupData, null, 2))
-      
-      logger.debug(`✅ State backed up - ${Object.keys(backupData.rooms).length} rooms`)
-      return true
-    } catch (error) {
-      logger.error('Failed to backup state', error)
-      return false
-    }
-  }
-
-  static async restoreState() {
-    try {
-      const backupPath = path.join(BACKUP_DIR, BACKUP_FILE)
-      await fs.access(backupPath)
-      
-      const data = await fs.readFile(backupPath, 'utf-8')
-      const backupData = JSON.parse(data)
-      
-      logger.info(`✅ State restored from backup - ${Object.keys(backupData.rooms).length} rooms`, {
-        timestamp: new Date(backupData.timestamp).toISOString(),
-      })
-      
-      return backupData
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        logger.info('No backup file found - starting with fresh state')
-      } else {
-        logger.warn('Failed to restore from backup', error)
-      }
-      return null
-    }
-  }
-
-  static async cleanOldBackups(maxBackups = 5) {
-    try {
-      const files = await fs.readdir(BACKUP_DIR)
-      const backupFiles = files.filter(f => f.startsWith('room-state')).sort().reverse()
-      
-      if (backupFiles.length > maxBackups) {
-        const filesToDelete = backupFiles.slice(maxBackups)
-        for (const file of filesToDelete) {
-          await fs.unlink(path.join(BACKUP_DIR, file))
-          logger.debug(`Deleted old backup: ${file}`)
-        }
-      }
-    } catch (error) {
-      logger.warn('Failed to clean old backups', error)
-    }
-  }
-
-  static async getBackupStats() {
-    try {
-      const backupPath = path.join(BACKUP_DIR, BACKUP_FILE)
-      const stats = await fs.stat(backupPath)
-      const data = await fs.readFile(backupPath, 'utf-8')
-      const backupData = JSON.parse(data)
-      
-      return {
-        exists: true,
-        size: stats.size,
-        lastModified: new Date(stats.mtime),
-        roomCount: Object.keys(backupData.rooms).length,
-        backupTimestamp: new Date(backupData.timestamp),
-      }
-    } catch (error) {
-      return { exists: false, error: error.message }
-    }
+function ensureDir() {
+  try {
+    if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  } catch (err) {
+    console.error('BackupManager: failed to ensure backup directory', err);
   }
 }
 
-module.exports = BackupManager
+function serializeRooms(roomsMap) {
+  const out = [];
+  if (!roomsMap || typeof roomsMap.forEach !== 'function') return out;
+  roomsMap.forEach((room, roomCode) => {
+    out.push({
+      roomCode,
+      hostUserId: room.hostUserId || null,
+      clientCount: room.clients ? room.clients.size : 0,
+      currentTrack: room.currentTrack || null,
+      trackData: room.trackData || null,
+      duration: room.duration || null,
+      startedAtServer: room.startedAtServer || null,
+      isPaused: !!room.isPaused,
+      pausedAt: room.pausedAt || null,
+      createdAt: room.createdAt || null,
+      playbackPosition: typeof room.getPlaybackPosition === 'function' ? room.getPlaybackPosition() : (room.pausedAt || 0),
+      pendingHandshake: room.pendingPlayHandshake ? {
+        trackUrl: room.pendingPlayHandshake.trackUrl,
+        duration: room.pendingPlayHandshake.duration,
+        startDelayMs: room.pendingPlayHandshake.startDelayMs,
+        responsesCount: room.pendingPlayHandshake.responses ? room.pendingPlayHandshake.responses.size : 0,
+        initiatedAt: room.pendingPlayHandshake.initiatedAt
+      } : null
+    });
+  });
+  return out;
+}
+
+async function backupState(roomsMap) {
+  ensureDir();
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    rooms: serializeRooms(roomsMap)
+  };
+  const tmpFile = BACKUP_FILE + '.tmp';
+  return new Promise((resolve, reject) => {
+    fs.writeFile(tmpFile, JSON.stringify(payload, null, 2), 'utf8', (err) => {
+      if (err) return reject(err);
+      fs.rename(tmpFile, BACKUP_FILE, (renameErr) => {
+        if (renameErr) return reject(renameErr);
+        resolve(payload);
+      });
+    });
+  });
+}
+
+function loadLastBackup() {
+  try {
+    if (!fs.existsSync(BACKUP_FILE)) return null;
+    const data = JSON.parse(fs.readFileSync(BACKUP_FILE, 'utf8'));
+    return data;
+  } catch (err) {
+    console.error('BackupManager: failed to load backup', err);
+    return null;
+  }
+}
+
+module.exports = { backupState, loadLastBackup };
