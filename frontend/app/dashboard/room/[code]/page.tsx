@@ -9,11 +9,17 @@ import MusicPlayer from '@/app/components/MusicPlayer';
 import RoomQueue from '@/app/components/RoomQueue';
 import RoomDevices from '@/app/components/RoomDevices';
 
+interface Room {
+    name: string;
+    code: string;
+    wifiSSID?: string;
+}
+
 export default function RoomPage() {
     const params = useParams();
     const router = useRouter();
     const code = params.code as string;
-    const [room, setRoom] = useState<any>(null);
+    const [room, setRoom] = useState<Room | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {

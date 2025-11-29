@@ -5,7 +5,7 @@ type Theme = 'dark' | 'light';
 
 interface ThemeContextType {
     theme: Theme;
-    toggleTheme: (e?: any) => void;
+    toggleTheme: (e?: React.MouseEvent<HTMLElement>) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -32,8 +32,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('theme', theme);
     }, [theme, mounted]);
 
-    const toggleTheme = (e?: any) => {
-        // @ts-ignore
+    const toggleTheme = (e?: React.MouseEvent<HTMLElement>) => {
         if (!document.startViewTransition || !e) {
             setTheme(prev => prev === 'dark' ? 'light' : 'dark');
             return;
@@ -47,7 +46,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
             Math.max(y, window.innerHeight - y)
         );
 
-        // @ts-ignore
         const transition = document.startViewTransition(() => {
             setTheme(prev => prev === 'dark' ? 'light' : 'dark');
         });

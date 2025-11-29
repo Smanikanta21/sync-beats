@@ -9,10 +9,25 @@ import { motion } from 'framer-motion';
 
 import { useTheme } from '../context/ThemeContext';
 
+interface Device {
+    id: string;
+    name: string;
+    status: string;
+    updatedAt: string;
+    isCurrent?: boolean;
+}
+
+interface UserProfile {
+    name: string;
+    username: string;
+    email: string;
+    devices: Device[];
+}
+
 export default function ProfilePage() {
     const router = useRouter();
     const { theme, toggleTheme } = useTheme();
-    const [user, setUser] = useState<any>(null)
+    const [user, setUser] = useState<UserProfile | null>(null)
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState({
@@ -20,7 +35,7 @@ export default function ProfilePage() {
         username: '',
         email: ''
     });
-    const url = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
+    const url = process.env.NEXT_PUBLIC_API_URL
 
     useEffect(() => {
         if (user) {
@@ -33,6 +48,7 @@ export default function ProfilePage() {
     }, [user]);
 
     const handleSave = async () => {
+        if (!user) return;
         try {
             const res = await authFetch(`${url}/auth/profile`, {
                 method: 'PATCH',
@@ -111,8 +127,10 @@ export default function ProfilePage() {
     };
 
     const handleRemoveDevice = async (deviceId: string) => {
+        if (!user) return;
+
         try {
-            const deviceToRemove = user.devices.find((d: any) => d.id === deviceId);
+            const deviceToRemove = user.devices.find((d: Device) => d.id === deviceId);
 
             const res = await authFetch(`${url}/auth/device/${deviceId}`, {
                 method: 'DELETE'
@@ -124,7 +142,7 @@ export default function ProfilePage() {
                     return;
                 }
 
-                const updatedDevices = user.devices.filter((d: any) => d.id !== deviceId);
+                const updatedDevices = user.devices.filter((d: Device) => d.id !== deviceId);
                 setUser({ ...user, devices: updatedDevices });
                 toast.success("Device removed successfully");
             } else {
@@ -342,7 +360,7 @@ export default function ProfilePage() {
                             <Laptop size={20} className="text-[var(--sb-primary)]" /> Logged-in Devices
                         </h3>
                         <div className="space-y-3">
-                            {user?.devices?.map((device: any) => (
+                            {user?.devices?.map((device: Device) => (
                                 <div key={device.id} className="flex items-center justify-between p-4 rounded-xl bg-[var(--sb-surface-2)] border border-[var(--sb-border)]">
                                     <div className="flex items-center gap-4">
                                         <div className={`p-3 rounded-full ${device.status === 'online' ? 'bg-[var(--sb-success)]/10 text-[var(--sb-success)]' : 'bg-[var(--sb-text-muted)]/10 text-[var(--sb-text-muted)]'}`}>

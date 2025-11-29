@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Music, Menu, UserCircle, LogOut, ArrowRight, Play, Radio, RefreshCw, Cast, PlusCircle, Users, Wifi, Clock, Activity, Signal, Moon, Sun } from 'lucide-react';
+import { Music, UserCircle, LogOut, ArrowRight, Play, Radio, RefreshCw, Cast, Users, Wifi, Clock, Activity, Moon, Sun } from 'lucide-react';
 import Link from 'next/link';
 import { CreateRoom, JoinRoom } from '../components/RoomModal'
 import { toast } from 'react-toastify';

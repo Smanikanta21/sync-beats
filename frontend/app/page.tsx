@@ -1,10 +1,10 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { Music, Menu, X, Play, Radio, RefreshCw, Cast, PlusCircle, Users, Wifi, Clock, Activity, Signal, ArrowRight, Check, Copy, Smartphone, Monitor, Laptop, Tablet, Moon, Sun, PlayCircle, Users2, Zap, Share2, Globe, CheckCircle2 } from 'lucide-react';
-import Link from 'next/link';
-import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
-import { useRouter } from 'next/navigation';
-import SignUpPage from './components/SignUpPage';
+import { Music, Menu, X, Radio, Wifi, ArrowRight, Smartphone, Monitor, Laptop, Moon, Sun, PlayCircle, Users2, Zap, Share2, Globe, CheckCircle2 } from 'lucide-react';
+// import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
+// import { useRouter } from 'next/navigation';
+// import SignUpPage from './components/SignUpPage';
 import LoginPage from './components/LoginPage';
 import { useTheme } from './context/ThemeContext';
 import SignupPage from './components/SignUpPage';
@@ -13,11 +13,11 @@ export default function LandingPage() {
     const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
     const [showLogin, setShowLogin] = useState<boolean>(false);
     const [showSignup, setShowSignup] = useState<boolean>(false);
-    const router = useRouter();
+    // const router = useRouter();
     const { theme, toggleTheme } = useTheme();
-    const { scrollY } = useScroll();
-    const headerOpacity = useTransform(scrollY, [0, 100], [0, 1]);
-    const headerY = useTransform(scrollY, [0, 100], [-20, 0]);
+    // const { scrollY } = useScroll();
+    // const headerOpacity = useTransform(scrollY, [0, 100], [0, 1]);
+    // const headerY = useTransform(scrollY, [0, 100], [-20, 0]);
 
     useEffect(() => {
         if (showLogin || showSignup) {
@@ -316,7 +316,7 @@ export default function LandingPage() {
                     >
                         <h2 className="text-3xl md:text-5xl font-bold mb-6">Works on <span className="text-gradient-primary">everything.</span></h2>
                         <p className="text-[var(--sb-text-muted)] text-lg max-w-2xl mx-auto">
-                            Don't let your OS dictate your music. Sync Beats bridges the gap between ecosystems.
+                            Don&apos;t let your OS dictate your music. Sync Beats bridges the gap between ecosystems.
                         </p>
                     </motion.div>
 
