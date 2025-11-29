@@ -1,6 +1,6 @@
 require('dotenv').config();
 const UAParser = require('ua-parser-js')
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require('../generated/prisma');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const passport = require('passport');
@@ -39,7 +39,6 @@ function generateToken(user) {
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    // prefer explicit GOOGLE_REDIRECT_URL, otherwise build from BACKEND_URL or default to localhost
     callbackURL: process.env.GOOGLE_REDIRECT_URL || (process.env.BACKEND_URL ? `${process.env.BACKEND_URL.replace(/\/$/, '')}/auth/callback/google` : 'http://localhost:5001/auth/callback/google')
 },
     async (accessToken, refreshToken, profile, done) => {
@@ -131,7 +130,7 @@ async function login(req, res, next) {
 
         const token = generateToken(user);
         const deviceName = getDeviceName(user.name, req.headers["user-agent"] || "Unknown Device");
-        
+
         const existingDevice = await prisma.device.findFirst({
             where: { DeviceUserId: user.id, name: deviceName }
         });
@@ -155,15 +154,13 @@ async function login(req, res, next) {
             });
         }
 
-        res.cookie("token", token, { 
-            httpOnly: true, 
+        res.cookie("token", token, {
+            httpOnly: true,
             secure: false,
             sameSite: 'lax',
             path: '/',
-            maxAge: 7 * 24 * 60 * 60 * 1000 
+            maxAge: 7 * 24 * 60 * 60 * 1000
         });
-
-        // Return token in response for Bearer token fallback (dev support)
         res.json({ message: "Login success", deviceName, token });
     } catch (err) {
         console.error(err);
@@ -226,7 +223,6 @@ async function googleAuthCallback(req, res) {
         });
 
         console.log("Google auth successful - Redirecting to dashboard");
-        // Pass token in query param for frontend to store in localStorage
         return res.redirect(`${process.env.FRONTEND_URL.replace(/\/$/, '')}/dashboard?auth=success&token=${encodeURIComponent(token)}`);
 
     } catch (err) {
@@ -235,4 +231,84 @@ async function googleAuthCallback(req, res) {
     }
 }
 
-module.exports = { signup, login, logout, getDeviceName, googleAuthCallback };
+async function profilefetcher(req, res, next) {
+    try {
+        const userId = req.user.id;
+        const user = await prisma.users.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                username: true,
+                googleId: true,
+                createdAt: true,
+                devices: true
+            }
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const currentDeviceName = getDeviceName(user.name, req.headers["user-agent"] || "Unknown Device");
+
+        const userWithCurrentDevice = {
+            ...user,
+            devices: user.devices.map(device => ({
+                ...device,
+                isCurrent: device.name === currentDeviceName
+            }))
+        };
+
+        res.json({ user: userWithCurrentDevice });
+    } catch (err) {
+        next(err);
+    }
+}
+
+
+async function profileeditor(req, res, next) {
+    try {
+        const userId = req.user.id;
+        const { name, username, email } = req?.body;
+
+        const user = await prisma.users.update({
+            where: { id: userId },
+            data: { name, username, email }
+        });
+
+        res.json({ user });
+    } catch (err) {
+        next(err);
+    }
+}
+
+async function deleteDevice(req, res, next) {
+    try {
+        const userId = req.user.id;
+        const deviceId = req.params.id;
+
+        const device = await prisma.device.findFirst({
+            where: { id: deviceId, DeviceUserId: userId }
+        });
+
+        if (!device) {
+            return res.status(404).json({ message: "Device not found" });
+        }
+
+        await prisma.roomDevices.deleteMany({
+            where: { deviceId: deviceId }
+        });
+
+        await prisma.device.delete({
+            where: { id: deviceId }
+        });
+
+        res.json({ message: "Device removed successfully" });
+    } catch (err) {
+        next(err);
+    }
+}
+
+module.exports = { signup, login, logout, getDeviceName, googleAuthCallback, profilefetcher, profileeditor, deleteDevice };

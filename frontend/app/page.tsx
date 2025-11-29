@@ -1,211 +1,577 @@
 "use client";
-import { Music, PlayCircle, Users2, Menu, Radio, Smartphone, Headphones, MessageSquare, Mail, User, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Music, Menu, X, Play, Radio, RefreshCw, Cast, PlusCircle, Users, Wifi, Clock, Activity, Signal, ArrowRight, Check, Copy, Smartphone, Monitor, Laptop, Tablet, Moon, Sun, PlayCircle, Users2, Zap, Share2, Globe, CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
+import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+import SignUpPage from './components/SignUpPage';
 import LoginPage from './components/LoginPage';
+import { useTheme } from './context/ThemeContext';
 import SignupPage from './components/SignUpPage';
 
 export default function LandingPage() {
+    const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+    const [showLogin, setShowLogin] = useState<boolean>(false);
+    const [showSignup, setShowSignup] = useState<boolean>(false);
+    const router = useRouter();
+    const { theme, toggleTheme } = useTheme();
+    const { scrollY } = useScroll();
+    const headerOpacity = useTransform(scrollY, [0, 100], [0, 1]);
+    const headerY = useTransform(scrollY, [0, 100], [-20, 0]);
 
- 
+    useEffect(() => {
+        if (showLogin || showSignup) {
+            document.body.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "";
+        }
+    }, [showLogin, showSignup]);
 
-  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
-  const [showLogin, setShowLogin] = useState<boolean>(false);
-  const [showSignup, setShowSignup] = useState<boolean>(false);
+    const fadeInUp = {
+        hidden: { opacity: 0, y: 20 },
+        visible: { opacity: 1, y: 0, transition: { duration: 0.6 } }
+    };
 
-  useEffect(() => {
-    if (showLogin) {
-      document.body.style.overflow = "hidden"
-      document.body.style.position = "fixed"
-      document.body.style.width = "100%"
-    } else {
-      document.body.style.overflow = ""
-      document.body.style.position = ""
-      document.body.style.width = ""
-    }
-  }, [showLogin])
+    const staggerContainer = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1
+            }
+        }
+    };
 
+    return (
+        <div className="min-h-screen bg-[var(--sb-bg)] text-[var(--sb-text-main)] selection:bg-[var(--sb-primary)] selection:text-white overflow-x-hidden font-sans">
 
-  useEffect(()=>{
-    if (showSignup) {
-      document.body.style.overflow = "hidden"
-      document.body.style.position = "fixed"
-      document.body.style.width = "100%"
-    } else {
-      document.body.style.overflow = ""
-      document.body.style.position = ""
-      document.body.style.width = ""
-    }
-  }, [showSignup])
+            {/* Modals */}
+            <AnimatePresence>
+                {showLogin && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className='fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4'
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className='w-full max-w-md relative'
+                        >
+                            <button
+                                onClick={() => setShowLogin(false)}
+                                className="absolute -top-12 right-0 text-[var(--sb-text-muted)] hover:text-[var(--sb-text-main)] transition-colors"
+                            >
+                                <X size={24} />
+                            </button>
+                            <LoginPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />
+                        </motion.div>
+                    </motion.div>
+                )}
 
-  return (
-    <>
-      {showLogin ? (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 md:z-10 flex items-center justify-center'>
-        <div className='w-screen transition-all duration-150 ease-in-out'>
-          <LoginPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />
+                {showSignup && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className='fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4'
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className='w-full max-w-md relative'
+                        >
+                            <button
+                                onClick={() => setShowSignup(false)}
+                                className="absolute -top-12 right-0 text-[var(--sb-text-muted)] hover:text-[var(--sb-text-main)] transition-colors"
+                            >
+                                <X size={24} />
+                            </button>
+                            <SignupPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Navbar */}
+            <motion.nav
+                className="fixed top-0 left-0 right-0 z-40 px-6 py-6 flex justify-center"
+                initial={{ y: -100 }}
+                animate={{ y: 0 }}
+                transition={{ duration: 0.5 }}
+            >
+                <div className="glass-panel rounded-full px-8 py-4 flex items-center justify-between w-full max-w-6xl transition-all duration-300">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--sb-primary)] to-[var(--sb-secondary)] flex items-center justify-center shadow-[0_0_15px_rgba(var(--primary-glow),0.5)]">
+                            <Wifi className="text-white" size={20} />
+                        </div>
+                        <span className="font-bold text-xl tracking-tight">Sync Beats</span>
+                    </div>
+
+                    {/* Desktop Menu */}
+                    <div className="hidden md:flex items-center gap-8">
+                        <a href="#features" className="text-sm font-medium text-[var(--sb-text-muted)] hover:text-[var(--sb-text-main)] transition-colors">Features</a>
+                        <a href="#platforms" className="text-sm font-medium text-[var(--sb-text-muted)] hover:text-[var(--sb-text-main)] transition-colors">Platforms</a>
+                        <a href="#how-it-works" className="text-sm font-medium text-[var(--sb-text-muted)] hover:text-[var(--sb-text-main)] transition-colors">How it Works</a>
+                    </div>
+
+                    <div className="hidden md:flex items-center gap-4">
+                        <button
+                            onClick={toggleTheme}
+                            className="p-2 rounded-full hover:bg-[var(--sb-surface-2)] text-[var(--sb-text-muted)] hover:text-[var(--sb-text-main)] transition-colors"
+                            aria-label="Toggle theme"
+                        >
+                            {theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
+                        </button>
+                        <button
+                            onClick={() => setShowLogin(true)}
+                            className="text-sm font-medium hover:text-[var(--sb-primary)] transition-colors"
+                        >
+                            Log in
+                        </button>
+                        <button
+                            onClick={() => setShowSignup(true)}
+                            className="btn-primary px-6 py-2.5 rounded-full text-sm shadow-lg shadow-blue-500/20"
+                        >
+                            Get Started
+                        </button>
+                    </div>
+
+                    {/* Mobile Menu Toggle */}
+                    <div className="md:hidden flex items-center gap-2">
+                        <button
+                            onClick={toggleTheme}
+                            className="p-2 text-[var(--sb-text-muted)] hover:text-[var(--sb-text-main)]"
+                        >
+                            {theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
+                        </button>
+                        <button
+                            className="p-2 text-[var(--sb-text-muted)] hover:text-[var(--sb-text-main)]"
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        >
+                            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                        </button>
+                    </div>
+                </div>
+            </motion.nav>
+
+            {/* Mobile Menu Overlay */}
+            <AnimatePresence>
+                {isMenuOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="fixed inset-0 z-30 bg-[var(--sb-bg)] pt-32 px-6 md:hidden"
+                    >
+                        <div className="flex flex-col gap-8 text-center">
+                            <a href="#features" onClick={() => setIsMenuOpen(false)} className="text-2xl font-bold">Features</a>
+                            <a href="#platforms" onClick={() => setIsMenuOpen(false)} className="text-2xl font-bold">Platforms</a>
+                            <a href="#how-it-works" onClick={() => setIsMenuOpen(false)} className="text-2xl font-bold">How it Works</a>
+                            <hr className="border-[var(--sb-border)] my-4" />
+                            <button onClick={() => { setShowLogin(true); setIsMenuOpen(false) }} className="text-xl font-medium">Log in</button>
+                            <button onClick={() => { setShowSignup(true); setIsMenuOpen(false) }} className="btn-primary py-4 rounded-xl text-xl font-bold">Get Started</button>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Hero Section */}
+            <section className="relative min-h-screen flex flex-col items-center justify-center text-center mt-20 px-6 pt-20 overflow-hidden">
+                {/* Background Gradients */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[var(--sb-primary)] opacity-[0.15] blur-[120px] rounded-full pointer-events-none animate-pulse-glow" />
+                <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[var(--sb-secondary)] opacity-[0.1] blur-[120px] rounded-full pointer-events-none" />
+
+                <div className="relative z-10 max-w-5xl mx-auto flex flex-col items-center">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[var(--sb-primary)]/30 bg-[var(--sb-primary)]/10 mb-8 backdrop-blur-md"
+                    >
+                        <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--sb-primary)] opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[var(--sb-primary)]"></span>
+                        </span>
+                        <span className="text-xs font-bold tracking-wide uppercase text-[var(--sb-primary)]">Sync Everything</span>
+                    </motion.div>
+
+                    <motion.h1
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.8 }}
+                        className="text-6xl md:text-8xl font-bold tracking-tight mb-8 leading-[1.1]"
+                    >
+                        AirPlay for the <br />
+                        <span className="text-gradient-primary glow-text">rest of us.</span>
+                    </motion.h1>
+
+                    <motion.p
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4, duration: 0.8 }}
+                        className="text-lg md:text-xl text-[var(--sb-text-muted)] max-w-2xl mx-auto mb-12 leading-relaxed"
+                    >
+                        Seamlessly synchronize music across Android, iOS, Windows, and Mac. <br className="hidden md:block" /> No ecosystem lock-in. Just perfect harmony.
+                    </motion.p>
+
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.5, duration: 0.8 }}
+                        className="flex flex-col sm:flex-row items-center justify-center gap-6 w-full sm:w-auto"
+                    >
+                        <button onClick={() => setShowSignup(true)} className="btn-primary px-8 py-4 rounded-full text-lg flex items-center gap-3 w-full sm:w-auto justify-center group">
+                            <PlayCircle size={20} className="fill-white/20" />
+                            Start Syncing Now
+                        </button>
+                        <button className="btn-secondary px-8 py-4 rounded-full text-lg flex items-center gap-3 w-full sm:w-auto justify-center group">
+                            Watch Demo
+                            <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                        </button>
+                    </motion.div>
+                </div>
+
+                {/* Hero Visual - Connected Devices */}
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.6, duration: 1 }}
+                    className="mt-24 relative w-full max-w-6xl mx-auto h-[400px] md:h-[500px]"
+                >
+                    {/* Central Hub */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
+                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-[#0a0b12] border border-[var(--sb-primary)] shadow-[0_0_60px_rgba(59,130,246,0.4)] flex items-center justify-center relative animate-pulse-glow">
+                            <Wifi size={48} className="text-[var(--sb-primary)]" />
+                            {/* Orbiting dots */}
+                            <div className="absolute inset-0 animate-spin-slow rounded-full border border-dashed border-[var(--sb-primary)]/30 w-[150%] h-[150%] -left-1/4 -top-1/4"></div>
+                        </div>
+                    </div>
+
+                    {/* Floating Devices */}
+                    <motion.div className="absolute top-10 left-10 md:left-1/4 animate-float" style={{ animationDelay: '0s' }}>
+                        <div className="glass-card p-4 rounded-2xl flex flex-col items-center gap-2 w-32 border-[var(--sb-primary)]/20">
+                            <Smartphone size={32} className="text-[var(--sb-text-muted)]" />
+                            <span className="text-xs font-mono text-[var(--sb-primary)]">iPhone 15</span>
+                        </div>
+                    </motion.div>
+
+                    <motion.div className="absolute bottom-20 right-10 md:right-1/4 animate-float" style={{ animationDelay: '2s' }}>
+                        <div className="glass-card p-4 rounded-2xl flex flex-col items-center gap-2 w-40 border-[var(--sb-secondary)]/20">
+                            <Laptop size={32} className="text-[var(--sb-text-muted)]" />
+                            <span className="text-xs font-mono text-[var(--sb-secondary)]">MacBook Pro</span>
+                        </div>
+                    </motion.div>
+
+                    <motion.div className="absolute top-20 right-4 md:right-1/3 animate-float" style={{ animationDelay: '1s' }}>
+                        <div className="glass-card p-4 rounded-2xl flex flex-col items-center gap-2 w-32 border-[var(--sb-accent)]/20">
+                            <Smartphone size={32} className="text-[var(--sb-text-muted)]" />
+                            <span className="text-xs font-mono text-[var(--sb-accent)]">Pixel 8</span>
+                        </div>
+                    </motion.div>
+
+                    <motion.div className="absolute bottom-10 left-4 md:left-1/3 animate-float" style={{ animationDelay: '3s' }}>
+                        <div className="glass-card p-4 rounded-2xl flex flex-col items-center gap-2 w-40 border-[var(--sb-primary)]/20">
+                            <Monitor size={32} className="text-[var(--sb-text-muted)]" />
+                            <span className="text-xs font-mono text-[var(--sb-primary)]">Windows PC</span>
+                        </div>
+                    </motion.div>
+
+                    {/* Connecting Lines (Visual only) */}
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-30">
+                        <line x1="50%" y1="50%" x2="25%" y2="20%" stroke="url(#grad1)" strokeWidth="2" />
+                        <line x1="50%" y1="50%" x2="75%" y2="80%" stroke="url(#grad2)" strokeWidth="2" />
+                        <line x1="50%" y1="50%" x2="66%" y2="20%" stroke="url(#grad3)" strokeWidth="2" />
+                        <line x1="50%" y1="50%" x2="33%" y2="80%" stroke="url(#grad1)" strokeWidth="2" />
+                        <defs>
+                            <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stopColor="var(--sb-primary)" />
+                                <stop offset="100%" stopColor="transparent" />
+                            </linearGradient>
+                            <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stopColor="var(--sb-secondary)" />
+                                <stop offset="100%" stopColor="transparent" />
+                            </linearGradient>
+                            <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stopColor="var(--sb-accent)" />
+                                <stop offset="100%" stopColor="transparent" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </motion.div>
+            </section>
+
+            {/* Platform Grid */}
+            <section id="platforms" className="py-32 px-6 relative bg-[var(--sb-surface-1)]">
+                <div className="max-w-7xl mx-auto">
+                    <motion.div
+                        initial="hidden"
+                        whileInView="visible"
+                        viewport={{ once: true }}
+                        variants={fadeInUp}
+                        className="text-center mb-20"
+                    >
+                        <h2 className="text-3xl md:text-5xl font-bold mb-6">Works on <span className="text-gradient-primary">everything.</span></h2>
+                        <p className="text-[var(--sb-text-muted)] text-lg max-w-2xl mx-auto">
+                            Don't let your OS dictate your music. Sync Beats bridges the gap between ecosystems.
+                        </p>
+                    </motion.div>
+
+                    <motion.div
+                        initial="hidden"
+                        whileInView="visible"
+                        viewport={{ once: true }}
+                        variants={staggerContainer}
+                        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+                    >
+                        {[
+                            { name: "iOS", icon: <Smartphone />, color: "var(--sb-primary)" },
+                            { name: "Android", icon: <Smartphone />, color: "var(--sb-accent)" },
+                            { name: "Windows", icon: <Monitor />, color: "var(--sb-primary)" },
+                            { name: "macOS", icon: <Laptop />, color: "var(--sb-secondary)" }
+                        ].map((platform, i) => (
+                            <motion.div
+                                key={i}
+                                variants={fadeInUp}
+                                className="glass-card p-8 rounded-2xl flex flex-col items-center justify-center gap-4 group hover:bg-[var(--sb-surface-2)] transition-colors cursor-default"
+                            >
+                                <div className="p-4 rounded-full bg-[var(--sb-surface-3)] group-hover:scale-110 transition-transform duration-300" style={{ color: platform.color }}>
+                                    {platform.icon}
+                                </div>
+                                <span className="font-bold text-lg">{platform.name}</span>
+                            </motion.div>
+                        ))}
+                    </motion.div>
+                </div>
+            </section>
+
+            {/* Features Section */}
+            <section id="features" className="py-32 px-6 relative">
+                <div className="max-w-7xl mx-auto">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        {/* Feature 1 */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 30 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: 0.1 }}
+                            className="glass-card p-10 rounded-3xl md:col-span-2 relative overflow-hidden group neon-border"
+                        >
+                            <div className="absolute top-0 right-0 p-12 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity duration-500 scale-150">
+                                <Zap size={300} />
+                            </div>
+                            <div className="relative z-10">
+                                <div className="w-14 h-14 rounded-2xl bg-[var(--sb-primary)]/10 border border-[var(--sb-primary)]/20 text-[var(--sb-primary)] flex items-center justify-center mb-8 shadow-[0_0_20px_rgba(59,130,246,0.15)]">
+                                    <Zap size={28} />
+                                </div>
+                                <h3 className="text-3xl font-bold mb-4">Zero Latency Engine</h3>
+                                <p className="text-[var(--sb-text-muted)] text-lg max-w-lg leading-relaxed">
+                                    Our proprietary clock synchronization algorithm ensures every device is aligned within <span className="text-[var(--sb-text-main)] font-semibold">2 milliseconds</span>. Drift correction happens automatically in the background, so the beat never drops.
+                                </p>
+                            </div>
+                        </motion.div>
+
+                        {/* Feature 2 */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 30 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: 0.2 }}
+                            className="glass-card p-10 rounded-3xl relative overflow-hidden group"
+                        >
+                            <div className="absolute bottom-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity duration-500">
+                                <Music size={200} />
+                            </div>
+                            <div className="relative z-10">
+                                <div className="w-14 h-14 rounded-2xl bg-[var(--sb-secondary)]/10 border border-[var(--sb-secondary)]/20 text-[var(--sb-secondary)] flex items-center justify-center mb-8">
+                                    <Share2 size={28} />
+                                </div>
+                                <h3 className="text-2xl font-bold mb-4">Any Source</h3>
+                                <p className="text-[var(--sb-text-muted)] leading-relaxed">
+                                    Spotify, Apple Music, YouTube Music, or local files. If it plays audio, we can sync it.
+                                </p>
+                            </div>
+                        </motion.div>
+
+                        {/* Feature 3 */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 30 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: 0.3 }}
+                            className="glass-card p-10 rounded-3xl relative overflow-hidden group"
+                        >
+                            <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity duration-500">
+                                <Users2 size={200} />
+                            </div>
+                            <div className="relative z-10">
+                                <div className="w-14 h-14 rounded-2xl bg-[var(--sb-accent)]/10 border border-[var(--sb-accent)]/20 text-[var(--sb-accent)] flex items-center justify-center mb-8">
+                                    <Users2 size={28} />
+                                </div>
+                                <h3 className="text-2xl font-bold mb-4">Party Mode</h3>
+                                <p className="text-[var(--sb-text-muted)] leading-relaxed">
+                                    Let guests vote on the queue or take over DJ duties. Perfect for house parties and road trips.
+                                </p>
+                            </div>
+                        </motion.div>
+
+                        {/* Feature 4 */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 30 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: 0.4 }}
+                            className="glass-card p-10 rounded-3xl md:col-span-2 relative overflow-hidden group"
+                        >
+                            <div className="absolute bottom-0 right-0 p-12 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity duration-500 scale-150">
+                                <Wifi size={300} />
+                            </div>
+                            <div className="relative z-10">
+                                <div className="w-14 h-14 rounded-2xl bg-green-500/10 border border-green-500/20 text-green-400 flex items-center justify-center mb-8">
+                                    <Globe size={28} />
+                                </div>
+                                <h3 className="text-3xl font-bold mb-4">No Internet? No Problem.</h3>
+                                <p className="text-[var(--sb-text-muted)] text-lg max-w-lg leading-relaxed">
+                                    Sync Beats works over local Wi-Fi or by creating a hotspot. Take the party to the beach, the woods, or anywhere off the grid.
+                                </p>
+                            </div>
+                        </motion.div>
+                    </div>
+                </div>
+            </section>
+
+            {/* How it Works */}
+            <section id="how-it-works" className="py-32 px-6 bg-[var(--sb-surface-1)]">
+                <div className="max-w-4xl mx-auto">
+                    <motion.div
+                        initial="hidden"
+                        whileInView="visible"
+                        viewport={{ once: true }}
+                        variants={fadeInUp}
+                        className="text-center mb-20"
+                    >
+                        <h2 className="text-3xl md:text-4xl font-bold mb-6">Sync in seconds</h2>
+                        <p className="text-[var(--sb-text-muted)]">No complex setup. It just works.</p>
+                    </motion.div>
+
+                    <div className="relative">
+                        {/* Vertical Line */}
+                        <div className="absolute left-8 md:left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-[var(--sb-primary)] via-[var(--sb-secondary)] to-transparent hidden md:block"></div>
+
+                        <div className="space-y-12">
+                            {[
+                                {
+                                    step: "01",
+                                    title: "Host",
+                                    desc: "Open the app on your main device. It becomes the master clock.",
+                                    icon: <Radio size={24} />
+                                },
+                                {
+                                    step: "02",
+                                    title: "Join",
+                                    desc: "Scan the QR code with any other device to connect instantly.",
+                                    icon: <Smartphone size={24} />
+                                },
+                                {
+                                    step: "03",
+                                    title: "Play",
+                                    desc: "Hit play. Audio starts simultaneously on all devices.",
+                                    icon: <PlayCircle size={24} />
+                                }
+                            ].map((item, i) => (
+                                <motion.div
+                                    key={i}
+                                    initial={{ opacity: 0, x: i % 2 === 0 ? -50 : 50 }}
+                                    whileInView={{ opacity: 1, x: 0 }}
+                                    viewport={{ once: true }}
+                                    transition={{ duration: 0.6, delay: i * 0.2 }}
+                                    className={`flex flex-col md:flex-row gap-8 items-center ${i % 2 === 0 ? 'md:flex-row-reverse' : ''}`}
+                                >
+                                    <div className="flex-1 w-full">
+                                        <div className="glass-card p-8 rounded-2xl hover:border-[var(--sb-primary)] transition-colors group">
+                                            <div className="flex items-center gap-4 mb-4">
+                                                <div className="p-3 rounded-xl bg-[var(--sb-surface-2)] text-[var(--sb-primary)] group-hover:text-white group-hover:bg-[var(--sb-primary)] transition-colors">
+                                                    {item.icon}
+                                                </div>
+                                                <h3 className="text-xl font-bold">{item.title}</h3>
+                                            </div>
+                                            <p className="text-[var(--sb-text-muted)]">{item.desc}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Number Bubble */}
+                                    <div className="w-16 h-16 rounded-full bg-[var(--sb-bg)] border border-[var(--sb-border)] flex items-center justify-center font-bold text-xl z-10 shadow-[0_0_20px_rgba(0,0,0,0.5)] relative">
+                                        <div className="absolute inset-0 rounded-full bg-[var(--sb-primary)]/20 animate-pulse"></div>
+                                        {item.step}
+                                    </div>
+
+                                    <div className="flex-1 hidden md:block"></div>
+                                </motion.div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* CTA Section */}
+            <section className="py-32 px-6 text-center overflow-hidden">
+                <div className="max-w-5xl mx-auto relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-[var(--sb-primary)] to-[var(--sb-secondary)] opacity-20 blur-[100px] rounded-full pointer-events-none"></div>
+
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        whileInView={{ opacity: 1, scale: 1 }}
+                        viewport={{ once: true }}
+                        className="relative z-10 glass-card rounded-3xl p-12 md:p-24 border-[var(--sb-primary)]/30"
+                    >
+                        <h2 className="text-5xl md:text-7xl font-bold mb-8 tracking-tight">Ready to <span className="text-gradient-primary">amplify?</span></h2>
+                        <p className="text-xl text-[var(--sb-text-muted)] mb-12 max-w-2xl mx-auto">
+                            Turn every device in the room into a speaker system. Experience the future of shared audio today.
+                        </p>
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                            <button onClick={() => setShowSignup(true)} className="btn-primary px-12 py-5 rounded-full text-xl font-bold shadow-xl shadow-[var(--sb-primary)]/20 hover:shadow-[var(--sb-primary)]/40 transition-shadow w-full sm:w-auto">
+                                Get Started for Free
+                            </button>
+                        </div>
+                        <div className="mt-8 flex items-center justify-center gap-6 text-sm text-[var(--sb-text-muted)]">
+                            <div className="flex items-center gap-2">
+                                <CheckCircle2 size={16} className="text-[var(--sb-success)]" />
+                                <span>No credit card required</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <CheckCircle2 size={16} className="text-[var(--sb-success)]" />
+                                <span>Free forever plan</span>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+            </section>
+
+            {/* Footer */}
+            <footer className="py-12 px-6 border-t border-[var(--sb-border)] bg-[var(--sb-bg)]">
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-[var(--sb-surface-3)] flex items-center justify-center">
+                            <Wifi size={16} className="text-[var(--sb-text-muted)]" />
+                        </div>
+                        <span className="font-bold text-lg text-[var(--sb-text-muted)]">Sync Beats</span>
+                    </div>
+
+                    <div className="flex gap-8 text-sm text-[var(--sb-text-muted)]">
+                        <a href="#" className="hover:text-[var(--sb-text-main)] transition-colors">Privacy</a>
+                        <a href="#" className="hover:text-[var(--sb-text-main)] transition-colors">Terms</a>
+                        <a href="#" className="hover:text-[var(--sb-text-main)] transition-colors">Twitter</a>
+                        <a href="#" className="hover:text-[var(--sb-text-main)] transition-colors">GitHub</a>
+                    </div>
+
+                    <div className="text-sm text-[var(--sb-text-muted)]">
+                        © 2025 Sync Beats.
+                    </div>
+                </div>
+            </footer>
         </div>
-      </div>) : null}
-      {showSignup ? (<div className='fixed md:inset-50 backdrop-blur-md bg-transparent z-50 md:z-10 flex items-center justify-center'>
-        <div className='w-screen'>
-          <SignupPage setShowLogin={setShowLogin} setShowSignup={setShowSignup} />
-        </div>
-      </div>) : null}
-      <div className="fixed z-40 flex justify-center w-full pt-4">
-        <div className="flex flex-col md:flex-row w-[90%] md:w-[60%] md:justify-baseline justify-between rounded-xl shadow-md md:gap-28 px-4 py-4 md:py-2 md:bg-white/10 bg-black/5 backdrop-blur-md text-white">
-          <div className="md:hidden fixed top-4 left-3 cursor-pointer transition-transform duration-300 ease-in-out" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-            <div className={`transform transition-all duration-300 ease-in-out ${isMenuOpen ? 'rotate-180 scale-90 opacity-70' : 'rotate-0 scale-100 opacity-100'}`}>{isMenuOpen ? <X size={28} /> : <Menu size={28} />}</div>
-          </div>
-          <div className='flex md:pl-0 pl-8 flex-row items-center justify-center gap-1'><Music className='text-[#00e5ff]' size={28} /><a href="#" className='font-bold text-lg'>Sync Beats</a></div>
-          {(<div className="md:hidden flex flex-col items-center justify-center overflow-hidden transition-all duration-400 ease-in-out">
-            <div className={`flex flex-col gap-4 text-md font-semibold text-white transform transition-all duration-500 ease-in-out ${isMenuOpen ? 'scale-100 opacity-100 max-h-40' : 'scale-95 opacity-0 max-h-0'}`}>
-              <a href="#features" className="hover:text-cyan-300 mt-4">Features</a>
-              <a href="#about" className="hover:text-cyan-300">About</a>
-              <a href="#contact" className="hover:text-cyan-300">Contact</a>
-            </div>
-          </div>)}
-
-          <div className='flex flex-row md:items-center md:justify-center float-right gap-4'>
-            <button className='hidden md:flex bg-gradient-to-br from-[#00e5ff] to-[#a78bfa] px-4 py-2 rounded-xl cursor-pointer text-black hover:scale-110 ease-in-out duration-135' onClick={() => { setShowSignup(!showSignup) }}>Sign Up</button>
-            <button className='md:flex hidden bg-white/10 px-4 py-2 rounded-xl hover:scale-110 ease-in-out cursor-pointer duration-135' onClick={() => { setShowLogin(!showLogin) }}>Login</button>
-          </div>
-        </div>
-      </div>
-      <div className="relative pt-20">
-        <section className="relative overflow-hidden" style={{ backgroundImage: 'linear-gradient(rgba(10,11,18,0.75), rgba(10,11,18,0.9)), url(https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=2400&auto=format&fit=crop)', backgroundSize: "cover", backgroundPosition: "center", }}>
-          <div className="">
-            <div className="sb-spotlight inset-0" />
-          </div>
-          <div className="mx-auto max-w-7xl px-6 py-24 sm:py-28 lg:py-36">
-            <div className="flex flex-col items-center text-center">
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-white/80">
-                <Music className="h-4 w-4 text-cyan-300" />
-                Play music everywhere in sync
-              </div>
-              <h1 className="text-4xl font-bold leading-tight tracking-tight md:text-6xl sb-neon-text">
-                Sync Beats
-              </h1>
-              <p className="mt-5 max-w-2xl text-balance text-white/80 md:text-lg">
-                A cross-platform music synchronization platform for Android, iOS, Windows, and Mac.
-                Stream from Apple Music or Spotify and keep every device perfectly in time.
-              </p>
-              <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
-                <button onClick={() => { setShowSignup(!showSignup) }} className="sb-btn sb-btn-ghost">
-                  <PlayCircle className="mr-2 h-5 w-5" />
-                  Try the player
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-      <div className='md:px-38 px-8 mt-12'>
-        <div className='w-full grid-cols-1 md:grid-cols-3 grid gap-4 md:gap-12'>
-          <div className='flex flex-start flex-col rounded-xl gap-2 p-8 sb-glass'>
-            <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-300">
-              <Radio className="h-5 w-5" />
-            </div>
-            <h1 className='font-bold'>Perfect Sync</h1>
-            <p className='text-sm text-white/60'>Sub-second synchronization using clock alignment and drift correction, so every beat hits together.</p>
-          </div>
-          <div className='rounded-xl flex flex-start flex-col gap-2 p-8 sb-glass'>
-            <div className='mb-3 inline-flex h-10 w-10 rounded-xl items-center justify-center bg-purple-500/20 text-purple-300'>
-              <Users2 className='h-5 w-5' />
-            </div>
-            <h1 className='font-bold'>Invite & control</h1>
-            <p className='text-sm text-white/60'>Host sessions, invite friends, and control playback from any device.</p>
-          </div>
-          <div className='rounded-xl flex flex-start flex-col gap-2 p-8 sb-glass'>
-            <div className='mb-3 inline-flex h-10 w-10 rounded-xl items-center justify-center bg-yellow-500/20 text-yellow-300'>
-              <Smartphone className='h-5 w-5' />
-            </div>
-            <h1 className='font-bold'>Cross-platform</h1>
-            <p className='text-sm text-white/60'>Available on Android, iOS, Windows, and Mac. Sync your music across all your devices seamlessly.</p>
-          </div>
-        </div>
-        <div className='w-full sb-glass rounded-xl mt-12 p-8 flex flex-col gap-4'>
-          <h1 className='text-2xl font-bold'>How it works</h1>
-          <p>Sync Beats uses a combination of clock synchronization and drift correction to ensure that all devices in a session are perfectly in sync. Here is how it works:</p>
-          <ol className='list-decimal pl-6'>
-            <li>When a session is started,  the host device sends its clock time to all connected devices.</li>
-            <li>Each device adjusts its internal clock to match the {"host's"} clock.</li>
-            <li>As music plays, devices continuously check their clock against the {"host's"} clock to detect any drift.</li>
-            <li>If drift is detected, devices adjust their playback speed slightly to correct it.</li>
-            <li>All devices play the same music at the same time, ensuring perfect synchronization.</li>
-            <li>Users can control playback, pause, and skip tracks from any device, and all changes are reflected across the session.</li>
-          </ol>
-        </div>
-        <div className='flex flex-col md:flex-row justify-between gap-4 mt-12 w-full sb-glass rounded-xl p-8'>
-          <div className='flex flex-col gap-2'>
-            <h1 className='font-bold text-xl'>Apple Music and Spotify support</h1>
-            <p className='text-sm text-white/60'>Link your accounts to control playback and sync tracks across devices. Seamless switching and shared queues.</p>
-          </div>
-          <div className='flex flex-row gap-4'>
-            <button className='sb-btn hover:cursor-pointer sb-btn-primary'>Open Player</button>
-            <button className='sb-btn sb-btn-ghost hover:cursor-pointer'>Host Controls</button>
-          </div>
-        </div>
-        <div className='flex md:flex-row flex-col gap-4 md:justify-between  mt-12 w-full rounded-xl'>
-          <div className='sb-glass flex flex-col p-8 rounded-xl'>
-            <div className='flex flex-row items-center gap-2 mb-4'>
-              <div><Headphones className='text-cyan-300' /></div>
-              <h1 className='text-xl font-bold'>Immersive audio</h1>
-            </div>
-            <p className='text-sm text-white/60'>High-quality playback that stays in sync — perfect for parties, workouts, and shared listening.</p>
-          </div>
-          <div className='sb-glass md:w-1/2 flex flex-col p-8 rounded-xl'>
-            <div className='flex flex-row items-center gap-2 mb-4'>
-              <div><Smartphone className='text-purple-300' /></div>
-              <h1 className='text-xl font-bold'>Simple to join</h1>
-            </div>
-            <p className='text-sm text-white/60'>Open the app, pick a session, and you are in. No cables, no hassle.</p>
-          </div>
-        </div>
-      </div>
-      <div className='md:mx-40 mx-8 mt-12 rounded-xl'>
-        <div className='flex flex-col md:flex-row justify-center'>
-          <div className=" p-10 flex flex-col gap-6 sb-glass rounded-xl ">
-            <h1 className="text-3xl font-bold text-white">Contact Me</h1>
-            <p className="text-white/60">Have questions, feedback, or just want to say hi? Fill out the formbelow or reach me at{" "}
-              <a href="mailto:siraprapuabhinay21@gmail.com" className="text-cyan-300 hover:underline">
-                siraprapuabhinay21@gmail.com
-              </a>
-            </p>
-
-            <form className="flex flex-col gap-4">
-              <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
-                <User className="text-cyan-300" size={20} />
-                <input type="text" placeholder="Your Name" required className="bg-transparent w-full outline-none text-white placeholder-white/50" />
-              </div>
-
-              <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
-                <Mail className="text-purple-300" size={20} />
-                <input type="email" placeholder="Your Email" required className="bg-transparent w-full outline-none text-white placeholder-white/50" />
-              </div>
-
-              <div className="flex items-start gap-2 bg-white/5 rounded-xl px-4 py-3 border border-white/10">
-                <MessageSquare className="text-yellow-300 mt-1" size={20} />
-                <textarea placeholder="Your Message" required rows={4} className="bg-transparent w-full outline-none text-white placeholder-white/50 resize-none" />
-              </div>
-
-              <button type="submit" className="sb-btn sb-btn-primary hover:scale-105 transition-all cursor-pointer">Send Message</button>
-            </form>
-          </div>
-        </div>
-      </div>
-      <footer className='sb-glass mt-12 rounded-xl p-8'>
-        <div className='flex flex-col md:flex-row justify-between items-center gap-4'>
-          <div className='text-white/60 text-sm'>© 2025 Sync Beats. All rights reserved.</div>
-          <div className='flex flex-row gap-4'>
-            <a href="#" className='text-white/60 hover:text-cyan-300'>Privacy Policy</a>
-            <a href="#" className='text-white/60 hover:text-cyan-300'>Terms of Service</a>
-          </div>
-        </div>
-      </footer>
-    </>
-  );
+    );
 }
-
-
- 
-
-
-

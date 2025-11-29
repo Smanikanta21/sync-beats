@@ -1,116 +1,182 @@
-"use client"
-import { X, Eye, EyeClosed } from "lucide-react";
-import React, { useState, useEffect } from "react";
+"use client";
+import React, { useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { toast } from 'react-toastify';
+import { Mail, Lock, User, ArrowRight } from 'lucide-react';
 
-type PropData = {
-  showSignup?: boolean;
-  setShowLogin: (show: boolean) => void;
-  setShowSignup: (show: boolean) => void;
-};
+interface SignupPageProps {
+    setShowLogin: (show: boolean) => void;
+    setShowSignup: (show: boolean) => void;
+}
 
-export default function SignupPage({ setShowSignup, setShowLogin }: PropData) {
-  const router = useRouter();
-  const [email, setEmail] = useState<string>("");
-  const [username, setUsername] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [name, setName] = useState<string>("");
-  const [loading,setLoading ] = useState<boolean>(false)
-  
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001"
+export default function SignupPage({ setShowLogin, setShowSignup }: SignupPageProps) {
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+    const [name, setName] = useState('');
+    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const router = useRouter();
+    const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const authSuccess = params.get('auth');
-    
-    if (authSuccess === 'success') {
-      toast.success('Signup successful!');
-      router.push('/dashboard');
-      setShowSignup(false);
-    }
-  }, [router, setShowSignup]);
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            const res = await fetch(`${API_BASE}/auth/signup`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name, username, email, password })
+            });
 
-  const googleAuthFetcher = () => {
-    window.location.href = `${API_BASE}/auth/auth/google`;
-  };
+            const data = await res.json();
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try{
-      setLoading(true)
-      const res = await fetch(`${API_BASE}/auth/signup`,{
-        method : "POST",
-        headers : {"content-type":"application/json"},
-        body : JSON.stringify({name,username,email,password})
-      })
-      const data = await res.json()
+            if (res.ok) {
+                toast.success("Account created successfully!");
+                if (data.token) {
+                    localStorage.setItem('authToken', data.token);
+                }
+                router.push('/dashboard');
+            } else {
+                toast.error(data.message || "Signup failed");
+            }
+        } catch (error) {
+            console.error("Signup error:", error);
+            toast.error("Something went wrong. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-      if(res.ok){
-        toast.success("Signup successful! Please log in.")
-        setShowSignup(false)
-        setShowLogin(true);
-      }else{
-        toast.error("Signup failed: " + data.message);
-      }
-    }catch{
-      toast.error(`Error during signup`)
-    }finally{
-      setLoading(false)
-    }
-  }
-
-  return (
-    <>
-      <div className="fixed top-6 left-4 cursor-pointer hover:scale-120 ease-in-out duration-150" onClick={() => setShowSignup(false)}><X /></div>
-      <div className="flex items-center justify-center h-screen bg-transparent">
-        <div className="bg-black/60 backdrop-blur-lg p-8 rounded-lg w-full max-w-md  shadow-yellow-500 ">
-          <h1 className="text-2xl font-bold text-center text-white mb-6">Sign Up</h1>
-          <form onSubmit={handleSignUp}>
-            <div className="mb-4">
-              <label className="block text-white mb-2" htmlFor="name">Name</label>
-              <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter Your Name" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
+    return (
+        <div className="glass-card p-8 rounded-2xl w-full border-[var(--sb-primary)]/20 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
+            <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold mb-2 text-[var(--sb-text-main)]">Get Started</h2>
+                <p className="text-[var(--sb-text-muted)]">Join the future of shared audio.</p>
             </div>
 
-            <div className="mb-4">
-              <label className="block text-white mb-2" htmlFor="email">Email</label>
-              <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter Your Email" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-            </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
 
-            <div className="mb-4">
-              <label className="block text-white mb-2" htmlFor="username">Username</label>
-              <input type="text" id="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Enter Your Username" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-            </div>
 
-            <div className="mb-6 relative">
-              <label className="block text-white mb-2" htmlFor="password">Password</label>
-              <input type={showPassword ? "text" : "password"} id="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter Your Password" className="w-full p-2 bg-gray-800 text-white rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" required />
-              <button type="button" className="absolute right-2 top-10 cursor-pointer hover:scale-115 ease-in-out duration-150" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <Eye /> : <EyeClosed />} </button>
-            </div>
-            <button onClick={handleSignUp} type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200" >{loading ? "Signing Up..." : "Sign Up"}</button>
-            <div className="mt-6 text-center text-white/60">
-              <div><p>---------- or continue with ----------</p></div>
-              <div className="w-full flex flex-row items-center justify-center mt-6 gap-2">
-                <button 
-                  type="button"
-                  className="border rounded-full p-2 hover:cursor-pointer hover:scale-110 transition-all ease-in-out duration-150" 
-                  onClick={googleAuthFetcher}
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-[var(--sb-text-muted)]">Username</label>
+                    <div className="relative">
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--sb-text-muted)]" size={20} />
+                        <input
+                            type="text"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            className="w-full bg-[var(--sb-surface-2)] border border-[var(--sb-border)] rounded-xl py-3 pl-12 pr-4 text-[var(--sb-text-main)] placeholder:text-[var(--sb-text-muted)]/50 focus:outline-none focus:border-[var(--sb-primary)] transition-colors"
+                            placeholder="username"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-[var(--sb-text-muted)]">Full Name</label>
+                    <div className="relative">
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--sb-text-muted)]" size={20} />
+                        <input
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="w-full bg-[var(--sb-surface-2)] border border-[var(--sb-border)] rounded-xl py-3 pl-12 pr-4 text-[var(--sb-text-main)] placeholder:text-[var(--sb-text-muted)]/50 focus:outline-none focus:border-[var(--sb-primary)] transition-colors"
+                            placeholder="John Doe"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-[var(--sb-text-muted)]">Email</label>
+                    <div className="relative">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--sb-text-muted)]" size={20} />
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full bg-[var(--sb-surface-2)] border border-[var(--sb-border)] rounded-xl py-3 pl-12 pr-4 text-[var(--sb-text-main)] placeholder:text-[var(--sb-text-muted)]/50 focus:outline-none focus:border-[var(--sb-primary)] transition-colors"
+                            placeholder="you@example.com"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-[var(--sb-text-muted)]">Password</label>
+                    <div className="relative">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--sb-text-muted)]" size={20} />
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full bg-[var(--sb-surface-2)] border border-[var(--sb-border)] rounded-xl py-3 pl-12 pr-4 text-[var(--sb-text-main)] placeholder:text-[var(--sb-text-muted)]/50 focus:outline-none focus:border-[var(--sb-primary)] transition-colors"
+                            placeholder="••••••••"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <button
+                    type="submit"
+                    className="btn-primary w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 group"
                 >
-                  <Image src="/images/google.svg" alt="Google" width={32} height={32} />
+                    Create Account
+                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                 </button>
-              </div>
+
+                <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-[var(--sb-border)]"></div>
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                        <span className="px-2 bg-[var(--sb-surface-1)] text-[var(--sb-text-muted)]">Or continue with</span>
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    className="w-full bg-white text-black border border-gray-300 hover:bg-gray-50 font-medium rounded-xl py-3 px-4 flex items-center justify-center gap-2 transition-colors"
+                    onClick={() => {
+                        window.location.href = `${API_BASE}/auth/google`;
+                    }}
+                >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24">
+                        <path
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                            fill="#4285F4"
+                        />
+                        <path
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                            fill="#34A853"
+                        />
+                        <path
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                            fill="#FBBC05"
+                        />
+                        <path
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                            fill="#EA4335"
+                        />
+                    </svg>
+                    Sign up with Google
+                </button>
+            </form>
+
+            <div className="mt-6 text-center text-sm text-[var(--sb-text-muted)]">
+                Already have an account?{' '}
+                <button
+                    onClick={() => {
+                        setShowSignup(false);
+                        setShowLogin(true);
+                    }}
+                    className="text-[var(--sb-primary)] hover:underline font-medium"
+                >
+                    Log in
+                </button>
             </div>
-          </form>
-          <div>
-            <p className="mt-6 text-center text-white/60">
-              Already have an account?
-              <span className="text-blue-400 cursor-pointer hover:underline" onClick={() => { setShowSignup(false); setShowLogin(true); }}> Login</span>
-            </p>
-          </div>
         </div>
-      </div>
-    </>
-  );
+    );
 }
