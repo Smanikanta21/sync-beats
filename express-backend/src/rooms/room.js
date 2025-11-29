@@ -1,4 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient } = require('../generated/prisma');
 const prisma = new PrismaClient()
 const qrcode = require('qrcode')
 
@@ -132,9 +132,9 @@ async function joinRoom(req, res) {
                 devices: {
                     include: {
                         devices: {
-                            select: { 
-                                id: true, 
-                                name: true, 
+                            select: {
+                                id: true,
+                                name: true,
                                 status: true,
                                 DeviceUserId: true,
                                 user: {
@@ -178,9 +178,9 @@ async function verifyRoom(req, res) {
                 devices: {
                     include: {
                         devices: {
-                            select: { 
-                                id: true, 
-                                name: true, 
+                            select: {
+                                id: true,
+                                name: true,
                                 status: true,
                                 DeviceUserId: true,
                                 user: {
@@ -237,9 +237,9 @@ async function getRoomDetails(req, res) {
                 devices: {
                     include: {
                         devices: {
-                            select: { 
-                                id: true, 
-                                name: true, 
+                            select: {
+                                id: true,
+                                name: true,
                                 status: true,
                                 DeviceUserId: true,
                                 user: {

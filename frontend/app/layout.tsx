@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import './globals.css'
 import "react-toastify/dist/ReactToastify.css";
-import { ToastContainer } from "react-toastify";
 import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const geistSans = Geist({
@@ -20,9 +19,11 @@ export const metadata: Metadata = {
   title: "Sync Beats",
   description: "Play Music In Sync with multiple devices at same time",
   icons: {
-    icon: '/images/favicon.svg',  
+    icon: '/images/favicon.svg',
   },
 };
+
+import { ThemeProvider } from "./context/ThemeContext";
 
 export default function RootLayout({
   children,
@@ -34,10 +35,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
-        <ToastContainer 
-        position="top-right" 
-        autoClose={3000}/>
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
         <SpeedInsights />
       </body>
     </html>

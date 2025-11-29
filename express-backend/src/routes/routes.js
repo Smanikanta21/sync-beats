@@ -1,18 +1,26 @@
 const express = require('express')
-const {signup,login,logout,googleAuthCallback} = require('../auth/auth')
-const {authMiddleWare} = require('../middleware/middleware')
-const {getDashboardData} = require('../dashboard/route')
+const { signup, login, logout, googleAuthCallback, profilefetcher, profileeditor,deleteDevice } = require('../auth/auth')
+const { authMiddleWare } = require('../middleware/middleware')
+const { getDashboardData } = require('../dashboard/route')
 const { createRoom, joinRoom, verifyRoom, getRoomDetails, getRecentRooms, getNearbyRooms } = require('../rooms/room')
 const passport = require('passport')
 const router = express.Router()
 
-router.post('/signup',signup);
+router.post('/signup', signup);
 
-router.post('/login',login);
+router.post('/login', login);
 
-router.post('/logout',logout);
+router.post('/logout', logout);
 
-router.get('/dashboard',authMiddleWare,getDashboardData);
+router.get('/getprofiledata', authMiddleWare, profilefetcher);
+
+router.patch('/profile', authMiddleWare, profileeditor);
+
+router.delete('/device/:id', authMiddleWare, deleteDevice);
+
+router.get('/dashboard', authMiddleWare, getDashboardData);
+
+router.get('/profile', authMiddleWare, profilefetcher);
 
 router.post('/createroom', authMiddleWare, createRoom);
 

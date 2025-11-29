@@ -1,26 +1,19 @@
 {
   "name": "sockets",
   "version": "1.0.0",
-  "description": "Sync Beats WebSocket Server",
-  "main": "sever.js",
+  "description": "",
+  "main": "server.js",
   "scripts": {
-    "start": "node sever.js",
-    "dev": "nodemon sever.js"
+    "start": "nodemon server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
-  "engines": {
-    "node": "18.x"
-  },
   "dependencies": {
     "cors": "^2.8.5",
-    "dotenv": "^16.0.3",
+    "dotenv": "^17.2.3",
     "express": "^5.1.0",
-    "ws": "^8.18.3"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
+    "socket.io": "^4.8.1"
   }
 }
