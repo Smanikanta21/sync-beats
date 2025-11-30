@@ -12,6 +12,17 @@ export default function RoomDevices() {
     //     }
     // }
 
+
+    const devices=[
+        {
+            id:1,
+            name:"Mobile",
+            type:"mobile",
+            status:"online",
+            ping:10
+        }
+    ]
+
     const getIcon = (type: string) => {
         switch (type) {
             case 'mobile': return <Smartphone size={18} />;
