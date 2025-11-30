@@ -125,6 +125,6 @@ export default function LoginPage({ setShowLogin, setShowSignup }: LoginPageProp
                     Sign up
                 </button>
             </div>
-        </div>
+        </div >
     );
 }
