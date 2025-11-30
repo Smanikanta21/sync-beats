@@ -60,6 +60,7 @@ passport.use(new GoogleStrategy({
                         name,
                         email,
                         username: email.split('@')[0] + Math.random().toString(36).substring(7),
+                        pfp: profile.photos[0].value,
                         password: '',
                         googleId: profile.id
                     }
@@ -93,14 +94,15 @@ passport.deserializeUser(async (id, done) => {
 
 async function signup(req, res, next) {
     try {
+        console.log("[Signup] Request body:", req.body);
         const { name, username, email, password } = req.body;
-        if (!name) return res.status(400).json({ message: "Name required" });
-        if (!username) return res.status(400).json({ message: "Username required" });
-        if (!email) return res.status(400).json({ message: "Email required" });
-        if (!password) return res.status(400).json({ message: "Password required" });
+        if (!name) { console.log("[Signup] Missing name"); return res.status(400).json({ message: "Name required" }); }
+        if (!username) { console.log("[Signup] Missing username"); return res.status(400).json({ message: "Username required" }); }
+        if (!email) { console.log("[Signup] Missing email"); return res.status(400).json({ message: "Email required" }); }
+        if (!password) { console.log("[Signup] Missing password"); return res.status(400).json({ message: "Password required" }); }
 
         const existing = await prisma.users.findUnique({ where: { email } });
-        if (existing) return res.status(400).json({ message: "User already exists" });
+        if (existing) { console.log("[Signup] User exists"); return res.status(400).json({ message: "User already exists" }); }
 
         const hash = await bcrypt.hash(password, 10);
         const user = await prisma.users.create({

@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast';
 import MusicPlayer from '@/app/components/MusicPlayer';
 import RoomQueue from '@/app/components/RoomQueue';
 import RoomDevices from '@/app/components/RoomDevices';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Room {
     name: string;
@@ -28,6 +29,7 @@ export default function RoomPage() {
                 const res = await authFetch(`${process.env.NEXT_PUBLIC_API_URL}/api/room/${code}`);
                 if (res.ok) {
                     const data = await res.json();
+                    console.log("Room details:", data);
                     setRoom(data.room);
                 } else {
                     toast.error("Failed to load room");
@@ -48,11 +50,36 @@ export default function RoomPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[var(--sb-bg)] flex items-center justify-center">
-                <div className="animate-pulse flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-[var(--sb-primary)] opacity-50"></div>
-                    <p className="text-[var(--sb-text-muted)]">Syncing...</p>
-                </div>
+            <div className="min-h-screen bg-[var(--sb-bg)] text-[var(--sb-text-main)] font-sans selection:bg-[var(--sb-primary)] selection:text-white pb-20">
+                <header className="fixed top-0 left-0 right-0 z-40 px-6 py-4 flex justify-center">
+                    <div className="glass-panel rounded-full px-6 py-3 flex items-center justify-between w-full max-w-7xl">
+                        <div className="flex items-center gap-4">
+                            <Skeleton className="w-10 h-10 rounded-full bg-[var(--sb-surface-2)]" />
+                            <div>
+                                <Skeleton className="h-6 w-32 bg-[var(--sb-surface-2)] mb-1" />
+                                <Skeleton className="h-4 w-20 bg-[var(--sb-surface-2)]" />
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Skeleton className="w-10 h-10 rounded-full bg-[var(--sb-surface-2)]" />
+                            <Skeleton className="w-10 h-10 rounded-full bg-[var(--sb-surface-2)]" />
+                        </div>
+                    </div>
+                </header>
+
+                <main className="w-full px-6 pt-28 max-w-7xl mx-auto relative z-10 flex flex-col gap-6">
+                    <section>
+                        <Skeleton className="w-full h-32 rounded-3xl bg-[var(--sb-surface-2)]" />
+                    </section>
+                    <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[500px]">
+                        <div className="lg:col-span-2 h-full">
+                            <Skeleton className="w-full h-full rounded-3xl bg-[var(--sb-surface-2)]" />
+                        </div>
+                        <div className="h-full">
+                            <Skeleton className="w-full h-full rounded-3xl bg-[var(--sb-surface-2)]" />
+                        </div>
+                    </section>
+                </main>
             </div>
         );
     }

@@ -17,10 +17,10 @@ const createLogger = (namespace) => ({
 const logger = createLogger('Express')
 
 app.use(cors({
-  origin: [`${process.env.FRONTEND_DEV_URL}`,`${process.env.FRONTEND_URL}`,`${process.env.BACKEND_URL}`,`${process.env.FRONTEND_N_DEV_URL}`],
-  methods: ['GET','POST','DELETE','PATCH','PUT'],
+  origin: [`${process.env.FRONTEND_DEV_URL}`, `${process.env.FRONTEND_URL}`, `${process.env.BACKEND_URL}`, `${process.env.FRONTEND_N_DEV_URL}`],
+  methods: ['GET', 'POST', 'DELETE', 'PATCH', 'PUT'],
   credentials: true,
-  allowedHeaders: ['Content-Type','Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization']
 }))
 
 app.use(express.json({ limit: '100mb' }))
@@ -40,9 +40,9 @@ app.use(passport.session())
 
 app.use('/auth', authroutes);
 
-app.use('/api' , router)
+app.use('/api', router)
 app.get('/', (req, res) => {
-  res.json({ message: "server is running" }) 
+  res.json({ message: "server is running" })
 })
 
 
@@ -53,7 +53,7 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   logger.error(`Request error: ${req.path}`, err)
-  res.status(err.status || 500).json({ 
+  res.status(err.status || 500).json({
     message: process.env.NODE_ENV === 'production' ? 'Server Error' : err.message,
     ...(process.env.NODE_ENV !== 'production' && { error: err.stack })
   })

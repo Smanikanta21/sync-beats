@@ -1,13 +1,16 @@
 "use client";
-import React from 'react';
+import React,{useState} from 'react';
 import { Users, Smartphone, Monitor, Laptop } from 'lucide-react';
 
 export default function RoomDevices() {
-    const devices = [
-        { id: 1, name: "Abhinay's MacBook", type: "laptop", status: "online", ping: 45 },
-        { id: 2, name: "iPhone 13 Pro", type: "mobile", status: "online", ping: 120 },
-        { id: 3, name: "Desktop PC", type: "desktop", status: "offline", ping: 0 },
-    ];
+    const[Devices,setDevices] = useState([]);
+
+
+    // const fetchDevices = async() => {
+    //     try{
+    //         const res = await 
+    //     }
+    // }
 
     const getIcon = (type: string) => {
         switch (type) {
