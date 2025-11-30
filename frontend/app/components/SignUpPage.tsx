@@ -34,10 +34,7 @@ export default function SignupPage({ setShowLogin, setShowSignup }: SignupPagePr
 
             if (res.ok) {
                 toast.success("Account created successfully!");
-                if (data.token) {
-                    localStorage.setItem('authToken', data.token);
-                }
-                router.push('/dashboard');
+                router.push('/');
             } else {
                 toast.error(data.message || "Signup failed");
             }
@@ -121,10 +118,17 @@ export default function SignupPage({ setShowLogin, setShowSignup }: SignupPagePr
 
                 <button
                     type="submit"
-                    className="btn-primary w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 group"
+                    disabled={loading}
+                    className="btn-primary w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                    Create Account
-                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                    {loading ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                        <>
+                            Create Account
+                            <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                        </>
+                    )}
                 </button>
 
                 <div className="relative my-6">

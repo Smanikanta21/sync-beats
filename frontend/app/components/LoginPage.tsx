@@ -17,6 +17,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: LoginPageProp
     const [loading, setLoading] = useState(false);
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        setLoading(true);
         try {
             console.log(`[Login] Attempting login to ${API_BASE}/auth/login with credentials: include`)
             const res = await fetch(`${API_BASE}/auth/login`, {
@@ -71,8 +72,19 @@ export default function LoginPage({ setShowLogin, setShowSignup }: LoginPageProp
                     </div>
                 </div>
 
-                <button type="submit" className="btn-primary w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 group">Sign In
-                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="btn-primary w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                    {loading ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                        <>
+                            Sign In
+                            <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                        </>
+                    )}
                 </button>
 
                 <div className="relative my-6">

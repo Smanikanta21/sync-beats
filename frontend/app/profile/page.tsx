@@ -8,6 +8,7 @@ import { authFetch, clearAuthToken } from '@/lib/authFetch'
 import { motion } from 'framer-motion';
 
 import { useTheme } from '../context/ThemeContext';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Device {
     id: string;
@@ -197,7 +198,14 @@ export default function ProfilePage() {
                             </div>
                             <div className="text-center md:text-left flex-1 w-full">
                                 {loading ? (
-                                    <div className="h-8 w-48 bg-[var(--sb-surface-2)] rounded animate-pulse mb-2 mx-auto md:mx-0"></div>
+                                    <div className="space-y-3 w-full">
+                                        <Skeleton className="h-10 w-48 bg-[var(--sb-surface-2)]" />
+                                        <Skeleton className="h-5 w-32 bg-[var(--sb-surface-2)]" />
+                                        <div className="flex gap-2 mt-2">
+                                            <Skeleton className="h-6 w-24 rounded-full bg-[var(--sb-surface-2)]" />
+                                            <Skeleton className="h-6 w-24 rounded-full bg-[var(--sb-surface-2)]" />
+                                        </div>
+                                    </div>
                                 ) : (
                                     <div className="space-y-2">
                                         {isEditing ? (
@@ -360,45 +368,70 @@ export default function ProfilePage() {
                             <Laptop size={20} className="text-[var(--sb-primary)]" /> Logged-in Devices
                         </h3>
                         <div className="space-y-3">
-                            {user?.devices?.map((device: Device) => (
-                                <div key={device.id} className="flex items-center justify-between p-4 rounded-xl bg-[var(--sb-surface-2)] border border-[var(--sb-border)]">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`p-3 rounded-full ${device.status === 'online' ? 'bg-[var(--sb-success)]/10 text-[var(--sb-success)]' : 'bg-[var(--sb-text-muted)]/10 text-[var(--sb-text-muted)]'}`}>
-                                            {device.name.toLowerCase().includes('mobile') || device.name.toLowerCase().includes('phone') ?
-                                                <Smartphone size={20} /> : <Laptop size={20} />
-                                            }
-                                        </div>
-                                        <div>
-                                            <p className="font-medium text-[var(--sb-text-main)] flex items-center gap-2">
-                                                {device.name}
-                                                {device.isCurrent && (
-                                                    <span className="px-2 py-0.5 rounded-full bg-[var(--sb-primary)]/10 border border-[var(--sb-primary)]/30 text-[10px] font-bold text-[var(--sb-primary)] uppercase tracking-wider">
-                                                        This Device
-                                                    </span>
-                                                )}
-                                            </p>
-                                            <p className="text-xs text-[var(--sb-text-muted)]">
-                                                Last active: {new Date(device.updatedAt).toLocaleDateString()}
-                                            </p>
+                            {loading ? (
+                                <>
+                                    <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--sb-surface-2)] border border-[var(--sb-border)]">
+                                        <div className="flex items-center gap-4">
+                                            <Skeleton className="w-10 h-10 rounded-full bg-[var(--sb-surface-3)]" />
+                                            <div className="space-y-2">
+                                                <Skeleton className="h-4 w-32 bg-[var(--sb-surface-3)]" />
+                                                <Skeleton className="h-3 w-24 bg-[var(--sb-surface-3)]" />
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex items-center gap-2">
-                                            <span className={`w-2 h-2 rounded-full ${device.status === 'online' ? 'bg-[var(--sb-success)] animate-pulse' : 'bg-[var(--sb-text-muted)]'}`}></span>
-                                            <span className="text-xs font-medium text-[var(--sb-text-muted)] capitalize">{device.status}</span>
+                                    <div className="flex items-center justify-between p-4 rounded-xl bg-[var(--sb-surface-2)] border border-[var(--sb-border)]">
+                                        <div className="flex items-center gap-4">
+                                            <Skeleton className="w-10 h-10 rounded-full bg-[var(--sb-surface-3)]" />
+                                            <div className="space-y-2">
+                                                <Skeleton className="h-4 w-32 bg-[var(--sb-surface-3)]" />
+                                                <Skeleton className="h-3 w-24 bg-[var(--sb-surface-3)]" />
+                                            </div>
                                         </div>
-                                        <button
-                                            onClick={() => handleRemoveDevice(device.id)}
-                                            className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
-                                            title="Remove Device"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
                                     </div>
-                                </div>
-                            ))}
-                            {(!user?.devices || user.devices.length === 0) && (
-                                <p className="text-[var(--sb-text-muted)] text-center py-4">No devices found.</p>
+                                </>
+                            ) : (
+                                <>
+                                    {user?.devices?.map((device: Device) => (
+                                        <div key={device.id} className="flex items-center justify-between p-4 rounded-xl bg-[var(--sb-surface-2)] border border-[var(--sb-border)]">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`p-3 rounded-full ${device.status === 'online' ? 'bg-[var(--sb-success)]/10 text-[var(--sb-success)]' : 'bg-[var(--sb-text-muted)]/10 text-[var(--sb-text-muted)]'}`}>
+                                                    {device.name.toLowerCase().includes('mobile') || device.name.toLowerCase().includes('phone') ?
+                                                        <Smartphone size={20} /> : <Laptop size={20} />
+                                                    }
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-[var(--sb-text-main)] flex items-center gap-2">
+                                                        {device.name}
+                                                        {device.isCurrent && (
+                                                            <span className="px-2 py-0.5 rounded-full bg-[var(--sb-primary)]/10 border border-[var(--sb-primary)]/30 text-[10px] font-bold text-[var(--sb-primary)] uppercase tracking-wider">
+                                                                This Device
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                    <p className="text-xs text-[var(--sb-text-muted)]">
+                                                        Last active: {new Date(device.updatedAt).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`w-2 h-2 rounded-full ${device.status === 'online' ? 'bg-[var(--sb-success)] animate-pulse' : 'bg-[var(--sb-text-muted)]'}`}></span>
+                                                    <span className="text-xs font-medium text-[var(--sb-text-muted)] capitalize">{device.status}</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleRemoveDevice(device.id)}
+                                                    className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                                                    title="Remove Device"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {(!user?.devices || user.devices.length === 0) && (
+                                        <p className="text-[var(--sb-text-muted)] text-center py-4">No devices found.</p>
+                                    )}
+                                </>
                             )}
                         </div>
                     </motion.div>
