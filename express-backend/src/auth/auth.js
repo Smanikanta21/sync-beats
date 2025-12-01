@@ -106,7 +106,13 @@ async function signup(req, res, next) {
 
         const hash = await bcrypt.hash(password, 10);
         const user = await prisma.users.create({
-            data: { name, username, email, password: hash }
+            data: { 
+                name, 
+                username, 
+                email, 
+                pfp: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+                password: hash 
+            }
         });
 
         res.status(201).json({ message: "User created", id: user.id });

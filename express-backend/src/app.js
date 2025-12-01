@@ -17,7 +17,12 @@ const createLogger = (namespace) => ({
 const logger = createLogger('Express')
 
 app.use(cors({
-  origin: [`${process.env.FRONTEND_DEV_URL}`, `${process.env.FRONTEND_URL}`, `${process.env.BACKEND_URL}`, `${process.env.FRONTEND_N_DEV_URL}`],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    // Allow any origin for development
+    return callback(null, true);
+  },
   methods: ['GET', 'POST', 'DELETE', 'PATCH', 'PUT'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']

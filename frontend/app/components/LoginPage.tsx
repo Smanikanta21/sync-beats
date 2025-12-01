@@ -33,7 +33,7 @@ export default function LoginPage({ setShowLogin, setShowSignup }: LoginPageProp
                 toast.success("Login successful")
                 console.log(`[Login] Redirecting to dashboard...`)
                 if (data.token) {
-                    console.log(`[Login] Development mode: storing token for Bearer auth`)
+                    console.log(`[Login] Development mode:`,data.message)
                     localStorage.setItem('authToken', data.token)
                 }
                 router.push('/dashboard')

@@ -230,7 +230,11 @@ async function getRoomDetails(req, res) {
                 participants: {
                     include: {
                         user: {
-                            select: { id: true, name: true }
+                            select: {
+                                id: true,
+                                name: true,
+                                devices: true
+                            }
                         }
                     }
                 },
