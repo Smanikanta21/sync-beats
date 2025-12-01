@@ -126,7 +126,6 @@ export default function MusicPlayer({
 
     return (
         <>
-            {/* Expanded Mobile Player */}
             <div className={`fixed inset-0 z-[60] backdrop-blur-md flex flex-col p-6 transition-transform duration-300 ease-out md:hidden ${isExpanded ? 'translate-y-0' : 'translate-y-[100vh]'}`}>
                 <div className="flex justify-center mb-8">
                     <button onClick={() => setIsExpanded(false)} className="p-2 text-white/50 hover:text-white">
