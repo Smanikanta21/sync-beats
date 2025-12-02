@@ -254,7 +254,7 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
 
     const vibrateDevice = () => {
         if ('vibrate' in navigator) {
-            navigator.vibrate(200); // Vibrate for 200ms
+            navigator.vibrate(200); 
         }
     }
 

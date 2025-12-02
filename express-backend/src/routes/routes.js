@@ -3,6 +3,7 @@ const { signup, login, logout, googleAuthCallback, profilefetcher, profileeditor
 const { authMiddleWare } = require('../middleware/middleware')
 const { getDashboardData } = require('../dashboard/route')
 const { createRoom, joinRoom, verifyRoom, getRoomDetails, getRecentRooms, getNearbyRooms } = require('../rooms/room')
+const { searchUsers } = require('../auth/search')
 const passport = require('passport')
 const router = express.Router()
 
@@ -33,6 +34,8 @@ router.get('/room/:code', authMiddleWare, getRoomDetails);
 router.get('/recent-rooms', authMiddleWare, getRecentRooms);
 
 router.post('/nearby-rooms', authMiddleWare, getNearbyRooms);
+
+router.get('/users/search', authMiddleWare, searchUsers);
 
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 

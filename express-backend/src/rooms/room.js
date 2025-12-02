@@ -135,6 +135,7 @@ async function joinRoom(req, res) {
                             select: {
                                 id: true,
                                 name: true,
+                                type: true,
                                 status: true,
                                 DeviceUserId: true,
                                 user: {
@@ -181,6 +182,7 @@ async function verifyRoom(req, res) {
                             select: {
                                 id: true,
                                 name: true,
+                                type: true,
                                 status: true,
                                 DeviceUserId: true,
                                 user: {
@@ -244,6 +246,7 @@ async function getRoomDetails(req, res) {
                             select: {
                                 id: true,
                                 name: true,
+                                type: true,
                                 status: true,
                                 DeviceUserId: true,
                                 user: {

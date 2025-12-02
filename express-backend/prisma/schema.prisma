@@ -37,6 +37,7 @@ model Device {
   id           String   @id @default(cuid())
   DeviceUserId String
   name         String
+  type         String?
   status       String   @default("offline")
   ip           String?
   lastSeenAt   DateTime @default(now())
