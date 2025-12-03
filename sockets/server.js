@@ -3,14 +3,20 @@ const { Server } = require('socket.io');
 require('dotenv').config();
 
 const PORT = process.env.PORT || 5002;
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || '*';
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
 const server = http.createServer();
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: NODE_ENV === 'production' ? FRONTEND_ORIGIN : "*",
     methods: ["GET", "POST"],
     credentials: true,
     allowedHeaders: ["*"]
-  }
+  },
+  pingTimeout: 20000,
+  pingInterval: 25000,
+  transports: ['websocket', 'polling']
 });
 
 const roomStates = {};
@@ -73,6 +79,6 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Sockets server listening on port ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Sockets server listening on port ${PORT} (${NODE_ENV})`);
 });
