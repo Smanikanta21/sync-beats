@@ -7,8 +7,9 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "sockets": "nodemon sockets/sever.js",
-    "postinstall": "prisma generate"
+    "sockets": "nodemon sockets/server.js",
+    "postinstall": "prisma generate",
+    "seed": "prisma db seed"
   },
   "keywords": [],
   "author": "",
@@ -26,10 +27,14 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "qrcode": "^1.5.4",
+    "socket.io": "^4.8.1",
     "ua-parser-js": "^2.0.5"
   },
   "devDependencies": {
     "dotenv": "^17.2.3",
     "prisma": "^5.22.0"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }

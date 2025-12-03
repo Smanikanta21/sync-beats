@@ -1,10 +1,21 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'ui-avatars.com',
+      },
+    ],
+  },
   async headers() {
     return [
       {
-        // Allow cross-origin fetch/decode for audio files
         source: "/audio/:path*",
         headers: [
           { key: "Access-Control-Allow-Origin", value: "*" },

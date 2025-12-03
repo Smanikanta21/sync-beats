@@ -1,3 +1,4 @@
+require('dotenv').config()
 const express = require('express')
 const cookieParser = require('cookie-parser')
 const session = require('express-session')
@@ -8,16 +9,13 @@ const app = express()
 const authroutes = require('./routes/routes');
 const router = require('./routes/routes')
 
-const createLogger = (namespace) => ({
-  info: (msg, data) => console.log(`[${namespace}]  ${msg}`, data ? data : ''),
-  error: (msg, err) => console.error(`[${namespace}] ${msg}`, err ? err.message : ''),
-  warn: (msg, data) => console.warn(`[${namespace}]  ${msg}`, data ? data : ''),
-})
 
-const logger = createLogger('Express')
 
 app.use(cors({
-  origin: [`${process.env.FRONTEND_DEV_URL}`, `${process.env.FRONTEND_URL}`, `${process.env.BACKEND_URL}`, `${process.env.FRONTEND_N_DEV_URL}`],
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    return callback(null, true);
+  },
   methods: ['GET', 'POST', 'DELETE', 'PATCH', 'PUT'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -47,22 +45,21 @@ app.get('/', (req, res) => {
 
 
 app.use((req, res) => {
-  logger.warn(`404 - Route not found: ${req.path}`)
+  console.warn(`404 - Route not found: ${req.path}`)
   res.status(404).json({ message: 'Not Found' })
 })
 
-app.use((err, req, res, next) => {
-  logger.error(`Request error: ${req.path}`, err)
-  res.status(err.status || 500).json({
-    message: process.env.NODE_ENV === 'production' ? 'Server Error' : err.message,
-    ...(process.env.NODE_ENV !== 'production' && { error: err.stack })
-  })
-})
 
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(process.env.PORT, () => {
-    logger.info(`Server is running on port ${process.env.PORT}`)
+
+
+
+
+const port = process.env.PORT
+
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
   })
 }
 
-module.exports = app
+module.exports = app;

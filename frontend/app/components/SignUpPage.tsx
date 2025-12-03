@@ -15,7 +15,6 @@ export default function SignupPage({ setShowLogin, setShowSignup }: SignupPagePr
     const [username, setUsername] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const router = useRouter();
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -34,7 +33,9 @@ export default function SignupPage({ setShowLogin, setShowSignup }: SignupPagePr
 
             if (res.ok) {
                 toast.success("Account created successfully!");
-                router.push('/');
+                console.log(`[Signup] Development mode:`, data.message)
+                setShowSignup(false);
+                setShowLogin(true);
             } else {
                 toast.error(data.message || "Signup failed");
             }

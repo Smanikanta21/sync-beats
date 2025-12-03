@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import './globals.css'
-import "react-toastify/dist/ReactToastify.css";
+import { Toaster } from "react-hot-toast";
 import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const geistSans = Geist({
@@ -38,6 +38,31 @@ export default function RootLayout({
         <ThemeProvider>
           {children}
         </ThemeProvider>
+        <Toaster
+          position="top-center"
+          containerStyle={{
+            zIndex: 99999,
+          }}
+          toastOptions={{
+            style: {
+              background: 'var(--sb-surface-2)',
+              color: 'var(--sb-text-main)',
+              border: '1px solid var(--sb-border)',
+            },
+            success: {
+              iconTheme: {
+                primary: 'var(--sb-success)',
+                secondary: 'var(--sb-bg)',
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: 'var(--sb-error)',
+                secondary: 'var(--sb-bg)',
+              },
+            },
+          }}
+        />
         <SpeedInsights />
       </body>
     </html>

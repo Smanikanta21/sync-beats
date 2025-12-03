@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { toast } from 'react-toastify';
 import jsQR from 'jsqr';
 import { authFetch } from '@/lib/authFetch';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 export function CreateRoom({ onBack }: { onBack: () => void }) {
     const [roomName, setRoomName] = useState<string>("");
@@ -254,7 +254,7 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
 
     const vibrateDevice = () => {
         if ('vibrate' in navigator) {
-            navigator.vibrate(200); // Vibrate for 200ms
+            navigator.vibrate(200); 
         }
     }
 
@@ -291,6 +291,10 @@ export function JoinRoom({ onBack }: { onBack: () => void }) {
     const StartCamera = async () => {
         try {
             console.log('Setting camera active state first...');
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                toast.error("Camera access requires a secure connection (HTTPS) or localhost.");
+                return;
+            }
             setCameraActive(true);
             await new Promise(resolve => setTimeout(resolve, 100));
             const stream = await navigator.mediaDevices.getUserMedia({

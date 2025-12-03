@@ -36,10 +36,7 @@ function generateToken(user) {
     );
 }
 
-const backendUrl = process.env.BACKEND_URL || 'http://localhost:5001';
-const baseUrl = backendUrl.replace(/\/auth\/?$/, '').replace(/\/$/, '');
-const googleCallbackUrl = `${baseUrl}/auth/callback/google`;
-console.log(`[Auth] Google Callback URL set to: ${googleCallbackUrl}`);
+const googleCallbackUrl = process.env.GOOGLE_CALLBACK_URL;
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -106,7 +103,13 @@ async function signup(req, res, next) {
 
         const hash = await bcrypt.hash(password, 10);
         const user = await prisma.users.create({
-            data: { name, username, email, password: hash }
+            data: { 
+                name, 
+                username, 
+                email, 
+                pfp: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+                password: hash 
+            }
         });
 
         res.status(201).json({ message: "User created", id: user.id });
