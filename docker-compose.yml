@@ -84,4 +84,4 @@ volumes:
 
 networks:
   default:
-    enable_ipv6: true
+    enable_ipv6: false

@@ -18,6 +18,7 @@ import { VisualizerProvider } from "../context/VisualizerContext";
 import { cn } from "@/lib/utils";
 import {IOSHomeScreenPrompt} from '../components/IOSHomeScreenPrompt'
 import { BeatProvider } from "../context/BeatContext";
+import { NavigationProgress } from "../components/NavigationProgress";
 import "../lib/logger";
 
 const outfitFont = Outfit({
@@ -256,6 +257,7 @@ export default function RootLayout({
 
         </div>
         <SmoothScrolling>
+          <NavigationProgress />
           <Preloader />
           <IOSHomeScreenPrompt />
           <ThemeProvider>

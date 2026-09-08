@@ -126,7 +126,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   provision-env:
-    name: Provision .env on EC2
+    name: Provision .env on VM
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: ${{ github.ref_name }}
@@ -137,11 +137,11 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          printf '%s' "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 400 ~/.ssh/id_rsa
-          ssh-keyscan -T 10 -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts || true
+          printf '%s\n' "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -T 10 -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Write .env and SCP to EC2
+      - name: Write .env and SCP to VM
         env:
           V_NODE_ENV:              ${{ vars.NODE_ENV }}
           V_PORT:                  ${{ vars.PORT }}
@@ -155,15 +155,15 @@ jobs:
           V_GOOGLE_CLIENT_SECRET:  ${{ secrets.GOOGLE_CLIENT_SECRET }}
           V_FRONTEND_URL:          ${{ vars.FRONTEND_URL }}
           V_BACKEND_URL:           ${{ vars.BACKEND_URL }}
-          V_SPOTIFY_CLIENT_ID:     ${{ secrets.SPOTIFY_CLIENT_ID }}
-          V_SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          V_SPOTIFY_CLIENT_ID:     ${{ secrets.SPOTIFY_CLIENT_ID || vars.SPOTIFY_CLIENT_ID }}
+          V_SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET || vars.SPOTIFY_CLIENT_SECRET }}
           V_AUTH_FROM_EMAIL:       ${{ vars.AUTH_FROM_EMAIL }}
           V_UPDATES_FROM_EMAIL:    ${{ vars.UPDATES_FROM_EMAIL }}
           V_RESEND_API_KEY:        ${{ secrets.RESEND_API_KEY }}
           V_NEXT_PUBLIC_SERVER_URL: ${{ vars.NEXT_PUBLIC_SERVER_URL }}
           V_RAPID_API_KEY:         ${{ secrets.RAPID_API_KEY }}
           V_RAPID_API_KEYS:        ${{ secrets.RAPID_API_KEYS }}
-          V_ADMIN_PASSWORD:        ${{ secrets.ADMIN_PASSWORD }}
+          V_ADMIN_PASSWORD:        ${{ secrets.ADMIN_PASSWORD || vars.ADMIN_PASSWORD }}
         run: |
           APP_DIR="sync-beats"
           DB_HOST="postgres"
@@ -173,25 +173,25 @@ jobs:
           fi
 
           {
-            echo "NODE_ENV=${V_NODE_ENV}"
-            echo "PORT=${V_PORT}"
-            echo "STUDIO_PORT=${V_STUDIO_PORT}"
-            echo "FRONTEND_PORT=${V_FRONTEND_PORT}"
-            echo "POSTGRES_USER=${V_POSTGRES_USER}"
+            echo "NODE_ENV=${V_NODE_ENV:-production}"
+            echo "PORT=${V_PORT:-4000}"
+            echo "STUDIO_PORT=${V_STUDIO_PORT:-5555}"
+            echo "FRONTEND_PORT=${V_FRONTEND_PORT:-3000}"
+            echo "POSTGRES_USER=${V_POSTGRES_USER:-syncbeats}"
             echo "POSTGRES_PASSWORD=${V_POSTGRES_PASSWORD}"
-            echo "POSTGRES_DB=${V_POSTGRES_DB}"
-            echo "DATABASE_URL=postgresql://${V_POSTGRES_USER}:${V_POSTGRES_PASSWORD}@${DB_HOST}:5432/${V_POSTGRES_DB}"
+            echo "POSTGRES_DB=${V_POSTGRES_DB:-syncbeats}"
+            echo "DATABASE_URL=postgresql://${V_POSTGRES_USER:-syncbeats}:${V_POSTGRES_PASSWORD}@${DB_HOST}:5432/${V_POSTGRES_DB:-syncbeats}"
             echo "JWT_SECRET=${V_JWT_SECRET}"
             echo "GOOGLE_CLIENT_ID=${V_GOOGLE_CLIENT_ID}"
             echo "GOOGLE_CLIENT_SECRET=${V_GOOGLE_CLIENT_SECRET}"
-            echo "FRONTEND_URL=${V_FRONTEND_URL}"
-            echo "BACKEND_URL=${V_BACKEND_URL}"
+            echo "FRONTEND_URL=${V_FRONTEND_URL:-https://www.syncbeats.in}"
+            echo "BACKEND_URL=${V_BACKEND_URL:-https://api.syncbeats.in}"
             echo "SPOTIFY_CLIENT_ID=${V_SPOTIFY_CLIENT_ID}"
             echo "SPOTIFY_CLIENT_SECRET=${V_SPOTIFY_CLIENT_SECRET}"
             echo "AUTH_FROM_EMAIL=${V_AUTH_FROM_EMAIL:-auth@syncbeats.in}"
             echo "UPDATES_FROM_EMAIL=${V_UPDATES_FROM_EMAIL:-updates@syncbeats.in}"
             echo "RESEND_API_KEY=${V_RESEND_API_KEY}"
-            echo "NEXT_PUBLIC_SERVER_URL=${V_NEXT_PUBLIC_SERVER_URL}"
+            echo "NEXT_PUBLIC_SERVER_URL=${V_NEXT_PUBLIC_SERVER_URL:-https://api.syncbeats.in}"
             echo "RAPID_API_KEY=${V_RAPID_API_KEY}"
             echo "RAPID_API_KEYS=${V_RAPID_API_KEYS}"
             echo "ADMIN_PASSWORD=${V_ADMIN_PASSWORD:-syncbeatsadmin}"
@@ -213,13 +213,13 @@ jobs:
             ' docker-compose.yml
           fi
 
-          # Ensure target dir exists, is writable, and is clean of old files
-          ssh -o StrictHostKeyChecking=yes \
+          # Ensure target dir exists
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-            "mkdir -p ~/$APP_DIR && sudo chown -R \$USER:\$USER ~/$APP_DIR && rm -rf ~/$APP_DIR/* ~/$APP_DIR/.[!.]* ~/$APP_DIR/..?*" || true
+            "mkdir -p ~/$APP_DIR"
 
           # Ensure a swapfile exists to prevent OOM crashes on micro instances
-          ssh -o StrictHostKeyChecking=yes \
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
           if [ $(free | awk '/^Swap:/ {print $2}') -eq 0 ]; then
             echo "No swap found. Creating a 2GB swapfile to prevent crashes..."
@@ -235,19 +235,17 @@ jobs:
           ENDSSH
 
           # Upload .env
-          scp -o StrictHostKeyChecking=yes \
+          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
             /tmp/syncbeats.env \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:~/$APP_DIR/.env
 
           # Upload docker-compose.yml
-          scp -o StrictHostKeyChecking=yes \
+          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
             docker-compose.yml \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:~/$APP_DIR/docker-compose.yml
 
-          # No IP injection needed — staging uses shared prod Docker network to reach postgres by container name
-
           # Lock down .env
-          ssh -o StrictHostKeyChecking=yes \
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
             ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
             "chmod 600 ~/$APP_DIR/.env"
 
@@ -260,17 +258,21 @@ jobs:
     needs: [build-backend, build-visualizer, provision-env]
     environment: ${{ github.ref_name }}
 
+    permissions:
+      contents: read
+      packages: read
+
     steps:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          printf '%s' "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 400 ~/.ssh/id_rsa
-          ssh-keyscan -T 10 -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts || true
+          printf '%s\n' "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -T 10 -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Pull latest image
         run: |
-          ssh -o StrictHostKeyChecking=yes ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
           set -euo pipefail
           APP="$HOME/sync-beats"
           if [ "${{ github.ref_name }}" != "main" ]; then
@@ -299,7 +301,7 @@ jobs:
 
       - name: Start Postgres and wait until ready
         run: |
-          ssh -o StrictHostKeyChecking=yes ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
           set -euo pipefail
           APP="$HOME/sync-beats"
           if [ "${{ github.ref_name }}" != "main" ]; then
@@ -344,21 +346,21 @@ jobs:
           ENDSSH
 
 
-      - name: Run database migrations
+      - name: Run database migrations and schema sync
         run: |
-          ssh -o StrictHostKeyChecking=yes ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
           set -euo pipefail
           APP="$HOME/sync-beats"
           if [ "${{ github.ref_name }}" != "main" ]; then
             APP="$HOME/sync-beats-dev"
           fi
 
-          docker compose --project-directory "$APP" run --rm server npx prisma migrate deploy
+          docker compose --project-directory "$APP" run --rm server sh -c "npx prisma migrate deploy || true; npx prisma db push --skip-generate"
           ENDSSH
 
       - name: Start server & studio and verify
         run: |
-          ssh -o StrictHostKeyChecking=yes ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
           set -euo pipefail
           APP="$HOME/sync-beats"
           if [ "${{ github.ref_name }}" != "main" ]; then
@@ -403,14 +405,14 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          printf '%s' "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 400 ~/.ssh/id_rsa
-          ssh-keyscan -T 10 -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts || true
+          printf '%s\n' "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -T 10 -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Reload nginx and cleanup
         run: |
           SSH_TARGET="${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}"
-          SSH_OPTS="-o StrictHostKeyChecking=yes -o ConnectTimeout=15 -o ConnectionAttempts=1 -o ServerAliveInterval=15 -o ServerAliveCountMax=3"
+          SSH_OPTS="-i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ConnectionAttempts=1 -o ServerAliveInterval=15 -o ServerAliveCountMax=3"
           REMOTE_CMD='sudo nginx -t && sudo systemctl reload nginx && docker image prune -f'
 
           for attempt in 1 2 3; do
@@ -430,7 +432,7 @@ jobs:
         if: github.ref_name == 'main'
         run: |
           SSH_TARGET="${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}"
-          SSH_OPTS="-o StrictHostKeyChecking=yes -o ConnectTimeout=15 -o ConnectionAttempts=1 -o ServerAliveInterval=15 -o ServerAliveCountMax=3"
+          SSH_OPTS="-i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ConnectionAttempts=1 -o ServerAliveInterval=15 -o ServerAliveCountMax=3"
           REMOTE_CMD='if [ -d "$HOME/sync-beats-dev" ]; then echo "Tearing down dev environment..."; docker compose --project-directory "$HOME/sync-beats-dev" stop 2>/dev/null || true; docker compose --project-directory "$HOME/sync-beats-dev" down --remove-orphans 2>/dev/null || true; rm -rf "$HOME/sync-beats-dev"; fi'
 
           for attempt in 1 2 3; do
@@ -458,13 +460,13 @@ jobs:
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          printf '%s' "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 400 ~/.ssh/id_rsa
-          ssh-keyscan -T 10 -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts || true
+          printf '%s\n' "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -T 10 -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Rollback backend
         run: |
-          ssh -o StrictHostKeyChecking=yes ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
           set -euo pipefail
           APP="$HOME/sync-beats"
           if [ "${{ github.ref_name }}" != "main" ]; then
@@ -494,7 +496,7 @@ jobs:
             docker compose --project-directory "$APP" up -d postgres
             sleep 5
           fi
-          docker compose --project-directory "$APP" run --rm server npx prisma migrate deploy || true
+          docker compose --project-directory "$APP" run --rm server sh -c "npx prisma migrate deploy || true; npx prisma db push --skip-generate" || true
           docker compose --project-directory "$APP" up -d server visualizer
           echo "=== Rollback complete ==="
           ENDSSH

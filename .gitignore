@@ -70,4 +70,5 @@ dev/syncbeats-server/cookies.txt
 *-player-script.js
 dev/syncbeats-server/*-player-script.js
 yt-dlp-cache/
-
+docker-compose.build.yml
+scripts/

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Heart } from "lucide-react";
 import { InstagramFollowButton, InstagramIcon } from "./InstagramFollowButton";
 
@@ -17,8 +18,9 @@ export function Footer() {
         <div className="flex flex-col sm:flex-row gap-12 md:gap-24">
           <div className="flex flex-col gap-4">
             <h4 className="text-foreground font-bold mb-2">Support</h4>
-            <a
+            <Link
               href="/contact"
+              prefetch={true}
               onClick={(e) => {
                 const el = document.getElementById("contact");
                 if (el) {
@@ -29,7 +31,7 @@ export function Footer() {
               className="text-foreground/75 hover:text-foreground transition-colors text-sm cursor-pointer"
             >
               Contact Us
-            </a>
+            </Link>
             <a href="https://github.com/Smanikanta21/syncbeats/issues" target="_blank" rel="noreferrer" className="text-foreground/75 hover:text-foreground transition-colors text-sm">Report an Issue</a>
             <a href="/sponsor" target="_blank" rel="noreferrer" className="text-pink-400 hover:text-pink-300 transition-colors text-sm font-semibold flex items-center gap-1.5">
               <Heart className="w-3.5 h-3.5 fill-pink-500/30 text-pink-400" />
@@ -47,9 +49,9 @@ export function Footer() {
           </div>
           <div className="flex flex-col gap-4">
             <h4 className="text-foreground font-bold mb-2">Legal</h4>
-            <a href="/privacy-policy" className="text-foreground/75 hover:text-foreground transition-colors text-sm">Privacy Policy</a>
-            <a href="/terms-of-service" className="text-foreground/75 hover:text-foreground transition-colors text-sm">Terms of Service</a>
-            <a href="/cookie-settings" className="text-foreground/75 hover:text-foreground transition-colors text-sm">Cookie Settings</a>
+            <Link href="/privacy-policy" prefetch={true} className="text-foreground/75 hover:text-foreground transition-colors text-sm">Privacy Policy</Link>
+            <Link href="/terms-of-service" prefetch={true} className="text-foreground/75 hover:text-foreground transition-colors text-sm">Terms of Service</Link>
+            <Link href="/cookie-settings" prefetch={true} className="text-foreground/75 hover:text-foreground transition-colors text-sm">Cookie Settings</Link>
           </div>
         </div>
       </div>
