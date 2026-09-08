@@ -181,6 +181,22 @@ function ParticipantRow({
     prevLatRef.current = lat;
   }, [lat]);
 
+  const isBufferingActive = isPlaying && !p.isReady && !p.isBlocked;
+  const isSyncingActive = syncProgress > 0 && syncProgress < 100;
+
+  let statusText = "Connected & Ready";
+  if (p.isBlocked) {
+    statusText = "Blocked (Audio Unlock Required)";
+  } else if (isSyncingActive) {
+    statusText = `Syncing… ${syncProgress}%`;
+  } else if (isBufferingActive) {
+    statusText = "Syncing / Buffering…";
+  } else if (p.isReady && isPlaying) {
+    statusText = "Synced & Playing";
+  } else if (p.isReady) {
+    statusText = "Synced & Ready";
+  }
+
   return (
     <motion.div
       layout
@@ -189,11 +205,13 @@ function ParticipantRow({
       exit={{ opacity: 0, y: -8 }}
       className={cn(
         "rounded-xl border transition-all duration-300 overflow-hidden",
-        !p.isReady
+        isBufferingActive
           ? "border-red-500/40 bg-red-500/[0.10] animate-[pulse_2s_infinite] shadow-[0_0_15px_rgba(239,68,68,0.2)]"
-          : isMe
-            ? "border-emerald-500/30 bg-emerald-500/[0.07] shadow-[0_0_15px_rgba(16,185,129,0.12)]"
-            : "border-foreground/[0.07] bg-foreground/[0.03] hover:bg-foreground/[0.05]"
+          : isSyncingActive
+            ? "border-amber-500/30 bg-amber-500/[0.07] shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+            : isMe
+              ? "border-emerald-500/30 bg-emerald-500/[0.07] shadow-[0_0_15px_rgba(16,185,129,0.12)]"
+              : "border-foreground/[0.07] bg-foreground/[0.03] hover:bg-foreground/[0.05]"
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -209,15 +227,21 @@ function ParticipantRow({
         {/* Device Icon */}
         <div className={cn(
           "relative w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all",
-          !p.isReady
+          isBufferingActive
             ? "bg-red-500/20 text-red-400 border border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.3)] animate-pulse"
-            : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+            : isSyncingActive
+              ? "bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.2)]"
+              : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
         )}>
           <DevIcon className={cn('w-4', 'h-4')} />
           {/* Status indicator dot */}
           <div className={cn(
             "absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full border border-background",
-            !p.isReady ? "bg-red-400 shadow-[0_0_4px_#f87171] animate-ping" : "bg-emerald-400 shadow-[0_0_4px_#4ade80]"
+            isBufferingActive
+              ? "bg-red-400 shadow-[0_0_4px_#f87171] animate-ping"
+              : isSyncingActive
+                ? "bg-amber-400 shadow-[0_0_4px_#fbbf24] animate-pulse"
+                : "bg-emerald-400 shadow-[0_0_4px_#4ade80]"
           )} />
         </div>
 
@@ -230,7 +254,7 @@ function ParticipantRow({
 
         {/* Status */}
         <div className={cn('flex', 'items-center', 'gap-2', 'shrink-0')}>
-          {syncProgress > 0 && syncProgress < 100 && (
+          {isSyncingActive && (
             <div className={cn('flex', 'items-center', 'gap-1')}>
               <Loader2 className={cn('w-3', 'h-3', 'text-amber-500', 'animate-spin')} />
               <span className={cn('text-[10px]', 'font-black', 'text-amber-500')}>{syncProgress}%</span>
@@ -290,11 +314,7 @@ function ParticipantRow({
                 <div className={cn('rounded-xl', 'bg-foreground/[0.04]', 'px-2.5', 'py-1.5', 'col-span-2')}>
                   <div className={cn('text-[9px]', 'uppercase', 'tracking-widest', 'text-foreground/30', 'font-bold', 'mb-0.5')}>Status</div>
                   <div className={cn('text-[11px]', 'font-semibold', 'text-foreground/70')}>
-                    {p.isBlocked
-                      ? "Blocked (Audio Unlock Required)"
-                      : p.isReady
-                        ? (isPlaying ? "Synced & Playing" : "Synced & Ready")
-                        : "Syncing / Buffering…"}
+                    {statusText}
                   </div>
                 </div>
               </div>

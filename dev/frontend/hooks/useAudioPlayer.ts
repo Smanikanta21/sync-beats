@@ -321,10 +321,22 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
     // Always optimistically unlock in the UI so the user isn't stuck forever.
     setAudioUnlocked(true);
 
-    if (audioCtxRef.current?.state === 'suspended') {
-      audioCtxRef.current.resume().catch((err) => {
-        console.warn("Failed to resume AudioContext", err);
-      });
+    if (audioCtxRef.current) {
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume().catch((err) => {
+          console.warn("Failed to resume AudioContext", err);
+        });
+      }
+      try {
+        // iOS Safari unlock: play a 1-sample silent buffer directly to destination
+        const buffer = audioCtxRef.current.createBuffer(1, 1, 22050);
+        const source = audioCtxRef.current.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioCtxRef.current.destination);
+        source.start(0);
+      } catch (e) {
+        // Ignore if not permitted
+      }
     }
 
     setTimeout(() => {

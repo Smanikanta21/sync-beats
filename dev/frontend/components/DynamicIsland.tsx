@@ -9,7 +9,7 @@ import {
   Wifi, Radio, Volume2, VolumeX, UserPlus, Send, User, LayoutGrid, MessageSquare, Compass
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useAudio } from "../context/AudioContext";
 import { useVisualizer } from "../context/VisualizerContext";
@@ -275,8 +275,11 @@ const SyncProgressBar = ({
   const upload = useUpload();
   const barRef = useRef<HTMLDivElement>(null);
 
-  // Compute overall sync progress
-  const progresses = Object.values(deviceSyncProgress);
+  // Compute overall sync progress only for active room participants
+  const activeSocketIds = new Set((participants || []).map((p: any) => p.socketId));
+  const progresses = Object.entries(deviceSyncProgress)
+    .filter(([sid]) => activeSocketIds.has(sid))
+    .map(([, p]) => p);
   const hasSync = progresses.length > 0;
   const avgSync = hasSync
     ? Math.round(progresses.reduce((a, b) => a + b, 0) / progresses.length)
@@ -919,8 +922,11 @@ const RoomExtendedPill = ({
   }
 
   const hasTrack = !!trackUrl || !!trackTitle;
-  const progresses = Object.values(deviceSyncProgress);
-  const isSyncing = (hasTrack && !isReady) || incomingTrack != null || upload.isUploading || (hasTrack && progresses.some(p => p < 100));
+  const activeSocketIds = new Set((participants || []).map((p: any) => p.socketId));
+  const progresses = Object.entries(deviceSyncProgress)
+    .filter(([sid]) => activeSocketIds.has(sid))
+    .map(([, p]) => p);
+  const isSyncing = (hasTrack && !isReady) || incomingTrack != null || upload.isUploading || (hasTrack && progresses.length > 0 && progresses.some(p => p < 100));
 
   if (isSyncing) {
     // ── Syncing / buffering: full-width progress bar, no track info, no player
@@ -1036,6 +1042,15 @@ export function DynamicIsland() {
   const isHost = hostId === user?.id;
   const hasTrack = audio.hasTrack;
   const effectivePlaying = isRoom ? isRoomPlaying : audio.isPlaying;
+  const activeSocketIds = useMemo(
+    () => new Set((roomParticipants || []).map((p: any) => p.socketId)),
+    [roomParticipants]
+  );
+  const isAnyOtherDeviceBuffering = useMemo(() => {
+    return Object.entries(deviceSyncProgress).some(
+      ([sid, p]) => activeSocketIds.has(sid) && p < 100
+    );
+  }, [deviceSyncProgress, activeSocketIds]);
   const [isHoverLocked, setIsHoverLocked] = useState(false);
   const { settings } = useSettings();
   const islandCustomizer = settings.islandCustomizer || { glowColor: "violet", autoShrinkDelaySec: 6, showAlbumArt: true };
@@ -1164,7 +1179,7 @@ export function DynamicIsland() {
   // ── Auto-trigger extended when syncing/buffering, stay extended until done
   useEffect(() => {
     if (!isRoom) return;
-    const isSyncing = incomingTrack != null || (hasTrack && (!audio.isReady || Object.values(deviceSyncProgress).some(p => p < 100)));
+    const isSyncing = incomingTrack != null || (hasTrack && (!audio.isReady || isAnyOtherDeviceBuffering));
     if (isSyncing) {
       // Force extended and cancel any pending shrink — stay here until done
       if (shrinkTimerRef.current) clearTimeout(shrinkTimerRef.current);
@@ -1175,12 +1190,12 @@ export function DynamicIsland() {
       if (shrinkTimerRef.current) clearTimeout(shrinkTimerRef.current);
       shrinkTimerRef.current = setTimeout(() => setIslandState((effectivePlaying && hasTrack) ? "extended" : "pill"), 1200);
     }
-  }, [audio.isReady, incomingTrack, deviceSyncProgress, isRoom, islandState, effectivePlaying, hasTrack]);
+  }, [audio.isReady, incomingTrack, isAnyOtherDeviceBuffering, isRoom, islandState, effectivePlaying, hasTrack]);
 
   // ── Playing state changes
   useEffect(() => {
     if (!isRoom || isHoveringRef.current || islandState === "expanded") return;
-    const isSyncing = incomingTrack != null || (hasTrack && (!audio.isReady || Object.values(deviceSyncProgress).some(p => p < 100)));
+    const isSyncing = incomingTrack != null || (hasTrack && (!audio.isReady || isAnyOtherDeviceBuffering));
     if (isSyncing) return; // let the syncing effect handle it
 
     if (shrinkTimerRef.current) clearTimeout(shrinkTimerRef.current);
@@ -1189,7 +1204,7 @@ export function DynamicIsland() {
     } else {
       if (islandState === "extended") setIslandState("pill");
     }
-  }, [effectivePlaying, hasTrack, isRoom, islandState, incomingTrack, audio.isReady, deviceSyncProgress]);
+  }, [effectivePlaying, hasTrack, isRoom, islandState, incomingTrack, audio.isReady, isAnyOtherDeviceBuffering]);
 
   // ── Default to search tab if manually expanded with no track and player tab active
   useEffect(() => {
@@ -1470,7 +1485,7 @@ export function DynamicIsland() {
   const isSyncingNow = isRoom && (
     incomingTrack != null ||
     upload.isUploading ||
-    (hasTrack && (!audio.isReady || Object.values(deviceSyncProgress).some(p => p < 100)))
+    (hasTrack && (!audio.isReady || isAnyOtherDeviceBuffering))
   );
 
   // Auto-extend island to show downloading progress bar whenever a song is downloading/buffering

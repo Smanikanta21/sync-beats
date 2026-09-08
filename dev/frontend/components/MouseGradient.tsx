@@ -100,7 +100,7 @@ export function MouseGradient() {
           repeatType: "mirror",
           ease: "easeInOut" 
         }}
-        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85vw] h-[85vw] max-w-[950px] max-h-[950px] rounded-full blur-[120px] gpu-accelerated"
+        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85vw] h-[85vw] max-w-[900px] max-h-[900px] rounded-full blur-[48px] [mask-image:radial-gradient(circle,black_35%,transparent_72%)] [-webkit-mask-image:radial-gradient(circle,black_35%,transparent_72%)] will-change-transform gpu-accelerated"
       />
 
       {/* Bottom-Right Secondary Glow - Continuous Infinite Loop */}
@@ -115,7 +115,7 @@ export function MouseGradient() {
           repeatType: "mirror",
           ease: "easeInOut" 
         }}
-        className="absolute bottom-10 right-10 w-[65vw] h-[65vw] max-w-[750px] max-h-[750px] rounded-full blur-[130px] gpu-accelerated"
+        className="absolute bottom-10 right-10 w-[65vw] h-[65vw] max-w-[700px] max-h-[700px] rounded-full blur-[48px] [mask-image:radial-gradient(circle,black_35%,transparent_72%)] [-webkit-mask-image:radial-gradient(circle,black_35%,transparent_72%)] will-change-transform gpu-accelerated"
       />
 
       {/* Dynamic Interactive Mouse Following Glow (Desktop Only) */}
@@ -131,7 +131,7 @@ export function MouseGradient() {
             x: { type: "tween", ease: "easeOut", duration: 0.35 },
             y: { type: "tween", ease: "easeOut", duration: 0.35 }
           }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[45vw] h-[45vw] max-w-[600px] max-h-[600px] rounded-full blur-[90px] pointer-events-none hidden md:block gpu-accelerated"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[45vw] h-[45vw] max-w-[550px] max-h-[550px] rounded-full blur-[40px] [mask-image:radial-gradient(circle,black_35%,transparent_72%)] [-webkit-mask-image:radial-gradient(circle,black_35%,transparent_72%)] will-change-transform pointer-events-none hidden md:block gpu-accelerated"
         />
       )}
     </div>

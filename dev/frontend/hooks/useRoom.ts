@@ -584,6 +584,13 @@ export function useRoom({ roomId, displayName, userId }: UseRoomOptions): UseRoo
         }
         return prev.filter(x => x.socketId !== socketId);
       });
+      // Clean up stale deviceSyncProgress for departed socket
+      setDeviceSyncProgress(prev => {
+        if (!(socketId in prev)) return prev;
+        const copy = { ...prev };
+        delete copy[socketId];
+        return copy;
+      });
     };
     socket.on('room:participantLeft', handleParticipantLeft);
 
@@ -630,6 +637,7 @@ export function useRoom({ roomId, displayName, userId }: UseRoomOptions): UseRoo
     }
 
     const handleTrackSet = ({ trackUrl, title }: { trackUrl: string; title: string }) => {
+      setDeviceSyncProgress({});
       loadAndSetTrack(trackUrl, title);
     };
     socket.on('room:trackSet', handleTrackSet);
