@@ -166,7 +166,7 @@ export function useRoom({ roomId, displayName, userId }: UseRoomOptions): UseRoo
         state:        details.live.state as PlaybackState,
         startEpoch:   details.live.startEpoch ?? null,
         pauseOffset:  details.live.pauseOffset ?? 0,
-        isPlaying:    details.live.isPlaying ?? details.live.state === 'PLAYING',
+        isPlaying:    details.live.isPlaying ?? (details.live.startEpoch != null && details.live.state === 'PLAYING'),
         pendingPlay:  details.live.pendingPlay ?? false,
         hostId:       details.live.hostId,
         timestamp:    details.live.timestamp,
@@ -188,10 +188,10 @@ export function useRoom({ roomId, displayName, userId }: UseRoomOptions): UseRoo
         roomId,
         trackUrl:     details.db.track_url,
         position:     details.db.position_ms,
-        state:        details.db.playback_state as PlaybackState,
+        state:        PlaybackState.PAUSED,
         startEpoch:   null,
         pauseOffset:  Math.max(0, details.db.position_ms / 1000),
-        isPlaying:    details.db.playback_state === 'PLAYING',
+        isPlaying:    false,
         pendingPlay:  false,
         hostId:       details.db.host_id,
         timestamp:    Date.now(),
@@ -262,8 +262,18 @@ export function useRoom({ roomId, displayName, userId }: UseRoomOptions): UseRoo
     if (offsetSamples.length > 0) {
       // Sort by RTT ascending to select samples with minimum network delay/asymmetry
       const sortedByRtt = [...offsetSamples].sort((a, b) => a.rtt - b.rtt);
-      // Select top 35% lowest latency samples
-      const bestSamples = sortedByRtt.slice(0, Math.max(1, Math.ceil(sortedByRtt.length * 0.35)));
+
+      // IQR outlier rejection: discard samples where RTT > Q3 + 1.5×IQR
+      // This strips GC pause spikes and Wi-Fi jitter outliers from the offset estimation
+      const rtts = sortedByRtt.map(s => s.rtt);
+      const q1Rtt = rtts[Math.floor(rtts.length * 0.25)];
+      const q3Rtt = rtts[Math.floor(rtts.length * 0.75)];
+      const iqrRtt = q3Rtt - q1Rtt;
+      const rttFence = q3Rtt + 1.5 * iqrRtt;
+      const cleanSamples = sortedByRtt.filter(s => s.rtt <= rttFence);
+
+      // Select top 35% lowest latency samples from the clean set
+      const bestSamples = cleanSamples.slice(0, Math.max(1, Math.ceil(cleanSamples.length * 0.35)));
       const bestOffsets = bestSamples.map(s => s.offset).sort((a, b) => a - b);
       const median = bestOffsets[Math.floor(bestOffsets.length / 2)];
       
@@ -404,7 +414,9 @@ export function useRoom({ roomId, displayName, userId }: UseRoomOptions): UseRoo
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        correctDrift();
+        // Re-sync clock immediately on returning from background — device clock may have
+        // drifted during sleep, so we need a fresh offset before running drift correction.
+        runNtpBurst().then(() => correctDrift()).catch(() => correctDrift());
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -452,11 +464,22 @@ export function useRoom({ roomId, displayName, userId }: UseRoomOptions): UseRoo
     socket.on('connect', handleConnect);
     socket.on('disconnect', handleDisconnect);
 
-    const handleSnapshot = (snap: RoomSnapshot) => {
+    const normalizeSnapshot = (raw: any): RoomSnapshot | null => {
+      if (!raw) return null;
+      if (raw.state && typeof raw.state === 'object' && raw.state.roomId) {
+        return raw.state as RoomSnapshot;
+      }
+      if (raw.roomId) return raw as RoomSnapshot;
+      return null;
+    };
+
+    const handleSnapshot = (rawSnap: RoomSnapshot) => {
+      const snap = normalizeSnapshot(rawSnap);
+      if (!snap) return;
       setJoinStatus('joined');
       setIsReconnecting(false); // Reconnect complete — clear the banner
       setSnapshot(snap);
-      setParticipants(snap.participants);
+      setParticipants(snap.participants || []);
 
       // Dispatch welcome beat burst for local user entering room
       if (typeof window !== "undefined") {
@@ -488,9 +511,11 @@ export function useRoom({ roomId, displayName, userId }: UseRoomOptions): UseRoo
     };
     socket.on('room:snapshot', handleSnapshot);
 
-    const handleStateChanged = (snap: RoomSnapshot) => {
+    const handleStateChanged = (rawSnap: RoomSnapshot) => {
+      const snap = normalizeSnapshot(rawSnap);
+      if (!snap) return;
       setSnapshot(snap);
-      setParticipants(snap.participants);
+      setParticipants(snap.participants || []);
       if (snap.trackUrl && audioRef.current.trackUrl !== snap.trackUrl) {
         loadAndSetTrack(snap.trackUrl, getTrackTitle(snap.trackUrl, snap.queue));
         if (userId && snap.trackUrl) {
@@ -632,7 +657,11 @@ export function useRoom({ roomId, displayName, userId }: UseRoomOptions): UseRoo
       if (payload.trackUrl && audioRef.current.trackUrl !== payload.trackUrl) {
         loadAndSetTrack(payload.trackUrl, payload.title || getTrackTitle(payload.trackUrl, snapshotRef.current?.queue ?? []));
       }
-      audioRef.current.scheduleStart(payload, clockOffsetRef.current);
+      // Fire a fresh NTP burst concurrently with scheduling — ensures the clock offset
+      // used for fromPosition calculation is < 100ms old, not potentially 4–12s stale.
+      runNtpBurst().catch(() => {}).finally(() => {
+        audioRef.current.scheduleStart(payload, clockOffsetRef.current);
+      });
     };
     socket.on('playback:schedule', handleSchedule);
 
@@ -732,6 +761,12 @@ export function useRoom({ roomId, displayName, userId }: UseRoomOptions): UseRoo
       socket.off('device:ping', handleDevicePing);
       socket.off('room:eqUpdate', handleEqUpdate);
       socket.off('error', handleError);
+      socket.off('room:queueChanged', handleQueueChangedNew);
+      // Clear mediaSession action handlers to avoid stale callbacks after room unmount
+      if (typeof window !== 'undefined' && 'mediaSession' in navigator) {
+        try { navigator.mediaSession.setActionHandler('previoustrack', null); } catch (_) {}
+        try { navigator.mediaSession.setActionHandler('nexttrack', null); } catch (_) {}
+      }
     };
   }, [applyRoomDetails, roomId, displayName, socket, runNtpBurst]);
 

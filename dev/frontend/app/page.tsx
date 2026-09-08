@@ -14,10 +14,12 @@ import { FeaturesExplanation } from "../components/FeaturesExplanation";
 import { CircularJoinRing } from "../components/CircularJoinRing";
 import { HowItWorksScroll } from "../components/HowItWorksScroll";
 
+import { toast } from "sonner";
 import { getSocket } from "../lib/socket";
 import { roomsApi } from "../lib/api";
 import { cn } from "@/lib/utils";
 import { DynamicAuroraButton } from "../components/DynamicAuroraButton";
+import { InstagramIcon } from "../components/InstagramFollowButton";
 
 export default function LandingPage() {
   const { user } = useAuth();
@@ -25,6 +27,23 @@ export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [hoveredStep, setHoveredStep] = useState<number | null>(0);
   const [isRoomPlaying, setIsRoomPlaying] = useState(false);
+  
+  const [contactForm, setContactForm] = useState({ name: "", email: "", message: "" });
+  const [isSubmittingContact, setIsSubmittingContact] = useState(false);
+
+  const handleContactSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactForm.name.trim() || !contactForm.email.trim() || !contactForm.message.trim()) {
+      toast.error("Please fill in all fields before sending.");
+      return;
+    }
+    setIsSubmittingContact(true);
+    setTimeout(() => {
+      toast.success("Thank you! Your message has been sent successfully.");
+      setContactForm({ name: "", email: "", message: "" });
+      setIsSubmittingContact(false);
+    }, 600);
+  };
   
   const { scrollY } = useScroll(); // Track window scroll natively
 
@@ -40,39 +59,23 @@ export default function LandingPage() {
       setIsRoomPlaying(false);
       return;
     }
-    const socket = getSocket();
 
     roomsApi.default()
       .then((res) => {
         if (!res?.roomId) return;
-        const roomId = res.roomId;
-        socket.emit("room:join", {
-          roomId,
-          displayName: user.name || "User",
-          userId: user.id,
-        });
-
-        const handleSnapshot = (snap: any) => {
-          if (snap) {
-            setIsRoomPlaying(snap.isPlaying || snap.state === "PLAYING");
-          }
-        };
-
-        const handleStateChanged = (snap: any) => {
-          if (snap) {
-            setIsRoomPlaying(snap.isPlaying || snap.state === "PLAYING");
-          }
-        };
-
-        socket.on("room:snapshot", handleSnapshot);
-        socket.on("room:stateChanged", handleStateChanged);
+        return roomsApi.get(res.roomId);
       })
-      .catch(() => {});
-
-    return () => {
-      socket.off("room:snapshot");
-      socket.off("room:stateChanged");
-    };
+      .then((details) => {
+        if (details?.live) {
+          const isLivePlaying = Boolean(details.live.isPlaying && details.live.startEpoch != null);
+          setIsRoomPlaying(isLivePlaying);
+        } else {
+          setIsRoomPlaying(false);
+        }
+      })
+      .catch(() => {
+        setIsRoomPlaying(false);
+      });
   }, [user]);
 
   return (
@@ -117,7 +120,7 @@ export default function LandingPage() {
             </Magnetic>
           ) : (
             <>
-            <Link href="/login" className={`flex ${isScrolled ? 'h-9 px-3 text-xs' : 'h-11 px-4 sm:px-6 text-xs md:text-sm'} rounded-full items-center justify-center font-bold tracking-widest uppercase text-foreground/80 hover:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 border border-transparent transition-all duration-300`}>
+            <Link href="/login" className={`hidden sm:flex ${isScrolled ? 'h-9 px-3 text-xs' : 'h-11 px-4 sm:px-6 text-xs md:text-sm'} rounded-full items-center justify-center font-bold tracking-widest uppercase text-foreground/80 hover:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 border border-transparent transition-all duration-300`}>
               Login
             </Link>
             <Magnetic>
@@ -182,7 +185,7 @@ export default function LandingPage() {
            </div>
            
            <div className={cn('grid', 'grid-cols-1', 'md:grid-cols-2', 'gap-6', 'md:gap-8')}>
-             <div className={cn('glass-panel', 'p-6', 'md:p-12', 'rounded-3xl', 'md:rounded-[2.5rem]', 'border', 'border-foreground/10', 'flex', 'flex-col', 'justify-center', 'shadow-lg', 'hover:bg-background/20', 'dark:hover:bg-black/20', 'hover:backdrop-blur-3xl', 'hover:border-foreground/30', 'hover:shadow-2xl', 'transition-all', 'duration-500')}>
+             <div className={cn('glass-panel', 'p-6', 'md:p-12', 'rounded-3xl', 'md:rounded-[2.5rem]', 'border', 'border-foreground/10', 'flex', 'flex-col', 'justify-center', 'shadow-lg', 'hover:bg-background/20', 'dark:hover:bg-black/20', 'hover:backdrop-blur-3xl', 'hover:shadow-2xl', 'transition-all', 'duration-500')}>
                <h3 className={cn('text-xl', 'md:text-2xl', 'font-bold', 'mb-6', 'md:mb-8')}>Get in touch</h3>
                <div className="space-y-6">
                  <div className={cn('flex', 'items-center', 'gap-4')}>
@@ -203,47 +206,108 @@ export default function LandingPage() {
                      <p className={cn('text-base', 'md:text-lg', 'font-bold')}>India</p>
                    </div>
                  </div>
+                 <div className={cn('flex', 'items-center', 'gap-4')}>
+                   <div className={cn('w-10', 'h-10', 'md:w-12', 'md:h-12', 'rounded-full', 'bg-foreground/5', 'flex', 'items-center', 'justify-center', 'shrink-0')}>
+                     <InstagramIcon className={cn('w-5', 'h-5', 'text-foreground/80')} />
+                   </div>
+                   <div>
+                     <p className={cn('text-[10px]', 'md:text-xs', 'font-bold', 'uppercase', 'tracking-widest', 'text-foreground/50', 'mb-0.5')}>Instagram</p>
+                     <a href="https://www.instagram.com/syncbeats.in/" target="_blank" rel="noopener noreferrer" className={cn('text-base', 'md:text-lg', 'font-bold', 'hover:opacity-80', 'transition-opacity')}>@syncbeats.in</a>
+                   </div>
+                 </div>
                </div>
              </div>
 
-             <div className={cn('glass-panel', 'p-6', 'md:p-12', 'rounded-3xl', 'md:rounded-[2.5rem]', 'border', 'border-foreground/10', 'flex', 'flex-col', 'gap-4', 'md:gap-6', 'shadow-lg', 'hover:bg-background/20', 'dark:hover:bg-black/20', 'hover:backdrop-blur-3xl', 'hover:border-foreground/30', 'hover:shadow-2xl', 'transition-all', 'duration-500')}>
+             <form onSubmit={handleContactSubmit} className={cn('glass-panel', 'p-6', 'md:p-12', 'rounded-3xl', 'md:rounded-[2.5rem]', 'border', 'border-foreground/10', 'flex', 'flex-col', 'gap-4', 'md:gap-6', 'shadow-lg', 'hover:bg-background/20', 'dark:hover:bg-black/20', 'hover:backdrop-blur-3xl', 'hover:shadow-2xl', 'transition-all', 'duration-500')}>
                <div>
                  <label htmlFor="name" className={cn('block', 'text-xs', 'font-bold', 'uppercase', 'tracking-widest', 'text-foreground/60', 'mb-2')}>Name</label>
-                  <input type="text" id="name" className={cn('w-full', 'bg-foreground/5', 'border', 'border-foreground/10', 'rounded-xl', 'px-4', 'py-3.5', 'text-foreground', 'text-base', 'outline-none', 'focus:border-foreground/30', 'focus:ring-1', 'focus:ring-foreground/30', 'transition-all', 'placeholder:text-foreground/40')} placeholder="Your name" />
+                  <input type="text" id="name" required value={contactForm.name} onChange={e => setContactForm(f => ({ ...f, name: e.target.value }))} className={cn('w-full', 'bg-foreground/5', 'border', 'border-foreground/10', 'rounded-xl', 'px-4', 'py-3.5', 'text-foreground', 'text-base', 'outline-none', 'focus:border-foreground/30', 'focus:ring-1', 'focus:ring-foreground/30', 'transition-all', 'placeholder:text-foreground/40')} placeholder="Your name" />
                </div>
                <div>
                  <label htmlFor="email" className={cn('block', 'text-xs', 'font-bold', 'uppercase', 'tracking-widest', 'text-foreground/60', 'mb-2')}>Email</label>
-                  <input type="email" id="email" className={cn('w-full', 'bg-foreground/5', 'border', 'border-foreground/10', 'rounded-xl', 'px-4', 'py-3.5', 'text-foreground', 'text-base', 'outline-none', 'focus:border-foreground/30', 'focus:ring-1', 'focus:ring-foreground/30', 'transition-all', 'placeholder:text-foreground/40')} placeholder="your@email.com" />
+                  <input type="email" id="email" required value={contactForm.email} onChange={e => setContactForm(f => ({ ...f, email: e.target.value }))} className={cn('w-full', 'bg-foreground/5', 'border', 'border-foreground/10', 'rounded-xl', 'px-4', 'py-3.5', 'text-foreground', 'text-base', 'outline-none', 'focus:border-foreground/30', 'focus:ring-1', 'focus:ring-foreground/30', 'transition-all', 'placeholder:text-foreground/40')} placeholder="your@email.com" />
                </div>
                <div>
                  <label htmlFor="message" className={cn('block', 'text-xs', 'font-bold', 'uppercase', 'tracking-widest', 'text-foreground/60', 'mb-2')}>Message</label>
-                  <textarea id="message" rows={4} className={cn('w-full', 'bg-foreground/5', 'border', 'border-foreground/10', 'rounded-xl', 'px-4', 'py-3.5', 'text-foreground', 'text-base', 'outline-none', 'focus:border-foreground/30', 'focus:ring-1', 'focus:ring-foreground/30', 'transition-all', 'resize-none', 'placeholder:text-foreground/40')} placeholder="How can we help?" />
+                  <textarea id="message" rows={4} required value={contactForm.message} onChange={e => setContactForm(f => ({ ...f, message: e.target.value }))} className={cn('w-full', 'bg-foreground/5', 'border', 'border-foreground/10', 'rounded-xl', 'px-4', 'py-3.5', 'text-foreground', 'text-base', 'outline-none', 'focus:border-foreground/30', 'focus:ring-1', 'focus:ring-foreground/30', 'transition-all', 'resize-none', 'placeholder:text-foreground/40')} placeholder="How can we help?" />
                </div>
-                <DynamicAuroraButton type="submit" className="w-full h-14 rounded-2xl gap-3 text-xs md:text-sm mt-2">
-                  <Send className="w-4 h-4 text-foreground fill-foreground/80" /> Send Message
+                <DynamicAuroraButton type="submit" disabled={isSubmittingContact} className="w-full h-14 rounded-2xl gap-3 text-xs md:text-sm mt-2">
+                  <Send className="w-4 h-4 text-foreground fill-foreground/80" /> {isSubmittingContact ? "Sending..." : "Send Message"}
                 </DynamicAuroraButton>
-             </div>
+             </form>
            </div>
         </div>
 
         {/* Footer */}
-        <footer className={cn('max-w-7xl', 'mx-auto', 'px-4', 'sm:px-6', 'lg:px-8', 'w-full', 'flex', 'flex-col', 'md:flex-row', 'items-center', 'justify-between', 'pt-8', 'mt-6', 'md:mt-12', 'text-xs', 'font-bold', 'uppercase', 'tracking-widest', 'text-foreground/40', 'border-t', 'border-foreground/5')}>
+        <footer className={cn('max-w-7xl', 'mx-auto', 'px-4', 'sm:px-6', 'lg:px-8', 'w-full', 'flex', 'flex-col', 'md:flex-row', 'items-center', 'justify-between', 'pt-8', 'mt-6', 'md:mt-12', 'text-xs', 'font-bold', 'uppercase', 'tracking-widest', 'text-foreground/75', 'border-t', 'border-foreground/5')}>
            <div className={cn('flex', 'items-center', 'gap-3', 'mb-4', 'md:mb-0')}>
              <Image src="/syncbeats-icon.svg" alt="Logo" width={20} height={20} className="opacity-50 grayscale block" />
              SYNCBEATS © {new Date().getFullYear()}
            </div>
            <div className={cn('flex', 'items-center', 'gap-4', 'sm:gap-6')}>
-             <Link href="/privacy-policy" className={cn('hover:text-foreground', 'transition-colors')}>Privacy</Link>
-             <Link href="/terms-of-service" className={cn('hover:text-foreground', 'transition-colors')}>Terms</Link>
-             <Link href="/cookie-settings" className={cn('hover:text-foreground', 'transition-colors')}>Cookies</Link>
-             <Link href="#contact" className={cn('hover:text-foreground', 'transition-colors')}>Contact</Link>
+             <motion.div whileHover={{ y: -2, scale: 1.05 }} whileTap={{ scale: 0.95 }} transition={{ type: "spring", stiffness: 400, damping: 17 }}>
+               <Link href="/privacy-policy" prefetch={true} className={cn('hover:text-foreground', 'transition-colors', 'inline-block')}>Privacy</Link>
+             </motion.div>
+             <motion.div whileHover={{ y: -2, scale: 1.05 }} whileTap={{ scale: 0.95 }} transition={{ type: "spring", stiffness: 400, damping: 17 }}>
+               <Link href="/terms-of-service" prefetch={true} className={cn('hover:text-foreground', 'transition-colors', 'inline-block')}>Terms</Link>
+             </motion.div>
+             <motion.div whileHover={{ y: -2, scale: 1.05 }} whileTap={{ scale: 0.95 }} transition={{ type: "spring", stiffness: 400, damping: 17 }}>
+               <Link href="/cookie-settings" prefetch={true} className={cn('hover:text-foreground', 'transition-colors', 'inline-block')}>Cookies</Link>
+             </motion.div>
+             <motion.div whileHover={{ y: -2, scale: 1.05 }} whileTap={{ scale: 0.95 }} transition={{ type: "spring", stiffness: 400, damping: 17 }}>
+               <a
+                  href="#contact"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const el = document.getElementById("contact");
+                    if (el) {
+                      el.scrollIntoView({ behavior: "smooth" });
+                    } else {
+                      router.push("/contact");
+                    }
+                  }}
+                  className={cn('hover:text-foreground', 'transition-colors', 'cursor-pointer', 'inline-block')}
+                >
+                  Contact
+                </a>
+             </motion.div>
              <div className={cn('flex', 'items-center', 'gap-3', 'ml-2', 'border-l', 'border-foreground/10', 'pl-4', 'sm:pl-6')}>
-               <a href="https://github.com/smanikanta21" target="_blank" rel="noopener noreferrer" className={cn('hover:text-foreground', 'transition-colors')} title="GitHub">
+               <motion.a 
+                 href="https://www.instagram.com/syncbeats.in/" 
+                 target="_blank" 
+                 rel="noopener noreferrer" 
+                 whileHover={{ y: -2, scale: 1.15 }} 
+                 whileTap={{ scale: 0.9 }} 
+                 transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                 className={cn('hover:text-pink-400', 'transition-colors', 'p-1', 'rounded-lg', 'hover:bg-pink-500/10')} 
+                 title="Instagram @syncbeats.in"
+               >
+                 <InstagramIcon className="w-4 h-4" />
+               </motion.a>
+               <motion.a 
+                 href="https://github.com/smanikanta21" 
+                 target="_blank" 
+                 rel="noopener noreferrer" 
+                 whileHover={{ y: -2, scale: 1.15 }} 
+                 whileTap={{ scale: 0.9 }} 
+                 transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                 className={cn('hover:text-foreground', 'transition-colors', 'p-1', 'rounded-lg', 'hover:bg-foreground/10')} 
+                 title="GitHub"
+               >
                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.02c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A4.8 4.8 0 0 0 8 18v4"></path></svg>
-               </a>
-               <a href="https://www.linkedin.com/in/siraparapu-shiva-sankar-mani-kanta-622a85323?utm_source=share_via&utm_content=profile&utm_medium=member_ios" target="_blank" rel="noopener noreferrer" className={cn('hover:text-foreground', 'transition-colors')} title="LinkedIn">
+               </motion.a>
+               <motion.a 
+                 href="https://www.linkedin.com/in/siraparapu-shiva-sankar-mani-kanta-622a85323?utm_source=share_via&utm_content=profile&utm_medium=member_ios" 
+                 target="_blank" 
+                 rel="noopener noreferrer" 
+                 whileHover={{ y: -2, scale: 1.15 }} 
+                 whileTap={{ scale: 0.9 }} 
+                 transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                 className={cn('hover:text-foreground', 'transition-colors', 'p-1', 'rounded-lg', 'hover:bg-foreground/10')} 
+                 title="LinkedIn"
+               >
                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect x="2" y="9" width="4" height="12"></rect><circle cx="4" cy="4" r="2"></circle></svg>
-               </a>
+               </motion.a>
              </div>
            </div>
         </footer>

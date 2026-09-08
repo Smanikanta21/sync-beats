@@ -419,8 +419,8 @@ const PlayerTab = ({
           thumbnailUrl ? "border-white/20" : isYt ? "bg-[#FF0000]/10 border-[#FF0000]/20" : "bg-linear-to-br from-white/10 to-white/5 border-white/10"
         }`}>
           {thumbnailUrl
-            ? <img src={thumbnailUrl} className={cn('w-full', 'h-full', 'object-cover')} />
-            : <span className={cn('text-xl', 'font-black', 'text-white/80')}>{trackInitials}</span>}
+            ? <img src={thumbnailUrl} draggable={false} onContextMenu={e => e.preventDefault()} className={cn('w-full', 'h-full', 'object-cover', 'select-none', 'pointer-events-none', 'no-touch-select')} />
+            : <span className={cn('text-xl', 'font-black', 'text-white/80', 'select-none')}>{trackInitials}</span>}
         </div>
 
         <div className={cn('flex', 'flex-col', 'justify-center', 'flex-1', 'min-w-0', 'pt-1')}>
@@ -637,7 +637,9 @@ const InviteTab = ({ onBack, roomId, onStateChange }: { onBack: () => void; room
         <div className={cn('relative', 'mb-3', 'shrink-0')}>
           <Search className={cn('absolute', 'left-3', 'top-1/2', '-translate-y-1/2', 'w-3.5', 'h-3.5', 'text-white/40')} />
           <input
-            type="text"
+            name="syncbeats-island-search-input"
+            type="search"
+            inputMode="search"
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => {
@@ -649,6 +651,14 @@ const InviteTab = ({ onBack, roomId, onStateChange }: { onBack: () => void; room
               }
             }}
             placeholder="Search name or email..."
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck="false"
+            data-1p-ignore="true"
+            data-lpignore="true"
+            data-form-type="other"
+            aria-autocomplete="none"
             className={cn('w-full', 'bg-white/5', 'border', 'border-white/10', 'rounded-full', 'py-1.5', 'pl-9', 'pr-4', 'text-xs', 'text-white', 'placeholder-white/40', 'focus:outline-none', 'focus:border-white/30')}
           />
         </div>
@@ -773,7 +783,7 @@ const RoomPill = ({
       {/* Tiny thumbnail or disc */}
       <div className={cn('w-7', 'h-7', 'rounded-lg', 'shrink-0', 'overflow-hidden', 'flex', 'items-center', 'justify-center', 'bg-white/10')}>
         {showAlbumArt && thumbUrl
-          ? <img src={thumbUrl} className={cn('w-full', 'h-full', 'object-cover')} />
+          ? <img src={thumbUrl} draggable={false} onContextMenu={e => e.preventDefault()} className={cn('w-full', 'h-full', 'object-cover', 'select-none', 'pointer-events-none', 'no-touch-select')} />
           : <Disc className={`w-4 h-4 text-white/60 ${effectivePlaying ? "animate-[spin_4s_linear_infinite]" : ""}`} />}
       </div>
       {/* Dynamic Right Side: Seek | EQ | Pause */}
@@ -941,7 +951,7 @@ const RoomExtendedPill = ({
         {/* Thumbnail */}
         <div className={cn('w-7', 'h-7', 'rounded-lg', 'shrink-0', 'overflow-hidden', 'bg-white/10', 'flex', 'items-center', 'justify-center')}>
           {thumbUrl
-            ? <img src={thumbUrl} className={cn('w-full', 'h-full', 'object-cover')} />
+            ? <img src={thumbUrl} draggable={false} onContextMenu={e => e.preventDefault()} className={cn('w-full', 'h-full', 'object-cover', 'select-none', 'pointer-events-none', 'no-touch-select')} />
             : <Disc className={`w-3.5 h-3.5 text-white/60 ${effectivePlaying ? "animate-[spin_4s_linear_infinite]" : ""}`} />}
         </div>
 
@@ -1190,11 +1200,12 @@ export function DynamicIsland() {
   }, [isRoom, hasTrack, islandState, activeTab]);
 
   // ── Collapse island to pill if current track is cleared (e.g. queue cleared)
+  // Only collapse if the user is not actively viewing an expanded modal tab (like invite or search)
   useEffect(() => {
-    if (isRoom && !hasTrack) {
+    if (isRoom && !hasTrack && islandState !== "expanded") {
       setIslandState("pill");
     }
-  }, [hasTrack, isRoom]);
+  }, [hasTrack, isRoom, islandState]);
 
   // ── Auto-trigger extended for join requests
   useEffect(() => {
@@ -1290,16 +1301,23 @@ export function DynamicIsland() {
         else setIsExpanded(false);
       }
     };
-    const id = requestAnimationFrame(() => document.addEventListener("mousedown", handleClickOutside));
-    return () => { cancelAnimationFrame(id); document.removeEventListener("mousedown", handleClickOutside); };
+    let active = true;
+    const id = requestAnimationFrame(() => {
+      if (active) document.addEventListener("mousedown", handleClickOutside);
+    });
+    return () => {
+      active = false;
+      cancelAnimationFrame(id);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, [islandState, isExpanded, isRoom, hasTrack]);
 
   // ── Inactivity timer (mobile)
   const resetInactivityTimer = useCallback(() => {
     if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
     const expanded = isRoom ? islandState === "expanded" : isExpanded;
-    // Check for height changes
-    if (expanded && windowWidth < 768 && activeTab !== "deviceInfo" && activeTab !== "invite" && activeTab !== "search") {
+    // Do not auto-close expanded interactive tabs (invite, search, deviceInfo, requests, settings)
+    if (expanded && windowWidth < 768 && activeTab !== "deviceInfo" && activeTab !== "invite" && activeTab !== "search" && activeTab !== "requests") {
       inactivityTimerRef.current = setTimeout(() => {
         if (isRoom) setIslandState("pill");
         else setIsExpanded(false);
@@ -1661,6 +1679,7 @@ export function DynamicIsland() {
       >
         <motion.div
           ref={islandRef}
+          onContextMenu={e => e.preventDefault()}
           onPointerDown={e => { handlePointerDown_room(); resetInactivityTimer(); }}
           onPointerUp={e => { handlePointerUp_room(); resetInactivityTimer(); }}
           onMouseEnter={() => {
@@ -1676,12 +1695,13 @@ export function DynamicIsland() {
             if (windowWidth >= 768) {
               isHoveringRef.current = false;
               if (shrinkTimerRef.current) clearTimeout(shrinkTimerRef.current);
-              shrinkTimerRef.current = setTimeout(() => {
-                if (activeTab === "search") return; // stay open for search
-                if (islandState === "expanded" || islandState === "extended") {
+              // Do NOT auto-shrink when the island is expanded into a modal tab (invite, search, deviceInfo, etc.)
+              // Only auto-shrink hover-preview "extended" pills.
+              if (islandState === "extended") {
+                shrinkTimerRef.current = setTimeout(() => {
                   setIslandState((effectivePlaying && hasTrack) ? "extended" : "pill");
-                }
-              }, 1200);
+                }, 1200);
+              }
             }
             handlePointerUp_room();
           }}
@@ -1738,8 +1758,11 @@ export function DynamicIsland() {
             willChange: "width, height, border-radius",
             transform: "translateZ(0)",
             maxHeight: isExpanded_room && windowWidth > 0 && windowWidth < 768 ? windowHeight - 32 : undefined,
+            WebkitUserSelect: "none",
+            WebkitTouchCallout: "none",
+            userSelect: "none",
           }}
-          className={cn("pointer-events-auto select-none", currentGlowClass)}
+          className={cn("pointer-events-auto select-none no-touch-select", currentGlowClass)}
         >
           {/* Rotating Border Light Beam with Trailing Glow */}
           <AnimatePresence>

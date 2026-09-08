@@ -119,6 +119,38 @@
     opacity: 0; /* Keep hidden until animation starts */
   }
 
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .animate-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .animate-shimmer::after {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.06) 20%,
+      rgba(255, 255, 255, 0.14) 60%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    animation: shimmer 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    content: '';
+  }
+
   input[type="range"].volume-slider {
     height: 40px;
     -webkit-appearance: none;
@@ -142,6 +174,14 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+  .no-touch-select {
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
+    -webkit-user-drag: none !important;
   }
 }
 

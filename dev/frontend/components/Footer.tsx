@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { Heart } from "lucide-react";
+import { InstagramFollowButton, InstagramIcon } from "./InstagramFollowButton";
 
 export function Footer() {
   return (
@@ -9,14 +11,28 @@ export function Footer() {
           <p className="text-foreground/50 text-sm max-w-xs leading-relaxed">
             The collaborative workspace built specifically for music creators. Ship music faster.
           </p>
-          <p className="text-foreground/40 text-sm mt-4">© {new Date().getFullYear()} SyncBeats Inc. All rights reserved.</p>
+          <InstagramFollowButton variant="pill" showHandle={true} className="mt-2" />
+          <p className="text-foreground/40 text-sm mt-2">© {new Date().getFullYear()} SyncBeats Inc. All rights reserved.</p>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-12 md:gap-24">
           <div className="flex flex-col gap-4">
             <h4 className="text-foreground font-bold mb-2">Support</h4>
-            <a href="/contact" className="text-foreground/50 hover:text-foreground transition-colors text-sm">Contact Us</a>
-            <a href="https://github.com/Smanikanta21/syncbeats/issues" target="_blank" rel="noreferrer" className="text-foreground/50 hover:text-foreground transition-colors text-sm">Report an Issue</a>
+            <Link
+              href="/contact"
+              prefetch={true}
+              onClick={(e) => {
+                const el = document.getElementById("contact");
+                if (el) {
+                  e.preventDefault();
+                  el.scrollIntoView({ behavior: "smooth" });
+                }
+              }}
+              className="text-foreground/75 hover:text-foreground transition-colors text-sm cursor-pointer"
+            >
+              Contact Us
+            </Link>
+            <a href="https://github.com/Smanikanta21/syncbeats/issues" target="_blank" rel="noreferrer" className="text-foreground/75 hover:text-foreground transition-colors text-sm">Report an Issue</a>
             <a href="/sponsor" target="_blank" rel="noreferrer" className="text-pink-400 hover:text-pink-300 transition-colors text-sm font-semibold flex items-center gap-1.5">
               <Heart className="w-3.5 h-3.5 fill-pink-500/30 text-pink-400" />
               Sponsor on GitHub
@@ -24,14 +40,18 @@ export function Footer() {
           </div>
           <div className="flex flex-col gap-4">
             <h4 className="text-foreground font-bold mb-2">Social</h4>
-            <a href="https://github.com/Smanikanta21" target="_blank" rel="noreferrer" className="text-foreground/50 hover:text-foreground transition-colors text-sm">GitHub</a>
-            <a href="https://linkedin.com/in/abhinay-siraparapu" target="_blank" rel="noreferrer" className="text-foreground/50 hover:text-foreground transition-colors text-sm">LinkedIn</a>
+            <a href="https://www.instagram.com/syncbeats.in/" target="_blank" rel="noreferrer" className="text-foreground/75 hover:text-foreground transition-colors text-sm flex items-center gap-1.5">
+              <InstagramIcon className="w-3.5 h-3.5" />
+              Instagram (@syncbeats.in)
+            </a>
+            <a href="https://github.com/Smanikanta21" target="_blank" rel="noreferrer" className="text-foreground/75 hover:text-foreground transition-colors text-sm">GitHub</a>
+            <a href="https://linkedin.com/in/abhinay-siraparapu" target="_blank" rel="noreferrer" className="text-foreground/75 hover:text-foreground transition-colors text-sm">LinkedIn</a>
           </div>
           <div className="flex flex-col gap-4">
             <h4 className="text-foreground font-bold mb-2">Legal</h4>
-            <a href="/privacy-policy" className="text-foreground/50 hover:text-foreground transition-colors text-sm">Privacy Policy</a>
-            <a href="/terms-of-service" className="text-foreground/50 hover:text-foreground transition-colors text-sm">Terms of Service</a>
-            <a href="/cookie-settings" className="text-foreground/50 hover:text-foreground transition-colors text-sm">Cookie Settings</a>
+            <Link href="/privacy-policy" prefetch={true} className="text-foreground/75 hover:text-foreground transition-colors text-sm">Privacy Policy</Link>
+            <Link href="/terms-of-service" prefetch={true} className="text-foreground/75 hover:text-foreground transition-colors text-sm">Terms of Service</Link>
+            <Link href="/cookie-settings" prefetch={true} className="text-foreground/75 hover:text-foreground transition-colors text-sm">Cookie Settings</Link>
           </div>
         </div>
       </div>

@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 
-// Time-driven spatial ambient color stages (independent of scroll!)
+// Time-driven spatial ambient color stages
 const COLOR_PALETTE = [
   { 
     main: "rgba(16, 185, 129, 0.45)", 
@@ -50,59 +50,71 @@ const COLOR_PALETTE = [
 export function MouseGradient() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isMounted, setIsMounted] = useState(false);
-  const [colorIndex, setColorIndex] = useState(0);
 
-  // Time-driven ambient color shifting loop (independent of scroll!)
   useEffect(() => {
     setIsMounted(true);
-
-    const interval = setInterval(() => {
-      setColorIndex((prev) => (prev + 1) % COLOR_PALETTE.length);
-    }, 4500); // Transitions palette stage every 4.5s continuously over time
-
-    return () => clearInterval(interval);
   }, []);
-
-  // Synchronize CSS custom properties on document root in real-time
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const current = COLOR_PALETTE[colorIndex];
-    const root = document.documentElement;
-    root.style.setProperty("--accent-color", current.solid);
-    root.style.setProperty("--accent-glow", current.glow);
-    root.style.setProperty("--accent-border", `rgba(${current.rgb}, 0.4)`);
-    root.style.setProperty("--accent-rgb", current.rgb);
-    root.style.setProperty("--accent-gradient", current.gradient);
-  }, [colorIndex]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && (window.innerWidth < 768 || window.matchMedia("(pointer: coarse)").matches)) return;
 
+    let rafId: number | null = null;
+    let latestX = 0;
+    let latestY = 0;
+
     const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
+      latestX = e.clientX;
+      latestY = e.clientY;
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          setMousePos({ x: latestX, y: latestY });
+          rafId = null;
+        });
+      }
     };
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
-    return () => window.removeEventListener("mousemove", handleMouseMove);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   const winWidth = isMounted && typeof window !== "undefined" ? window.innerWidth : 1000;
   const winHeight = isMounted && typeof window !== "undefined" ? window.innerHeight : 800;
 
-  const current = COLOR_PALETTE[colorIndex];
+  const mainColors = COLOR_PALETTE.map(c => c.main);
+  const secondaryColors = COLOR_PALETTE.map(c => c.secondary);
+  const glowColors = COLOR_PALETTE.map(c => c.glow);
 
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden gpu-accelerated">
-      {/* Top-Center Main Glow */}
+      {/* Top-Center Main Glow - Continuous Infinite Loop */}
       <motion.div
-        animate={{ background: current.main }}
-        transition={{ duration: 2.5, ease: "easeInOut" }}
+        animate={{ 
+          background: mainColors,
+          scale: [1, 1.12, 1.05, 1],
+        }}
+        transition={{ 
+          duration: 22,
+          repeat: Infinity,
+          repeatType: "mirror",
+          ease: "easeInOut" 
+        }}
         className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85vw] h-[85vw] max-w-[950px] max-h-[950px] rounded-full blur-[120px] gpu-accelerated"
       />
 
-      {/* Bottom-Right Secondary Glow */}
+      {/* Bottom-Right Secondary Glow - Continuous Infinite Loop */}
       <motion.div
-        animate={{ background: current.secondary }}
-        transition={{ duration: 2.5, ease: "easeInOut" }}
+        animate={{ 
+          background: secondaryColors,
+          scale: [1, 1.18, 1],
+        }}
+        transition={{ 
+          duration: 26,
+          repeat: Infinity,
+          repeatType: "mirror",
+          ease: "easeInOut" 
+        }}
         className="absolute bottom-10 right-10 w-[65vw] h-[65vw] max-w-[750px] max-h-[750px] rounded-full blur-[130px] gpu-accelerated"
       />
 
@@ -110,12 +122,12 @@ export function MouseGradient() {
       {isMounted && (
         <motion.div 
           animate={{
-            background: current.glow,
+            background: glowColors,
             x: mousePos.x - winWidth / 2,
             y: mousePos.y - winHeight / 2,
           }}
           transition={{
-            background: { duration: 2.5, ease: "easeInOut" },
+            background: { duration: 22, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" },
             x: { type: "tween", ease: "easeOut", duration: 0.35 },
             y: { type: "tween", ease: "easeOut", duration: 0.35 }
           }}

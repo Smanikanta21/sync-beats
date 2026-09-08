@@ -118,6 +118,39 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
   const scheduleIdRef = useRef<number>(0);
   const activeFetchAbortRef = useRef<AbortController | null>(null);
   const pendingArrayBufferRef = useRef<ArrayBuffer | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
+
+  const SILENT_MP3_URI = "data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//OEAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAEAAABIADAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMD////////////////////////////////////////////////////////////////";
+
+  // Anchor iOS AVAudioSessionCategoryPlayback during WebAudio buffer playback
+  // so iOS Safari/PWA does not suspend AudioContext when screen turns off or app is backgrounded.
+  const ensureBackgroundAudioSession = useCallback(() => {
+    if (streamingAudioElRef.current) {
+      if (!streamingAudioElRef.current.src || streamingAudioElRef.current.src === "") {
+        streamingAudioElRef.current.src = SILENT_MP3_URI;
+        streamingAudioElRef.current.loop = true;
+      }
+      streamingAudioElRef.current.play().catch(() => {});
+    }
+  }, []);
+
+  const setStreamingAudioSrc = useCallback((src: string | null) => {
+    if (objectUrlRef.current) {
+      try { URL.revokeObjectURL(objectUrlRef.current); } catch (e) {}
+      objectUrlRef.current = null;
+    }
+    if (streamingAudioElRef.current) {
+      if (src) {
+        if (src.startsWith('blob:')) {
+          objectUrlRef.current = src;
+        }
+        streamingAudioElRef.current.src = src;
+      } else {
+        streamingAudioElRef.current.removeAttribute('src');
+        streamingAudioElRef.current.load();
+      }
+    }
+  }, []);
 
   // ── Audio Graph Setup ─────────────────────────────────────────────────────
   // setupAudioGraph creates the FULL chain: Gain → EQ[5] → Analyser → Destination.
@@ -184,6 +217,12 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
         setAudioUnlocked(true);
       }
     }
+    return () => {
+      if (objectUrlRef.current) {
+        try { URL.revokeObjectURL(objectUrlRef.current); } catch (e) {}
+        objectUrlRef.current = null;
+      }
+    };
   }, [setupAudioGraph]);
 
   const stopCurrentSource = useCallback(() => {
@@ -204,7 +243,11 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
     }
     if (streamingAudioElRef.current) {
       try {
-        streamingAudioElRef.current.pause();
+        if (streamingAudioElRef.current.src === SILENT_MP3_URI) {
+          streamingAudioElRef.current.pause();
+        } else if (!streamingAudioElRef.current.src.startsWith('data:audio/')) {
+          streamingAudioElRef.current.pause();
+        }
       } catch (e) {}
     }
   }, []);
@@ -273,6 +316,7 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
   const unlockAudio = useCallback(() => {
     // setupAudioGraph is a no-op if already set up
     setupAudioGraph();
+    ensureBackgroundAudioSession();
 
     // Always optimistically unlock in the UI so the user isn't stuck forever.
     setAudioUnlocked(true);
@@ -310,6 +354,43 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
       navigator.mediaSession.playbackState = "paused";
     }
   }, [isPlaying]);
+
+  // Re-assert lock screen playback state and background audio session when tab visibility changes or page shows
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const resumeIfNeeded = () => {
+      if (!isPlayingRef.current) return;
+      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume().catch(() => {});
+      }
+      if (streamingAudioElRef.current && streamingAudioElRef.current.paused) {
+        ensureBackgroundAudioSession();
+      }
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.playbackState = "playing";
+      }
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        resumeIfNeeded();
+      }
+    };
+
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted || isPlayingRef.current) {
+        resumeIfNeeded();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("pageshow", handlePageShow);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, [ensureBackgroundAudioSession]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !("mediaSession" in navigator)) return;
@@ -689,9 +770,8 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
           if (cachedBlob) {
             console.log(`[AudioPlayer] 🚀 IDB HIT for videoId '${videoId}'! 0ms latency load...`);
             setDownloadProgress(100);
-            if (streamingAudioElRef.current) {
-              streamingAudioElRef.current.src = URL.createObjectURL(cachedBlob);
-            }
+            const blobUrl = URL.createObjectURL(cachedBlob);
+            setStreamingAudioSrc(blobUrl);
             arrayBuffer = await cachedBlob.arrayBuffer();
           } else {
             console.log(`[AudioPlayer] ⚡ IDB MISS for videoId '${videoId}'. Stream-and-Stash starting...`);
@@ -699,9 +779,7 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
             const fetchUrl = `${getServerUrl()}/rooms/${roomId}/yt-proxy?videoId=${videoId}${authToken ? `&token=${encodeURIComponent(authToken)}` : ''}`;
             
             // Assign src immediately for Instant Playback!
-            if (streamingAudioElRef.current) {
-              streamingAudioElRef.current.src = fetchUrl;
-            }
+            setStreamingAudioSrc(fetchUrl);
 
             // Concurrently fetch stream bytes in background to stash to IDB
             try {
@@ -1000,6 +1078,8 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
     source.connect(gainNodeRef.current!);
     
     source.onended = () => {
+      try { source.disconnect(); } catch (e) {}
+      source.onended = null;
       setIsPlaying(false);
       setCurrentTime(0);
       document.dispatchEvent(new CustomEvent('audioEnded'));
@@ -1029,7 +1109,8 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
     isPlayingRef.current = true;
     setIsPlaying(true);
     setCurrentTime(pauseOffsetRef.current);
-  }, [audioUnlocked, stopCurrentSource]);
+    ensureBackgroundAudioSession();
+  }, [audioUnlocked, stopCurrentSource, ensureBackgroundAudioSession]);
 
   scheduleStartRef.current = scheduleStart;
 
@@ -1046,6 +1127,8 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
     source.connect(gainNodeRef.current!);
     
     source.onended = () => {
+      try { source.disconnect(); } catch (e) {}
+      source.onended = null;
       setIsPlaying(false);
       setCurrentTime(0);
       document.dispatchEvent(new CustomEvent('audioEnded'));
@@ -1061,7 +1144,8 @@ export function useAudioPlayer(): UseAudioPlayerReturn {
     isPlayingRef.current = true;
     setIsPlaying(true);
     setCurrentTime(clampedPosition);
-  }, [audioUnlocked, stopCurrentSource]);
+    ensureBackgroundAudioSession();
+  }, [audioUnlocked, stopCurrentSource, ensureBackgroundAudioSession]);
 
   const pauseAt = useCallback((position: number) => {
     scheduleIdRef.current += 1;
