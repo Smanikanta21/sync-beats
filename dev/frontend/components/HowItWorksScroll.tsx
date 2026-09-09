@@ -4,7 +4,9 @@ import { useRef, useState, useEffect } from "react";
 import { motion, useScroll, useTransform, AnimatePresence, Variants } from "framer-motion";
 import { Play, Users, Zap, QrCode, Smartphone, Laptop, Speaker, CheckCircle2, Music, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { JoinRoomModal } from "./JoinRoomModal";
+import dynamic from "next/dynamic";
+
+const JoinRoomModal = dynamic(() => import("./JoinRoomModal").then(mod => mod.JoinRoomModal), { ssr: false });
 
 export function HowItWorksScroll() {
   const containerRef = useRef<HTMLDivElement>(null);

@@ -1,17 +1,21 @@
 // lib/api.ts — Typed fetch wrapper for all SyncBeats API calls
 import type { RoomSnapshot } from './types';
 
-export function getServerUrl(){
-  if (process.env.NEXT_PUBLIC_SERVER_URL !== undefined) {
-    return process.env.NEXT_PUBLIC_SERVER_URL;
+export function getServerUrl(): string {
+  if (process.env.NEXT_PUBLIC_SERVER_URL && process.env.NEXT_PUBLIC_SERVER_URL.trim() !== '') {
+    return process.env.NEXT_PUBLIC_SERVER_URL.trim().replace(/\/+$/, '');
   }
   if (typeof window !== 'undefined' && window.location.hostname) {
+    if (window.location.hostname.includes('dev.syncbeats.in')) {
+      return 'https://dev-api.syncbeats.in';
+    }
+    if (window.location.hostname.includes('syncbeats.in')) {
+      return 'https://api.syncbeats.in';
+    }
     return `${window.location.protocol}//${window.location.hostname}:4000`;
   }
-  return '';
+  return 'https://api.syncbeats.in';
 }
-
-const BASE = getServerUrl();
 
 const DEVICE_STORAGE_KEY = 'sb_device_id';
 const AUTH_COOKIE_KEY = 'sb_token';
@@ -94,9 +98,10 @@ async function request<T>(
     const token = getToken();
     if (token) headers['Authorization'] = `Bearer ${token}`;
   }
+  const base = getServerUrl();
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}`, {
+    res = await fetch(`${base}${path}`, {
       ...options,
       headers,
       signal: AbortSignal.timeout(8000), // 8s timeout — prevents requests from hanging indefinitely
@@ -402,7 +407,7 @@ export const roomsApi = {
 
 export const spotifyApi = {
   getStatus: () => request<{ connected: boolean }>('/spotify/status', {}, true),
-  getConnectUrl: () => `${BASE}/spotify/auth?token=${getAuthToken()}`,
+  getConnectUrl: () => `${getServerUrl()}/spotify/auth?token=${getAuthToken()}`,
   disconnect: () => request<{ ok: boolean }>('/spotify/disconnect', { method: 'DELETE' }, true),
   getUserSpotifyPlaylists: async (): Promise<any[]> => {
     try {

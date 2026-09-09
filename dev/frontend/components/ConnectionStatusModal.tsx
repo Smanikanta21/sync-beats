@@ -8,9 +8,9 @@ import { useConnection } from "../context/ConnectionContext";
 export function ConnectionStatusModal() {
   const { isOnline, isServerReachable, serverError, retryNow } = useConnection();
 
-  // Show modal if user is offline OR server is unreachable
+  // Show modal ONLY if user is offline OR server is genuinely unreachable
   const isOffline = !isOnline;
-  const isServerDown = isOnline && (!isServerReachable || !!serverError);
+  const isServerDown = isOnline && !isServerReachable;
   const shouldShowModal = isOffline || isServerDown;
 
   return (

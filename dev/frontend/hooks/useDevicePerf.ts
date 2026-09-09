@@ -56,13 +56,13 @@ export function useDevicePerf(): {
   const frameTimesRef = useRef<number[]>([]);
   const lastTimeRef = useRef<number>(typeof performance !== 'undefined' ? performance.now() : Date.now());
 
-  // Real-time FPS monitoring to auto-throttle on CPU slowdown / low-end devices
+  // Calibrate performance tier on mount over a short 1.5-second window, then stop rAF loop to save CPU/battery
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     let animId: number;
-    let lowFpsCount = 0;
-    let highFpsCount = 0;
+    let framesCount = 0;
+    const maxCalibrationFrames = 90; // ~1.5s at 60fps
 
     const measureFps = (now: number) => {
       const delta = now - lastTimeRef.current;
@@ -70,39 +70,26 @@ export function useDevicePerf(): {
 
       if (delta > 0 && delta < 200) {
         frameTimesRef.current.push(1000 / delta);
-        if (frameTimesRef.current.length > 60) {
-          frameTimesRef.current.shift();
-        }
+        framesCount++;
       }
 
-      // Check average FPS every 60 frames (~1 sec)
-      if (frameTimesRef.current.length >= 30) {
-        const avgFps = Math.round(
-          frameTimesRef.current.reduce((a, b) => a + b, 0) / frameTimesRef.current.length
-        );
-        setFps(avgFps);
+      // Complete calibration once enough frames are sampled
+      if (framesCount >= maxCalibrationFrames) {
+        if (frameTimesRef.current.length > 0) {
+          const avgFps = Math.round(
+            frameTimesRef.current.reduce((a, b) => a + b, 0) / frameTimesRef.current.length
+          );
+          setFps(avgFps);
 
-        // Auto-throttle downgrade if FPS drops below 35 FPS consistently
-        if (avgFps < 35) {
-          lowFpsCount++;
-          highFpsCount = 0;
-          if (lowFpsCount >= 3) { // 3 consecutive low readings
+          // Auto-throttle downgrade if FPS drops below 35 FPS consistently during calibration
+          if (avgFps < 35) {
             setTier((prev) => (prev === "high" ? "mid" : "low"));
-            lowFpsCount = 0;
-          }
-        } else if (avgFps > 55) {
-          highFpsCount++;
-          lowFpsCount = 0;
-          if (highFpsCount >= 8) { // 8 consecutive high readings
-            setTier((prev) => {
-              const initial = detectInitialTier();
-              if (prev === "low" && initial !== "low") return "mid";
-              if (prev === "mid" && initial === "high") return "high";
-              return prev;
-            });
-            highFpsCount = 0;
+          } else if (avgFps < 48) {
+            setTier((prev) => (prev === "high" ? "mid" : prev));
           }
         }
+        // Calibration finished: stop animation frame loop to avoid CPU & battery drain
+        return;
       }
 
       animId = requestAnimationFrame(measureFps);

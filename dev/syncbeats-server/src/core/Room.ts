@@ -130,14 +130,29 @@ export class Room extends EventEmitter {
     
     if (!this.allReady()) {
       this.pendingPlay = true;
+      if (this.readyTimeout) clearTimeout(this.readyTimeout);
+      this.readyTimeout = setTimeout(() => {
+        if (this.pendingPlay && !this.timeline.isPlaying) {
+          console.log(`[Room ${this.roomId}] Play readiness timeout expired (10s) — forcing playback for ready participants`);
+          this._startPlayback();
+        }
+      }, 10_000);
       return;
     }
 
+    if (this.readyTimeout) {
+      clearTimeout(this.readyTimeout);
+      this.readyTimeout = null;
+    }
     this._startPlayback();
   }
 
   private _startPlayback(): void {
     this.pendingPlay = false;
+    if (this.readyTimeout) {
+      clearTimeout(this.readyTimeout);
+      this.readyTimeout = null;
+    }
     const scheduleDelay = 800;
     const atEpoch = Date.now() + scheduleDelay;
     
@@ -627,6 +642,16 @@ export class Room extends EventEmitter {
         this.sessionActiveStartEpoch = null;
       }
       this.lastParticipantLeftEpoch = now;
+      this.pendingPlay = false;
+      if (this.readyTimeout) {
+        clearTimeout(this.readyTimeout);
+        this.readyTimeout = null;
+      }
+      if (this.timeline.isPlaying) {
+        this.pause(socketId);
+      } else {
+        this.state = PlaybackState.PAUSED;
+      }
 
       // Schedule 1-hour idle timer to clear session time if no one rejoins within 60 minutes
       if (this.sessionExpiryTimer) {
@@ -640,6 +665,15 @@ export class Room extends EventEmitter {
         this.sessionExpiryTimer = null;
         this.emit('stateChanged', this.snapshot());
       }, Room.SESSION_EXPIRY_MS);
+    } else {
+      // Participants still remain — check if remaining participants are now all ready
+      if (this.pendingPlay && this.allReady()) {
+        if (this.readyTimeout) {
+          clearTimeout(this.readyTimeout);
+          this.readyTimeout = null;
+        }
+        this._startPlayback();
+      }
     }
 
     this.emit('participantLeft', socketId);

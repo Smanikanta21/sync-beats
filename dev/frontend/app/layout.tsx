@@ -37,7 +37,7 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["400", "600", "700"],
 });
 
-const BASE_URL = "https://syncbeats.in";
+const BASE_URL = "https://www.syncbeats.in";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -249,9 +249,9 @@ export default function RootLayout({
 
           {/* MOBILE LAYER (Optimized, lightweight) */}
           <div className={cn('block', 'md:hidden', 'absolute', 'inset-0')}>
-            <div className={cn('absolute', 'top-[0%]', 'left-[0%]', 'w-[70vw]', 'h-[70vw]', 'bg-[radial-gradient(circle,var(--tw-gradient-stops))]', 'from-violet-600/15', 'dark:from-violet-900/25', 'to-transparent', 'mix-blend-screen', 'animate-pulse', 'duration-[16000ms]', 'will-change-transform')} style={{ transform: 'translate(-15%, -15%)' }} />
-            <div className={cn('absolute', 'top-[20%]', 'right-[0%]', 'w-[80vw]', 'h-[80vw]', 'bg-[radial-gradient(circle,var(--tw-gradient-stops))]', 'from-emerald-500/15', 'dark:from-emerald-900/25', 'to-transparent', 'mix-blend-screen', 'animate-pulse', 'duration-[24000ms]', 'delay-1000', 'will-change-transform')} style={{ transform: 'translateX(15%)' }} />
-            <div className={cn('absolute', 'bottom-[0%]', 'left-[20%]', 'w-[90vw]', 'h-[90vw]', 'bg-[radial-gradient(circle,var(--tw-gradient-stops))]', 'from-blue-500/15', 'dark:from-blue-900/25', 'to-transparent', 'mix-blend-screen', 'animate-pulse', 'duration-[20000ms]', 'delay-500', 'will-change-transform')} style={{ transform: 'translateY(15%)' }} />
+            <div className={cn('absolute', 'top-[0%]', 'left-[0%]', 'w-[70vw]', 'h-[70vw]', 'bg-[radial-gradient(circle,var(--tw-gradient-stops))]', 'from-violet-600/15', 'dark:from-violet-900/25', 'to-transparent', 'animate-pulse', 'duration-[16000ms]', 'will-change-transform')} style={{ transform: 'translate(-15%, -15%)' }} />
+            <div className={cn('absolute', 'top-[20%]', 'right-[0%]', 'w-[80vw]', 'h-[80vw]', 'bg-[radial-gradient(circle,var(--tw-gradient-stops))]', 'from-emerald-500/15', 'dark:from-emerald-900/25', 'to-transparent', 'animate-pulse', 'duration-[24000ms]', 'delay-1000', 'will-change-transform')} style={{ transform: 'translateX(15%)' }} />
+            <div className={cn('absolute', 'bottom-[0%]', 'left-[20%]', 'w-[90vw]', 'h-[90vw]', 'bg-[radial-gradient(circle,var(--tw-gradient-stops))]', 'from-blue-500/15', 'dark:from-blue-900/25', 'to-transparent', 'animate-pulse', 'duration-[20000ms]', 'delay-500', 'will-change-transform')} style={{ transform: 'translateY(15%)' }} />
             <div className={cn('absolute', 'inset-0', 'opacity-[0.05]', 'dark:opacity-[0.08]')} style={{ backgroundImage: 'url("/noise.png")', backgroundRepeat: 'repeat', backgroundSize: '150px' }} />
           </div>
 

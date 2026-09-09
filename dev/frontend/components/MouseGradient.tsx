@@ -50,9 +50,16 @@ const COLOR_PALETTE = [
 export function MouseGradient() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isMounted, setIsMounted] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
+  // Two-phase mount: isMounted for hydration, isReady deferred for Safari first-paint
   useEffect(() => {
     setIsMounted(true);
+    // Defer heavy GPU work until after first paint settles
+    const id = requestAnimationFrame(() => {
+      setIsReady(true);
+    });
+    return () => cancelAnimationFrame(id);
   }, []);
 
   useEffect(() => {
@@ -87,53 +94,61 @@ export function MouseGradient() {
   const glowColors = COLOR_PALETTE.map(c => c.glow);
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden gpu-accelerated">
-      {/* Top-Center Main Glow - Continuous Infinite Loop */}
-      <motion.div
-        animate={{ 
-          background: mainColors,
-          scale: [1, 1.12, 1.05, 1],
-        }}
-        transition={{ 
-          duration: 22,
-          repeat: Infinity,
-          repeatType: "mirror",
-          ease: "easeInOut" 
-        }}
-        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85vw] h-[85vw] max-w-[950px] max-h-[950px] rounded-full blur-[120px] gpu-accelerated"
-      />
+    <div 
+      className="fixed inset-0 pointer-events-none z-0 overflow-hidden gpu-accelerated"
+      style={{ opacity: isReady ? 1 : 0, transition: "opacity 0.4s ease-out" }}
+    >
+      {/* Top-Center Main Glow - use smaller blur on mobile for Safari perf */}
+      {isReady && (
+        <>
+          <motion.div
+            animate={{ 
+              background: mainColors,
+              scale: [1, 1.12, 1.05, 1],
+            }}
+            transition={{ 
+              duration: 22,
+              repeat: Infinity,
+              repeatType: "mirror",
+              ease: "easeInOut" 
+            }}
+            className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85vw] h-[85vw] max-w-[900px] max-h-[900px] rounded-full blur-[24px] md:blur-[48px] [mask-image:radial-gradient(circle,black_35%,transparent_72%)] [-webkit-mask-image:radial-gradient(circle,black_35%,transparent_72%)] will-change-transform gpu-accelerated"
+          />
 
-      {/* Bottom-Right Secondary Glow - Continuous Infinite Loop */}
-      <motion.div
-        animate={{ 
-          background: secondaryColors,
-          scale: [1, 1.18, 1],
-        }}
-        transition={{ 
-          duration: 26,
-          repeat: Infinity,
-          repeatType: "mirror",
-          ease: "easeInOut" 
-        }}
-        className="absolute bottom-10 right-10 w-[65vw] h-[65vw] max-w-[750px] max-h-[750px] rounded-full blur-[130px] gpu-accelerated"
-      />
+          {/* Bottom-Right Secondary Glow */}
+          <motion.div
+            animate={{ 
+              background: secondaryColors,
+              scale: [1, 1.18, 1],
+            }}
+            transition={{ 
+              duration: 26,
+              repeat: Infinity,
+              repeatType: "mirror",
+              ease: "easeInOut" 
+            }}
+            className="absolute bottom-10 right-10 w-[65vw] h-[65vw] max-w-[700px] max-h-[700px] rounded-full blur-[24px] md:blur-[48px] [mask-image:radial-gradient(circle,black_35%,transparent_72%)] [-webkit-mask-image:radial-gradient(circle,black_35%,transparent_72%)] will-change-transform gpu-accelerated"
+          />
 
-      {/* Dynamic Interactive Mouse Following Glow (Desktop Only) */}
-      {isMounted && (
-        <motion.div 
-          animate={{
-            background: glowColors,
-            x: mousePos.x - winWidth / 2,
-            y: mousePos.y - winHeight / 2,
-          }}
-          transition={{
-            background: { duration: 22, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" },
-            x: { type: "tween", ease: "easeOut", duration: 0.35 },
-            y: { type: "tween", ease: "easeOut", duration: 0.35 }
-          }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[45vw] h-[45vw] max-w-[600px] max-h-[600px] rounded-full blur-[90px] pointer-events-none hidden md:block gpu-accelerated"
-        />
+          {/* Dynamic Interactive Mouse Following Glow (Desktop Only) */}
+          {isMounted && (
+            <motion.div 
+              animate={{
+                background: glowColors,
+                x: mousePos.x - winWidth / 2,
+                y: mousePos.y - winHeight / 2,
+              }}
+              transition={{
+                background: { duration: 22, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" },
+                x: { type: "tween", ease: "easeOut", duration: 0.35 },
+                y: { type: "tween", ease: "easeOut", duration: 0.35 }
+              }}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[45vw] h-[45vw] max-w-[550px] max-h-[550px] rounded-full blur-[40px] [mask-image:radial-gradient(circle,black_35%,transparent_72%)] [-webkit-mask-image:radial-gradient(circle,black_35%,transparent_72%)] will-change-transform pointer-events-none hidden md:block gpu-accelerated"
+            />
+          )}
+        </>
       )}
     </div>
   );
 }
+

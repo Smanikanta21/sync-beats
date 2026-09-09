@@ -64,10 +64,13 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const checkServerHealth = useCallback(async (): Promise<boolean> => {
+  const consecutiveFailuresRef = useRef<number>(0);
+  const disconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const checkServerHealth = useCallback(async (force = false): Promise<boolean> => {
     const now = Date.now();
-    // Throttle health check to at most once per 8 seconds
-    if (now - lastHealthCheckTimeRef.current < 8000) {
+    // Throttle health check to at most once per 3 seconds unless forced
+    if (!force && now - lastHealthCheckTimeRef.current < 3000) {
       return isServerReachableRef.current;
     }
     lastHealthCheckTimeRef.current = now;
@@ -78,8 +81,10 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
     }
     try {
       const serverUrl = getServerUrl();
+      if (!serverUrl) return true; // Relative or unconfigured in SSR
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
 
       const res = await fetch(`${serverUrl}/health`, {
         method: "GET",
@@ -90,6 +95,7 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
       clearTimeout(timeoutId);
 
       if (res && (res.ok || res.status < 500)) {
+        consecutiveFailuresRef.current = 0;
         setIsServerReachable(true);
         setServerError(null);
         return true;
@@ -98,16 +104,22 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
       // ignore fetch failures
     }
 
-    setIsServerReachable(false);
-    setServerError("Cannot reach SyncBeats Server");
-    return false;
+    consecutiveFailuresRef.current += 1;
+    // Require at least 2 consecutive failed health checks before showing unreachable UI
+    if (consecutiveFailuresRef.current >= 2) {
+      setIsServerReachable(false);
+      setServerError("Cannot reach SyncBeats Server");
+      return false;
+    }
+
+    return isServerReachableRef.current;
   }, [setIsServerReachable, setServerError]);
 
   const retryNow = useCallback(() => {
     if (typeof window !== "undefined" && navigator.onLine) {
       setIsOnline(true);
       lastHealthCheckTimeRef.current = 0; // Force immediate check
-      checkServerHealth();
+      checkServerHealth(true);
       const socket = getSocket();
       if (!socket.connected) {
         socket.connect();
@@ -140,6 +152,11 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
     const socket = getSocket();
 
     const handleSocketConnect = () => {
+      if (disconnectTimerRef.current) {
+        clearTimeout(disconnectTimerRef.current);
+        disconnectTimerRef.current = null;
+      }
+      consecutiveFailuresRef.current = 0;
       setIsSocketConnected(true);
       setIsServerReachable(true);
       setServerError(null);
@@ -147,15 +164,23 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
 
     const handleSocketDisconnect = (reason: string) => {
       setIsSocketConnected(false);
-      if (reason === "io server disconnect" || reason === "transport close" || reason === "transport error") {
-        setServerError("Connection to SyncBeats server dropped");
-      }
+      if (disconnectTimerRef.current) clearTimeout(disconnectTimerRef.current);
+      // Give socket 5 seconds to reconnect before alarming user with a server down message
+      disconnectTimerRef.current = setTimeout(() => {
+        if (!isSocketConnectedRef.current && navigator.onLine) {
+          checkServerHealth(true).then((reachable) => {
+            if (!reachable) {
+              setServerError("Connection to SyncBeats server dropped");
+            }
+          });
+        }
+      }, 5000);
     };
 
     const handleSocketConnectError = (err: Error) => {
       setIsSocketConnected(false);
-      // Verify HTTP health before declaring server unreachable to prevent false positives on initial mount
-      checkServerHealth().then((reachable) => {
+      // Verify HTTP health before declaring server unreachable to prevent false positives
+      checkServerHealth(true).then((reachable) => {
         if (!reachable) {
           setIsServerReachable(false);
           if (!serverErrorRef.current) {
@@ -172,8 +197,13 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
     // Custom API server error event from fetch wrapper
     const handleApiServerError = (e: Event) => {
       const detail = (e as CustomEvent)?.detail;
-      setIsServerReachable(false);
-      setServerError(detail?.message || "Cannot reach SyncBeats server");
+      // Probe health first before jumping to unreachable state
+      checkServerHealth().then((reachable) => {
+        if (!reachable) {
+          setIsServerReachable(false);
+          setServerError(detail?.message || "Cannot reach SyncBeats server");
+        }
+      });
     };
 
     window.addEventListener("syncbeats-server-error", handleApiServerError);

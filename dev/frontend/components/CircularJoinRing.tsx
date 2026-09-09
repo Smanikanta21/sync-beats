@@ -143,7 +143,7 @@ function OrbitingNode({ Icon, initialAngle = 0, radius, duration, reverse = fals
       transition={{ duration, repeat: Infinity, ease: "linear" }}
     >
       <motion.div 
-        className="w-10 h-10 md:w-12 md:h-12 rounded-full glass-panel flex items-center justify-center border border-foreground/20 shadow-lg relative z-30 shrink-0 bg-background/80 dark:bg-black/80 backdrop-blur-md"
+        className="w-10 h-10 md:w-12 md:h-12 rounded-full glass-panel flex items-center justify-center border border-foreground/20 shadow-lg relative z-30 shrink-0 bg-background dark:bg-zinc-900"
         style={{ y: -radius }}
         initial={{ rotate: -initialAngle }}
         animate={{ rotate: -targetAngle }}
