@@ -88,23 +88,23 @@ jobs:
           docker push "$IMAGE"
 
       - name: Create Env JSON for Cloud Run
+        env:
+          NODE_ENV: ${{ vars.NODE_ENV || 'production' }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL || 'https://syncbeats.in' }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RAPID_API_KEY: ${{ secrets.RAPID_API_KEY }}
+          RAPID_API_KEYS: ${{ secrets.RAPID_API_KEYS }}
+          AUTH_FROM_EMAIL: ${{ vars.AUTH_FROM_EMAIL || 'auth@syncbeats.in' }}
+          UPDATES_FROM_EMAIL: ${{ vars.UPDATES_FROM_EMAIL || 'updates@syncbeats.in' }}
+          ADMIN_PASSWORD: ${{ vars.ADMIN_PASSWORD || 'syncbeatsadmin' }}
         run: |
-          jq -n \
-            --arg NODE_ENV "${{ vars.NODE_ENV || 'production' }}" \
-            --arg FRONTEND_URL "${{ vars.FRONTEND_URL || 'https://syncbeats.in' }}" \
-            --arg DATABASE_URL "${{ secrets.DATABASE_URL }}" \
-            --arg JWT_SECRET "${{ secrets.JWT_SECRET }}" \
-            --arg GOOGLE_CLIENT_ID "${{ secrets.GOOGLE_CLIENT_ID }}" \
-            --arg GOOGLE_CLIENT_SECRET "${{ secrets.GOOGLE_CLIENT_SECRET }}" \
-            --arg SPOTIFY_CLIENT_ID "${{ secrets.SPOTIFY_CLIENT_ID }}" \
-            --arg SPOTIFY_CLIENT_SECRET "${{ secrets.SPOTIFY_CLIENT_SECRET }}" \
-            --arg RESEND_API_KEY "${{ secrets.RESEND_API_KEY }}" \
-            --arg RAPID_API_KEY "${{ secrets.RAPID_API_KEY }}" \
-            --arg RAPID_API_KEYS "${{ secrets.RAPID_API_KEYS }}" \
-            --arg AUTH_FROM_EMAIL "${{ vars.AUTH_FROM_EMAIL || 'auth@syncbeats.in' }}" \
-            --arg UPDATES_FROM_EMAIL "${{ vars.UPDATES_FROM_EMAIL || 'updates@syncbeats.in' }}" \
-            --arg ADMIN_PASSWORD "${{ vars.ADMIN_PASSWORD || 'syncbeatsadmin' }}" \
-            '{NODE_ENV: $NODE_ENV, FRONTEND_URL: $FRONTEND_URL, DATABASE_URL: $DATABASE_URL, JWT_SECRET: $JWT_SECRET, GOOGLE_CLIENT_ID: $GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET: $GOOGLE_CLIENT_SECRET, SPOTIFY_CLIENT_ID: $SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET: $SPOTIFY_CLIENT_SECRET, RESEND_API_KEY: $RESEND_API_KEY, RAPID_API_KEY: $RAPID_API_KEY, RAPID_API_KEYS: $RAPID_API_KEYS, AUTH_FROM_EMAIL: $AUTH_FROM_EMAIL, UPDATES_FROM_EMAIL: $UPDATES_FROM_EMAIL, ADMIN_PASSWORD: $ADMIN_PASSWORD}' > env.json
+          jq -n '{NODE_ENV: env.NODE_ENV, FRONTEND_URL: env.FRONTEND_URL, DATABASE_URL: env.DATABASE_URL, JWT_SECRET: env.JWT_SECRET, GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET, SPOTIFY_CLIENT_ID: env.SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET: env.SPOTIFY_CLIENT_SECRET, RESEND_API_KEY: env.RESEND_API_KEY, RAPID_API_KEY: env.RAPID_API_KEY, RAPID_API_KEYS: env.RAPID_API_KEYS, AUTH_FROM_EMAIL: env.AUTH_FROM_EMAIL, UPDATES_FROM_EMAIL: env.UPDATES_FROM_EMAIL, ADMIN_PASSWORD: env.ADMIN_PASSWORD}' > env.json
 
       - name: Deploy to Cloud Run
         run: |
