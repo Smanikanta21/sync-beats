@@ -1,12 +1,10 @@
-name: Syncbeats CD
+name: Syncbeats CD (Cloud Run)
 
 on:
   push:
     branches: [main, nodejs-dev]
     paths:
       - 'dev/syncbeats-server/**'
-      - 'dev/db-visualizer/**'
-      - 'docker-compose.yml'
       - '.github/workflows/syncbeats-CD.yml'
   workflow_dispatch:
 
@@ -15,13 +13,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  REGISTRY: ghcr.io
-  BACKEND_IMAGE: smanikanta21/syncbeats-server
-  FRONTEND_IMAGE: smanikanta21/syncbeats-frontend
-  VISUALIZER_IMAGE: smanikanta21/syncbeats-db-visualizer
+  PROJECT_ID: sync-beats-472708
+  REGION: asia-south1
+  GAR_REPO: asia-south1-docker.pkg.dev/sync-beats-472708/syncbeats-repo
 
 jobs:
-
   test-backend:
     name: Run Backend Test Suite
     runs-on: ubuntu-latest
@@ -48,461 +44,75 @@ jobs:
         working-directory: ./dev/syncbeats-server
         run: npm test
 
-  build-backend:
-    name: Build Backend Image
+  deploy:
+    name: Build & Deploy to Cloud Run
     runs-on: ubuntu-latest
     needs: test-backend
-    timeout-minutes: 25
+    timeout-minutes: 15
     environment: ${{ github.ref_name }}
 
     permissions:
       contents: read
-      packages: write
+      id-token: write   # Required for Workload Identity Federation
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: docker/setup-qemu-action@v3
-
-      - uses: docker/setup-buildx-action@v3
-
-      - id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE }}
-          tags: |
-            type=sha,format=short
-            type=raw,value=${{ github.ref_name }}
-
-      - uses: docker/build-push-action@v5
-        with:
-          context: ./dev/syncbeats-server
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-
-
-  build-visualizer:
-    name: Build DB Visualizer Image
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    environment: ${{ github.ref_name }}
-
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: docker/setup-qemu-action@v3
-
-      - uses: docker/setup-buildx-action@v3
-
-      - id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.VISUALIZER_IMAGE }}
-          tags: |
-            type=sha,format=short
-            type=raw,value=${{ github.ref_name }}
-
-      - uses: docker/build-push-action@v5
-        with:
-          context: ./dev/db-visualizer
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  provision-env:
-    name: Provision .env on VM
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    environment: ${{ github.ref_name }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup SSH
+      - name: Set Service Name
         run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -T 10 -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
-
-      - name: Write .env and SCP to VM
-        env:
-          V_NODE_ENV:              ${{ vars.NODE_ENV }}
-          V_PORT:                  ${{ vars.PORT }}
-          V_STUDIO_PORT:           ${{ vars.STUDIO_PORT }}
-          V_FRONTEND_PORT:         ${{ vars.FRONTEND_PORT }}
-          V_POSTGRES_USER:         ${{ vars.POSTGRES_USER }}
-          V_POSTGRES_PASSWORD:     ${{ secrets.POSTGRES_PASSWORD }}
-          V_POSTGRES_DB:           ${{ vars.POSTGRES_DB }}
-          V_JWT_SECRET:            ${{ secrets.JWT_SECRET }}
-          V_GOOGLE_CLIENT_ID:      ${{ secrets.GOOGLE_CLIENT_ID }}
-          V_GOOGLE_CLIENT_SECRET:  ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          V_FRONTEND_URL:          ${{ vars.FRONTEND_URL }}
-          V_BACKEND_URL:           ${{ vars.BACKEND_URL }}
-          V_SPOTIFY_CLIENT_ID:     ${{ secrets.SPOTIFY_CLIENT_ID || vars.SPOTIFY_CLIENT_ID }}
-          V_SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET || vars.SPOTIFY_CLIENT_SECRET }}
-          V_AUTH_FROM_EMAIL:       ${{ vars.AUTH_FROM_EMAIL }}
-          V_UPDATES_FROM_EMAIL:    ${{ vars.UPDATES_FROM_EMAIL }}
-          V_RESEND_API_KEY:        ${{ secrets.RESEND_API_KEY }}
-          V_NEXT_PUBLIC_SERVER_URL: ${{ vars.NEXT_PUBLIC_SERVER_URL }}
-          V_RAPID_API_KEY:         ${{ secrets.RAPID_API_KEY }}
-          V_RAPID_API_KEYS:        ${{ secrets.RAPID_API_KEYS }}
-          V_ADMIN_PASSWORD:        ${{ secrets.ADMIN_PASSWORD || vars.ADMIN_PASSWORD }}
-        run: |
-          APP_DIR="sync-beats"
-          DB_HOST="postgres"
-          if [ "${{ github.ref_name }}" != "main" ]; then
-            APP_DIR="sync-beats-dev"
-            DB_HOST="sync-beats-postgres-1"
-          fi
-
-          {
-            echo "NODE_ENV=${V_NODE_ENV:-production}"
-            echo "PORT=${V_PORT:-4000}"
-            echo "STUDIO_PORT=${V_STUDIO_PORT:-5555}"
-            echo "FRONTEND_PORT=${V_FRONTEND_PORT:-3000}"
-            echo "POSTGRES_USER=${V_POSTGRES_USER:-syncbeats}"
-            echo "POSTGRES_PASSWORD=${V_POSTGRES_PASSWORD}"
-            echo "POSTGRES_DB=${V_POSTGRES_DB:-syncbeats}"
-            echo "DATABASE_URL=postgresql://${V_POSTGRES_USER:-syncbeats}:${V_POSTGRES_PASSWORD}@${DB_HOST}:5432/${V_POSTGRES_DB:-syncbeats}"
-            echo "JWT_SECRET=${V_JWT_SECRET}"
-            echo "GOOGLE_CLIENT_ID=${V_GOOGLE_CLIENT_ID}"
-            echo "GOOGLE_CLIENT_SECRET=${V_GOOGLE_CLIENT_SECRET}"
-            echo "FRONTEND_URL=${V_FRONTEND_URL:-https://www.syncbeats.in}"
-            echo "BACKEND_URL=${V_BACKEND_URL:-https://api.syncbeats.in}"
-            echo "SPOTIFY_CLIENT_ID=${V_SPOTIFY_CLIENT_ID}"
-            echo "SPOTIFY_CLIENT_SECRET=${V_SPOTIFY_CLIENT_SECRET}"
-            echo "AUTH_FROM_EMAIL=${V_AUTH_FROM_EMAIL:-auth@syncbeats.in}"
-            echo "UPDATES_FROM_EMAIL=${V_UPDATES_FROM_EMAIL:-updates@syncbeats.in}"
-            echo "RESEND_API_KEY=${V_RESEND_API_KEY}"
-            echo "NEXT_PUBLIC_SERVER_URL=${V_NEXT_PUBLIC_SERVER_URL:-https://api.syncbeats.in}"
-            echo "RAPID_API_KEY=${V_RAPID_API_KEY}"
-            echo "RAPID_API_KEYS=${V_RAPID_API_KEYS}"
-            echo "ADMIN_PASSWORD=${V_ADMIN_PASSWORD:-syncbeatsadmin}"
-            echo "IMAGE_TAG=${{ github.ref_name }}"
-            echo "COMPOSE_PROJECT_NAME=${APP_DIR}"
-          } > /tmp/syncbeats.env
-
-          if [ "${{ github.ref_name }}" != "main" ]; then
-            # Strip postgres service and depends_on blocks from docker-compose for staging
-            # Attach server/studio to the shared prod network so they can reach the postgres container by name
-            yq -i '
-              del(.services.postgres) |
-              del(.services.server.depends_on) |
-              del(.services.visualizer.depends_on) |
-              .services.server.networks = ["default", "prod_network"] |
-              .services.visualizer.networks = ["default", "prod_network"] |
-              .networks.prod_network.external = true |
-              .networks.prod_network.name = "sync-beats_default"
-            ' docker-compose.yml
-          fi
-
-          # Ensure target dir exists
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
-            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-            "mkdir -p ~/$APP_DIR"
-
-          # Ensure a swapfile exists to prevent OOM crashes on micro instances
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
-            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
-          if [ $(free | awk '/^Swap:/ {print $2}') -eq 0 ]; then
-            echo "No swap found. Creating a 2GB swapfile to prevent crashes..."
-            sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
-            sudo chmod 600 /swapfile
-            sudo mkswap /swapfile
-            sudo swapon /swapfile
-            echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-            echo "Swap created successfully!"
+          if [ "${{ github.ref_name }}" == "main" ]; then
+            echo "SERVICE_NAME=syncbeats-server" >> $GITHUB_ENV
           else
-            echo "Swap already exists."
-          fi
-          ENDSSH
-
-          # Upload .env
-          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
-            /tmp/syncbeats.env \
-            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:~/$APP_DIR/.env
-
-          # Upload docker-compose.yml
-          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
-            docker-compose.yml \
-            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:~/$APP_DIR/docker-compose.yml
-
-          # Lock down .env
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
-            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} \
-            "chmod 600 ~/$APP_DIR/.env"
-
-          rm -f /tmp/syncbeats.env
-
-  deploy-backend:
-    name: Deploy Backend
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: [build-backend, build-visualizer, provision-env]
-    environment: ${{ github.ref_name }}
-
-    permissions:
-      contents: read
-      packages: read
-
-    steps:
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -T 10 -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
-
-      - name: Pull latest image
-        run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
-          set -euo pipefail
-          APP="$HOME/sync-beats"
-          if [ "${{ github.ref_name }}" != "main" ]; then
-            APP="$HOME/sync-beats-dev"
-          fi
-          cd "$APP"
-
-          echo "${{ secrets.GITHUB_TOKEN }}" | \
-            docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-          IMAGE="ghcr.io/${{ env.BACKEND_IMAGE }}:${{ github.ref_name }}"
-
-          # Save the current image digest BEFORE doing anything — needed for rollback
-          PREV=$(docker inspect --format='{{.Id}}' "$IMAGE" 2>/dev/null || echo "none")
-          echo "$PREV" > /tmp/syncbeats-prev-image.txt
-          echo "Previous image saved: $PREV"
-
-          # Pull the new images FIRST — if this fails, the old image is still intact
-          docker pull "$IMAGE" || docker pull --platform linux/amd64 "$IMAGE"
-          docker pull "ghcr.io/${{ env.VISUALIZER_IMAGE }}:${{ github.ref_name }}" || docker pull --platform linux/amd64 "ghcr.io/${{ env.VISUALIZER_IMAGE }}:${{ github.ref_name }}"
-
-          # Only prune dangling images (not all images, never volumes — that would wipe the DB!)
-          docker image prune -f || true
-          ENDSSH
-
-
-      - name: Start Postgres and wait until ready
-        run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
-          set -euo pipefail
-          APP="$HOME/sync-beats"
-          if [ "${{ github.ref_name }}" != "main" ]; then
-            APP="$HOME/sync-beats-dev"
-          fi
-          cd "$APP"
-
-          # Source .env for POSTGRES_USER
-          set -a; source .env; set +a
-
-          # Ensure the shared Docker network exists.
-          # The staging compose file references sync-beats_default as external.
-          # If it was deleted by a previous prune, all docker compose commands fail.
-          docker network inspect sync-beats_default > /dev/null 2>&1 || \
-            docker network create sync-beats_default || true
-
-          # Bring down any running containers (ignore errors from stale/missing networks)
-          docker compose --project-directory "$APP" stop 2>/dev/null || true
-          docker compose --project-directory "$APP" down --remove-orphans 2>/dev/null || true
-
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            docker compose --project-directory "$APP" up -d postgres
-
-            echo "Waiting for Postgres..."
-            for i in $(seq 1 60); do
-              if docker compose --project-directory "$APP" exec -T postgres pg_isready -U "$POSTGRES_USER" > /dev/null 2>&1; then
-                echo "Postgres ready"
-                break
-              fi
-              sleep 2
-            done
-
-            # Final check — fail hard if still not ready
-            docker compose --project-directory "$APP" exec -T postgres pg_isready -U "$POSTGRES_USER" || {
-              echo "Postgres failed to start"
-              docker compose --project-directory "$APP" logs postgres
-              exit 1
-            }
-          else
-            echo "Staging deployment: skipping local postgres container startup and health checks."
-          fi
-          ENDSSH
-
-
-      - name: Run database migrations and schema sync
-        run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
-          set -euo pipefail
-          APP="$HOME/sync-beats"
-          if [ "${{ github.ref_name }}" != "main" ]; then
-            APP="$HOME/sync-beats-dev"
+            echo "SERVICE_NAME=syncbeats-server-staging" >> $GITHUB_ENV
           fi
 
-          docker compose --project-directory "$APP" run --rm server sh -c "npx prisma migrate deploy || true; npx prisma db push --skip-generate"
-          ENDSSH
+      - name: Google Auth
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
 
-      - name: Start server & studio and verify
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker asia-south1-docker.pkg.dev
+
+      - name: Build and Push Docker Image
+        working-directory: ./dev/syncbeats-server
         run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
-          set -euo pipefail
-          APP="$HOME/sync-beats"
-          if [ "${{ github.ref_name }}" != "main" ]; then
-            APP="$HOME/sync-beats-dev"
-          fi
-          cd "$APP"
+          IMAGE="${{ env.GAR_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
 
-          # Source .env for PORT
-          set -a; source .env; set +a
-
-          docker compose --project-directory "$APP" up -d --force-recreate --remove-orphans server visualizer
-
-          echo "Waiting for backend on port $PORT..."
-          BACKEND_OK=false
-          for i in $(seq 1 10); do
-            if curl -fsS "http://localhost:${PORT}/health" >/dev/null 2>&1; then
-              BACKEND_OK=true
-              break
-            fi
-            sleep 3
-          done
-
-          if [ "$BACKEND_OK" = "false" ]; then
-            echo "Backend health check failed"
-            docker compose --project-directory "$APP" logs server
-            exit 1
-          fi
-
-          echo "Backend healthy!"
-          ENDSSH
-
-
-
-  finalize:
-    name: Finalize
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [deploy-backend]
-    environment: ${{ github.ref_name }}
-
-    steps:
-      - name: Setup SSH
+      - name: Create Env JSON for Cloud Run
         run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -T 10 -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+          jq -n \
+            --arg NODE_ENV "${{ vars.NODE_ENV || 'production' }}" \
+            --arg FRONTEND_URL "${{ vars.FRONTEND_URL || 'https://syncbeats.in' }}" \
+            --arg DATABASE_URL "${{ secrets.DATABASE_URL }}" \
+            --arg JWT_SECRET "${{ secrets.JWT_SECRET }}" \
+            --arg GOOGLE_CLIENT_ID "${{ secrets.GOOGLE_CLIENT_ID }}" \
+            --arg GOOGLE_CLIENT_SECRET "${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+            --arg SPOTIFY_CLIENT_ID "${{ secrets.SPOTIFY_CLIENT_ID }}" \
+            --arg SPOTIFY_CLIENT_SECRET "${{ secrets.SPOTIFY_CLIENT_SECRET }}" \
+            --arg RESEND_API_KEY "${{ secrets.RESEND_API_KEY }}" \
+            --arg RAPID_API_KEY "${{ secrets.RAPID_API_KEY }}" \
+            --arg RAPID_API_KEYS "${{ secrets.RAPID_API_KEYS }}" \
+            --arg AUTH_FROM_EMAIL "${{ vars.AUTH_FROM_EMAIL || 'auth@syncbeats.in' }}" \
+            --arg UPDATES_FROM_EMAIL "${{ vars.UPDATES_FROM_EMAIL || 'updates@syncbeats.in' }}" \
+            --arg ADMIN_PASSWORD "${{ vars.ADMIN_PASSWORD || 'syncbeatsadmin' }}" \
+            '{NODE_ENV: $NODE_ENV, FRONTEND_URL: $FRONTEND_URL, DATABASE_URL: $DATABASE_URL, JWT_SECRET: $JWT_SECRET, GOOGLE_CLIENT_ID: $GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET: $GOOGLE_CLIENT_SECRET, SPOTIFY_CLIENT_ID: $SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET: $SPOTIFY_CLIENT_SECRET, RESEND_API_KEY: $RESEND_API_KEY, RAPID_API_KEY: $RAPID_API_KEY, RAPID_API_KEYS: $RAPID_API_KEYS, AUTH_FROM_EMAIL: $AUTH_FROM_EMAIL, UPDATES_FROM_EMAIL: $UPDATES_FROM_EMAIL, ADMIN_PASSWORD: $ADMIN_PASSWORD}' > env.json
 
-      - name: Reload nginx and cleanup
+      - name: Deploy to Cloud Run
         run: |
-          SSH_TARGET="${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}"
-          SSH_OPTS="-i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ConnectionAttempts=1 -o ServerAliveInterval=15 -o ServerAliveCountMax=3"
-          REMOTE_CMD='sudo nginx -t && sudo systemctl reload nginx && docker image prune -f'
-
-          for attempt in 1 2 3; do
-            if ssh $SSH_OPTS "$SSH_TARGET" "$REMOTE_CMD"; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              echo "SSH attempt $attempt failed, retrying in 10 seconds..."
-              sleep 10
-            fi
-          done
-
-          echo "Failed to connect to deployment VM after 3 attempts."
-          exit 1
-
-      - name: Stop dev containers if deploying main
-        if: github.ref_name == 'main'
-        run: |
-          SSH_TARGET="${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}"
-          SSH_OPTS="-i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ConnectionAttempts=1 -o ServerAliveInterval=15 -o ServerAliveCountMax=3"
-          REMOTE_CMD='if [ -d "$HOME/sync-beats-dev" ]; then echo "Tearing down dev environment..."; docker compose --project-directory "$HOME/sync-beats-dev" stop 2>/dev/null || true; docker compose --project-directory "$HOME/sync-beats-dev" down --remove-orphans 2>/dev/null || true; rm -rf "$HOME/sync-beats-dev"; fi'
-
-          for attempt in 1 2 3; do
-            if ssh $SSH_OPTS "$SSH_TARGET" "$REMOTE_CMD"; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              echo "SSH attempt $attempt failed, retrying in 10 seconds..."
-              sleep 10
-            fi
-          done
-
-          echo "Failed to connect to deployment VM after 3 attempts."
-          exit 1
-
-  rollback:
-    name: Rollback on Failure
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [deploy-backend]
-    if: failure() && github.ref_name == 'main'
-    environment: ${{ github.ref_name }}
-
-    steps:
-      - name: Setup SSH
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -T 10 -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
-
-      - name: Rollback backend
-        run: |
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }} <<'ENDSSH'
-          set -euo pipefail
-          APP="$HOME/sync-beats"
-          if [ "${{ github.ref_name }}" != "main" ]; then
-            APP="$HOME/sync-beats-dev"
-          fi
-
-          IMAGE="ghcr.io/${{ env.BACKEND_IMAGE }}:${{ github.ref_name }}"
-
-          echo "=== Rollback: trying to restore last good image ==="
-
-          # Try to retag from the saved digest (works if image wasn't fully pruned)
-          PREV=$(cat /tmp/syncbeats-prev-image.txt 2>/dev/null || echo "none")
-          if [ "$PREV" != "none" ] && [ "$PREV" != "" ] && docker image inspect "$PREV" > /dev/null 2>&1; then
-            echo "Retagging previous local image $PREV"
-            docker tag "$PREV" "$IMAGE"
-          else
-            echo "Local image not found — pulling last SHA-tagged image from GHCR"
-            # List GHCR images and pull the most recent sha- tag as fallback
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            # Pull the branch tag — if the new image broke, the registry tag still points to it
-            # but this is better than nothing (prevents a completely dead server)
-            docker pull "$IMAGE" || { echo "Cannot pull any image — manual intervention needed"; exit 1; }
-          fi
-
-          docker compose --project-directory "$APP" down --remove-orphans || true
-          if [ "${{ github.ref_name }}" = "main" ]; then
-            docker compose --project-directory "$APP" up -d postgres
-            sleep 5
-          fi
-          docker compose --project-directory "$APP" run --rm server sh -c "npx prisma migrate deploy || true; npx prisma db push --skip-generate" || true
-          docker compose --project-directory "$APP" up -d server visualizer
-          echo "=== Rollback complete ==="
-          ENDSSH
+          IMAGE="${{ env.GAR_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image "$IMAGE" \
+            --region ${{ env.REGION }} \
+            --allow-unauthenticated \
+            --max-instances 1 \
+            --session-affinity \
+            --env-vars-file env.json
