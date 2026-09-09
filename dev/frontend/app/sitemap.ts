@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next';
 
-const BASE_URL = 'https://syncbeats.in';
+const BASE_URL = 'https://www.syncbeats.in';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
@@ -11,22 +11,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1.0,
     },
     {
-      url: `${BASE_URL}/hub`,
-      lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 0.9,
-    },
-    {
       url: `${BASE_URL}/contact`,
       lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.8,
-    },
-    {
-      url: `${BASE_URL}/login`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
     },
     {
       url: `${BASE_URL}/sponsor`,
@@ -42,12 +30,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${BASE_URL}/terms-of-service`,
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 0.4,
-    },
-    {
-      url: `${BASE_URL}/cookie-settings`,
       lastModified: new Date(),
       changeFrequency: 'yearly',
       priority: 0.4,

@@ -1,13 +1,13 @@
 import { MetadataRoute } from 'next';
 
-const BASE_URL = 'https://syncbeats.in';
+const BASE_URL = 'https://www.syncbeats.in';
 
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/room/', '/api/'],
+      disallow: ['/room/', '/api/', '/hub', '/login', '/cookie-settings', '/verify-email', '/verify-email-sent', '/reset-password', '/forgot-password', '/profile', '/spotify-import'],
     },
     sitemap: `${BASE_URL}/sitemap.xml`,
   };
