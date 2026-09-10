@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback, useState,useMemo } from 'react';
 import { useAdaptiveSync, NetworkQuality } from './useAdaptiveSync';
 import { useSyncController } from './useSyncController';
+import { useSyncTelemetry } from './useSyncTelemetry';
 import { getSocket } from '../lib/socket';
 import { roomsApi, historyApi, RoomDetailsResponse, getDeviceId } from '../lib/api';
 import { RoomSnapshot, PlaybackState, Participant, TrackQueueItem, DeviceSpatialState, PlaybackSchedulePayload, PlaybackPausePayload } from '../lib/types';
@@ -90,11 +91,25 @@ export function useRoom({ roomId, displayName, userId }: UseRoomOptions): UseRoo
   useEffect(() => { clockOffsetRef.current = clockOffset; }, [clockOffset]);
 
   // Bind SyncController to the audio system + refs (runs once)
+  const lastBurstRttsRef = useRef<number[]>([]);
+
   useEffect(() => {
     sync.bind(audioRef, clockOffsetRef, paramsRef, hasClockSync);
     sync.updateRoom({ roomId });
   // eslint-disable-next-line react-hooks/exhaustive-deps -- bind once
   }, []);
+
+  // ── ML telemetry — silent, best-effort, runs on idle callbacks ────────────
+  useSyncTelemetry({
+    syncRef,
+    clockOffsetRef,
+    snapshot,
+    networkQuality,
+    roomId,
+    userId,
+    sessionId: currentSocketId ?? 'unknown',
+    lastBurstRttsRef,
+  });
 
   const seqRef = useRef(0);
   const syncInFlightRef = useRef(false);
@@ -296,6 +311,8 @@ export function useRoom({ roomId, displayName, userId }: UseRoomOptions): UseRoo
 
     // Feed raw RTTs into the adaptive engine — updates params and reports stats to server
     reportBurst(rttSamples, roomId);
+    // Also store them for ML telemetry batching
+    lastBurstRttsRef.current = rttSamples.slice();
 
     syncInFlightRef.current = false;
   }, [pingOnce, reportBurst, roomId]); // paramsRef is a stable ref, not listed
