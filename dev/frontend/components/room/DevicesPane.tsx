@@ -133,6 +133,7 @@ function ParticipantRow({
   isPlaying,
   syncProgress,
   onVolumeChange,
+  customDeviceName,
 }: {
   p: Participant;
   isMe: boolean;
