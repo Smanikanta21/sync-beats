@@ -352,10 +352,9 @@ export function useRoom({ roomId, displayName, userId }: UseRoomOptions): UseRoo
       const driftMs = Math.abs(drift) * 1000;
 
       const { DRIFT_HARD_SEEK_MS } = paramsRef.current;
-      const hardSeekTolerance = Math.min(DRIFT_HARD_SEEK_MS, 45); // Max 45ms hard seek for tight sync
 
-      if (driftMs > hardSeekTolerance) {
-        // Severe drift (>45ms): Quick crossfade seek to immediately close the gap
+      if (driftMs > DRIFT_HARD_SEEK_MS) {
+        // Severe drift: Quick crossfade seek to immediately close the gap
         if (!audioRef.current.audioCtx || !audioRef.current.gainNode) {
           audioRef.current.playNow(expected);
           if (audioRef.current.setPlaybackRate) audioRef.current.setPlaybackRate(1);
@@ -379,15 +378,8 @@ export function useRoom({ roomId, displayName, userId }: UseRoomOptions): UseRoo
             newGainNode.gain.linearRampToValueAtTime(currentVol, newAudioCtx.currentTime + 0.03);
           }, 30);
         }
-      } else if (driftMs > 2) {
-        // Micro-rate phase lock (2ms - 45ms gap):
-        // Micro-adjust playback speed by ±0.5% - 2% to continuously pull devices into <1ms phase lock!
-        const nudgeRate = 1.0 + Math.max(-0.02, Math.min(0.02, drift * 0.45));
-        if (audioRef.current.setPlaybackRate) {
-          audioRef.current.setPlaybackRate(nudgeRate);
-        }
       } else {
-        // Perfect sync phase (< 2ms gap)!
+        // Perfect sync phase!
         if (audioRef.current.setPlaybackRate) {
           audioRef.current.setPlaybackRate(1);
         }
@@ -668,7 +660,11 @@ export function useRoom({ roomId, displayName, userId }: UseRoomOptions): UseRoo
       // Fire a fresh NTP burst concurrently with scheduling — ensures the clock offset
       // used for fromPosition calculation is < 100ms old, not potentially 4–12s stale.
       runNtpBurst().catch(() => {}).finally(() => {
-        audioRef.current.scheduleStart(payload, clockOffsetRef.current);
+        // Fix: Verify we're still supposed to be playing before scheduling
+        // (prevents race condition if user hits Pause while NTP burst is in flight)
+        if (snapshotRef.current?.startEpoch === payload.startEpoch && snapshotRef.current?.isPlaying) {
+          audioRef.current.scheduleStart(payload, clockOffsetRef.current);
+        }
       });
     };
     socket.on('playback:schedule', handleSchedule);
